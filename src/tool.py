@@ -163,7 +163,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 25
+    UI_LAYOUT_VERSION = 26
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -445,6 +445,26 @@ class CodexAssistant(ToolInstance):
         self._apply_analysis_button_icons()
         self._set_sequence_buttons_compact(True)
         layout.addLayout(sequence_control_row)
+
+        try:
+            from .display_controls import DisplayControlsWidget
+
+            self.display_controls_widget = DisplayControlsWidget(self.session, parent=parent)
+            layout.addWidget(self.display_controls_widget)
+        except Exception as err:
+            self.display_controls_widget = None
+            display_error_label = QLabel(str(err) if str(err) else err.__class__.__name__, parent)
+            display_error_label.setWordWrap(True)
+            display_error_label.setStyleSheet(
+                "QLabel {"
+                " background: #2a1116;"
+                " color: #ffdce1;"
+                " border: 1px solid #8a3c48;"
+                " border-radius: 8px;"
+                " padding: 8px 10px;"
+                "}"
+            )
+            layout.addWidget(display_error_label)
 
         selection_panel = _SelectionPanelWindow()
         selection_panel._init_selection_window(self._set_selection_panel_visible)
@@ -1273,53 +1293,15 @@ class CodexAssistant(ToolInstance):
             grid.addWidget(self.quick_sequence_button, 1, 1)
             grid.addWidget(self.quick_motif_button, 2, 0)
             grid.addWidget(self.quick_motif_view_button, 2, 1)
-            grid.addWidget(self.quick_catalytic_button, 3, 0)
-            grid.addWidget(self.quick_membrane_button, 3, 1)
-            grid.addWidget(self.quick_pisa_button, 4, 0)
-            grid.addWidget(self.quick_selection_menu_button, 4, 1)
-            grid.addWidget(self.quick_similar_web_button, 5, 0)
-            grid.addWidget(self.quick_blast_button, 5, 1)
-            grid.addWidget(self.quick_hhpred_button, 6, 0)
-            grid.addWidget(self.quick_profile_button, 6, 1)
-            grid.addWidget(self.quick_alphafold_button, 7, 0)
-            grid.addWidget(self.quick_boltz_button, 7, 1)
-            grid.addWidget(self.quick_afcomplex_button, 8, 0)
-            grid.addWidget(self.quick_conservation_button, 8, 1)
-            grid.addWidget(self.quick_foldmason_button, 9, 0)
-            grid.addWidget(self.quick_folddisco_button, 9, 1)
-            grid.addWidget(self.quick_nucdock_button, 10, 0)
-            grid.addWidget(self.quick_dali_button, 10, 1)
-            grid.addWidget(self.quick_vast_button, 11, 0)
-            grid.addWidget(self.quick_pdbefold_button, 11, 1)
-            grid.addWidget(self.quick_usalign_button, 12, 0, 1, 2)
             grid.setColumnStretch(0, 1)
             grid.setColumnStretch(1, 1)
         else:
-            grid.addWidget(self.sequence_status_label, 0, 0, 1, 5)
+            grid.addWidget(self.sequence_status_label, 0, 0, 1, 4)
             grid.addWidget(self.quick_sequence_bar_button, 1, 0)
             grid.addWidget(self.quick_sequence_button, 1, 1)
             grid.addWidget(self.quick_motif_button, 1, 2)
             grid.addWidget(self.quick_motif_view_button, 1, 3)
-            grid.addWidget(self.quick_catalytic_button, 1, 4)
-            grid.addWidget(self.quick_membrane_button, 2, 0)
-            grid.addWidget(self.quick_pisa_button, 2, 1)
-            grid.addWidget(self.quick_selection_menu_button, 2, 2)
-            grid.addWidget(self.quick_similar_web_button, 2, 3)
-            grid.addWidget(self.quick_blast_button, 2, 4)
-            grid.addWidget(self.quick_hhpred_button, 3, 0)
-            grid.addWidget(self.quick_profile_button, 3, 1)
-            grid.addWidget(self.quick_alphafold_button, 3, 2)
-            grid.addWidget(self.quick_boltz_button, 3, 3)
-            grid.addWidget(self.quick_afcomplex_button, 3, 4)
-            grid.addWidget(self.quick_conservation_button, 4, 0)
-            grid.addWidget(self.quick_foldmason_button, 4, 1)
-            grid.addWidget(self.quick_folddisco_button, 4, 2)
-            grid.addWidget(self.quick_nucdock_button, 4, 3)
-            grid.addWidget(self.quick_dali_button, 4, 4)
-            grid.addWidget(self.quick_vast_button, 5, 0)
-            grid.addWidget(self.quick_pdbefold_button, 5, 1, 1, 2)
-            grid.addWidget(self.quick_usalign_button, 5, 3, 1, 2)
-            for column in range(5):
+            for column in range(4):
                 grid.setColumnStretch(column, 1)
 
     def _toggle_workspace_visibility(self):

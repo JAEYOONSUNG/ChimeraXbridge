@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 32
+    UI_LAYOUT_VERSION = 33
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -229,7 +229,7 @@ class CodexAssistant(ToolInstance):
             QVBoxLayout,
             QWidget,
         )
-        from Qt.QtGui import QFontDatabase
+        from Qt.QtGui import QFont, QFontDatabase
         from Qt.QtCore import Qt
 
         parent = self.tool_window.ui_area
@@ -237,7 +237,24 @@ class CodexAssistant(ToolInstance):
         outer_layout.setContentsMargins(0, 0, 0, 0)
         outer_layout.setSpacing(0)
         layout = QVBoxLayout()
-        fixed_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+        ui_font = parent.font()
+        try:
+            ui_font.setPointSize(11)
+        except Exception:
+            pass
+        fixed_font = QFont("Menlo")
+        try:
+            fixed_font.setStyleHint(QFont.StyleHint.Monospace)
+        except Exception:
+            try:
+                fixed_font.setStyleHint(QFont.Monospace)
+            except Exception:
+                pass
+        try:
+            fixed_font.setPointSize(11)
+        except Exception:
+            pass
+        control_arrow = self._icon_path("chevron-down.svg").replace("\\", "/")
 
         self.resize_grip = _DockResizeGrip(parent)
         self.resize_grip._init_resize_grip(self._begin_dock_resize, self._resize_dock_by_position, self._end_dock_resize)
@@ -259,28 +276,67 @@ class CodexAssistant(ToolInstance):
         content_container = _ResponsiveContent(self._apply_responsive_layout, parent)
         content_container.setMinimumWidth(0)
         content_container.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        content_container.setFont(ui_font)
         content_container.setLayout(layout)
         content_container.setStyleSheet(
             "QLabel { color: #d9dde2; }"
             "QPushButton, QToolButton {"
-            " background: #24282d;"
+            " background: #20252a;"
             " color: #eef1f4;"
-            " border: 1px solid #3a4046;"
-            " border-radius: 7px;"
+            " border: 1px solid #3a424b;"
+            " border-radius: 8px;"
             " padding: 5px 9px;"
             "}"
             "QPushButton:hover, QToolButton:hover {"
-            " background: #2e343a;"
-            " border-color: #656d76;"
+            " background: #2a3036;"
+            " border-color: #59636f;"
             "}"
-            "QPushButton:pressed, QToolButton:pressed { background: #0f1113; }"
+            "QPushButton:pressed, QToolButton:pressed { background: #191d21; }"
+            "QToolButton { padding-right: 24px; }"
+            "QToolButton::menu-indicator {"
+            f" image: url(\"{control_arrow}\");"
+            " subcontrol-origin: padding;"
+            " subcontrol-position: center right;"
+            " width: 12px;"
+            " height: 12px;"
+            " right: 8px;"
+            "}"
             "QComboBox, QLineEdit {"
-            " background: #101214;"
+            " background: #20252a;"
             " color: #edf0f3;"
-            " border: 1px solid #3a4046;"
-            " border-radius: 7px;"
-            " padding: 4px 7px;"
+            " border: 1px solid #3a424b;"
+            " border-radius: 8px;"
+            " padding: 5px 30px 5px 9px;"
             " selection-background-color: #3a424a;"
+            "}"
+            "QComboBox:hover, QLineEdit:hover {"
+            " background: #242a30;"
+            " border-color: #59636f;"
+            "}"
+            "QComboBox::drop-down {"
+            " subcontrol-origin: padding;"
+            " subcontrol-position: top right;"
+            " width: 30px;"
+            " border: none;"
+            " background: #20252a;"
+            " border-top-right-radius: 8px;"
+            " border-bottom-right-radius: 8px;"
+            "}"
+            "QComboBox::down-arrow {"
+            f" image: url(\"{control_arrow}\");"
+            " width: 12px;"
+            " height: 12px;"
+            "}"
+            "QComboBox QAbstractItemView {"
+            " background: #1b1f23;"
+            " color: #edf0f3;"
+            " border: 1px solid #3a424b;"
+            " selection-background-color: #2f3740;"
+            "}"
+            "QComboBox:disabled, QLineEdit:disabled, QPushButton:disabled, QToolButton:disabled {"
+            " background: #181c20;"
+            " color: #7f8790;"
+            " border-color: #2d343b;"
             "}"
         )
         scroll_area = QScrollArea(parent)

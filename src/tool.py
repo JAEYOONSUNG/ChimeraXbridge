@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 34
+    UI_LAYOUT_VERSION = 35
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1286,6 +1286,18 @@ class CodexAssistant(ToolInstance):
     def _clear_grid_layout(self, grid):
         while grid.count():
             grid.takeAt(0)
+        for column in range(10):
+            try:
+                grid.setColumnStretch(column, 0)
+                grid.setColumnMinimumWidth(column, 0)
+            except Exception:
+                pass
+        for row in range(10):
+            try:
+                grid.setRowStretch(row, 0)
+                grid.setRowMinimumHeight(row, 0)
+            except Exception:
+                pass
 
     def _apply_responsive_layout(self, width):
         compact = int(width or 0) < 900
@@ -1302,6 +1314,14 @@ class CodexAssistant(ToolInstance):
             return
         self._clear_grid_layout(grid)
         if compact:
+            self.backend_combo.setMaximumWidth(480)
+            self.model_combo.setMaximumWidth(520)
+            self.effort_combo.setMaximumWidth(280)
+            self.mode_combo.setMaximumWidth(280)
+            self.speed_combo.setMaximumWidth(280)
+            self.backend_setup_button.setMaximumWidth(240)
+            self.quick_menu_button.setMaximumWidth(240)
+            self.analysis_menu_button.setMaximumWidth(240)
             grid.addWidget(self.engine_label, 0, 0)
             grid.addWidget(self.backend_combo, 0, 1)
             grid.addWidget(self.model_label, 1, 0)
@@ -1317,7 +1337,16 @@ class CodexAssistant(ToolInstance):
             grid.addWidget(self.analysis_menu_button, 6, 0, 1, 2)
             grid.setColumnStretch(0, 0)
             grid.setColumnStretch(1, 1)
+            grid.setColumnMinimumWidth(0, 92)
         else:
+            self.backend_combo.setMaximumWidth(380)
+            self.model_combo.setMaximumWidth(460)
+            self.effort_combo.setMaximumWidth(150)
+            self.mode_combo.setMaximumWidth(140)
+            self.speed_combo.setMaximumWidth(140)
+            self.backend_setup_button.setMaximumWidth(120)
+            self.quick_menu_button.setMaximumWidth(140)
+            self.analysis_menu_button.setMaximumWidth(140)
             grid.addWidget(self.engine_label, 0, 0)
             grid.addWidget(self.backend_combo, 0, 1, 1, 2)
             grid.addWidget(self.backend_setup_button, 0, 3)

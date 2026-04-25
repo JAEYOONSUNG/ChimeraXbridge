@@ -127,12 +127,14 @@ class _SliderBlock(QWidget):
     def __init__(self, title, minimum, maximum, value, formatter, changed_callback, parent=None):
         super().__init__(parent)
         self._formatter = formatter
+        self.setObjectName("MetricSlider")
         layout = QVBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(5)
+        layout.setContentsMargins(6, 7, 6, 7)
+        layout.setSpacing(6)
         self.setLayout(layout)
 
         self.title_label = QLabel(title, self)
+        self.title_label.setObjectName("MetricSliderTitle")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title_label.setWordWrap(True)
         layout.addWidget(self.title_label)
@@ -143,9 +145,11 @@ class _SliderBlock(QWidget):
         self.slider.setTickPosition(QSlider.TickPosition.TicksRight)
         self.slider.setTickInterval(max(1, int((maximum - minimum) / 5)))
         self.slider.valueChanged.connect(changed_callback)
+        self.slider.setMinimumHeight(154)
         layout.addWidget(self.slider, 1, Qt.AlignmentFlag.AlignHCenter)
 
         self.value_label = QLabel(self._formatter(value), self)
+        self.value_label.setObjectName("MetricSliderValue")
         self.value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.value_label)
 
@@ -176,11 +180,51 @@ class DisplayControlsWidget(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(8)
         self.setLayout(layout)
+        self.setObjectName("DisplayControlsRoot")
         self.setMinimumWidth(0)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.setStyleSheet(
-            "QWidget { background: #171a1d; color: #e5e8ec; }"
-            "QLabel { color: #d9dde2; }"
+            "QWidget#DisplayControlsRoot { background: #171a1d; color: #e5e8ec; }"
+            "QLabel { color: #d9dde2; background: transparent; }"
+            "QLabel#PanelHeader { font-size: 14px; font-weight: 700; color: #f0f3f6; }"
+            "QLabel#SectionTitle { font-size: 12px; font-weight: 700; color: #f0f3f6; }"
+            "QLabel#MutedCaption { color: #aeb6bf; font-size: 11px; letter-spacing: 0.02em; }"
+            "QWidget#InlineSliderRow {"
+            " background: #20252a;"
+            " border: 1px solid #37404a;"
+            " border-radius: 10px;"
+            "}"
+            "QLabel#InlineSliderTitle {"
+            " color: #e5e8ec;"
+            " font-weight: 700;"
+            " padding-left: 8px;"
+            "}"
+            "QLabel#InlineSliderValue {"
+            " background: #111519;"
+            " color: #f0f3f6;"
+            " border: 1px solid #313942;"
+            " border-radius: 8px;"
+            " padding: 4px 8px;"
+            " font-weight: 700;"
+            "}"
+            "QWidget#MetricSlider {"
+            " background: #20252a;"
+            " border: 1px solid #37404a;"
+            " border-radius: 10px;"
+            "}"
+            "QLabel#MetricSliderTitle {"
+            " color: #e6e9ed;"
+            " font-weight: 700;"
+            " line-height: 1.1;"
+            "}"
+            "QLabel#MetricSliderValue {"
+            " background: #111519;"
+            " color: #f0f3f6;"
+            " border: 1px solid #313942;"
+            " border-radius: 7px;"
+            " padding: 3px 6px;"
+            " font-weight: 700;"
+            "}"
             "QPushButton {"
             " background: #24282d;"
             " color: #eef1f4;"
@@ -198,39 +242,47 @@ class DisplayControlsWidget(QWidget):
             "}"
             "QComboBox:hover, QLineEdit:hover { border-color: #656d76; }"
             "QSlider::groove:vertical {"
-            " background: #0d0f11;"
-            " border: 1px solid #343a40;"
-            " width: 8px;"
-            " border-radius: 4px;"
+            " background: #0f1317;"
+            " border: 1px solid #3d4650;"
+            " width: 10px;"
+            " border-radius: 5px;"
             "}"
             "QSlider::handle:vertical {"
-            " background: #8b949e;"
-            " border: 1px solid #d9dde2;"
-            " height: 16px;"
-            " margin: 0 -6px;"
-            " border-radius: 8px;"
+            " background: #9aa4af;"
+            " border: 1px solid #dbe1e7;"
+            " height: 18px;"
+            " margin: 0 -7px;"
+            " border-radius: 9px;"
+            "}"
+            "QSlider::handle:vertical:hover {"
+            " background: #c0c8d1;"
+            " border-color: #f0f3f6;"
             "}"
             "QSlider::groove:horizontal {"
-            " background: #0d0f11;"
-            " border: 1px solid #343a40;"
-            " height: 8px;"
-            " border-radius: 4px;"
+            " background: #0f1317;"
+            " border: 1px solid #3d4650;"
+            " height: 10px;"
+            " border-radius: 5px;"
             "}"
             "QSlider::sub-page:horizontal {"
-            " background: #8b949e;"
-            " border-radius: 4px;"
+            " background: #8f9aa5;"
+            " border-radius: 5px;"
             "}"
             "QSlider::handle:horizontal {"
-            " background: #d9dde2;"
+            " background: #dbe1e7;"
             " border: 1px solid #101214;"
-            " width: 16px;"
+            " width: 18px;"
             " margin: -5px 0;"
-            " border-radius: 8px;"
+            " border-radius: 9px;"
+            "}"
+            "QSlider::handle:horizontal:hover {"
+            " background: #f0f3f6;"
+            " border-color: #5f6973;"
             "}"
         )
 
         header = QLabel("Molecule Display Controls", self)
-        header.setStyleSheet("QLabel { font-size: 14px; font-weight: 700; color: #f0f3f6; }")
+        header.setObjectName("PanelHeader")
         layout.addWidget(header)
 
         self.status_label = QLabel("", self)
@@ -288,7 +340,7 @@ class DisplayControlsWidget(QWidget):
 
     def _build_color_controls(self, layout):
         title = QLabel("Color Palette", self)
-        title.setStyleSheet("QLabel { font-size: 12px; font-weight: 700; color: #f0f3f6; }")
+        title.setObjectName("SectionTitle")
         layout.addWidget(title)
 
         control_row = QHBoxLayout()
@@ -325,7 +377,7 @@ class DisplayControlsWidget(QWidget):
         control_row.addWidget(self.apply_color_button)
 
         ramp_label = QLabel("Rainbow ramp - drag to choose, release to apply", self)
-        ramp_label.setStyleSheet("QLabel { color: #aeb6bf; font-size: 11px; }")
+        ramp_label.setObjectName("MutedCaption")
         layout.addWidget(ramp_label)
 
         self.rainbow_ramp = _RainbowRamp(self._rainbow_color_changed, self)
@@ -370,24 +422,30 @@ class DisplayControlsWidget(QWidget):
         scheme_row.addWidget(self.by_model_button)
 
     def _make_horizontal_slider(self, title, minimum, maximum, value, formatter, changed_callback, layout):
+        row_widget = QWidget(self)
+        row_widget.setObjectName("InlineSliderRow")
         row = QHBoxLayout()
-        row.setSpacing(8)
-        layout.addLayout(row)
+        row.setContentsMargins(10, 7, 10, 7)
+        row.setSpacing(10)
+        row_widget.setLayout(row)
+        layout.addWidget(row_widget)
 
-        label = QLabel(title, self)
-        label.setMinimumWidth(78)
+        label = QLabel(title, row_widget)
+        label.setObjectName("InlineSliderTitle")
+        label.setMinimumWidth(92)
         row.addWidget(label, 0)
 
-        slider = QSlider(Qt.Orientation.Horizontal, self)
+        slider = QSlider(Qt.Orientation.Horizontal, row_widget)
         slider.setRange(minimum, maximum)
         slider.setValue(value)
         slider.setTickPosition(QSlider.TickPosition.NoTicks)
         slider.valueChanged.connect(changed_callback)
         row.addWidget(slider, 1)
 
-        value_label = QLabel(formatter(value), self)
-        value_label.setMinimumWidth(42)
-        value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        value_label = QLabel(formatter(value), row_widget)
+        value_label.setObjectName("InlineSliderValue")
+        value_label.setMinimumWidth(54)
+        value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         row.addWidget(value_label, 0)
         return slider, value_label
 
@@ -572,7 +630,7 @@ class CodexDisplayControls(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 4
+    UI_LAYOUT_VERSION = 5
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):

@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 33
+    UI_LAYOUT_VERSION = 34
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -242,7 +242,20 @@ class CodexAssistant(ToolInstance):
             ui_font.setPointSize(11)
         except Exception:
             pass
-        fixed_font = QFont("Menlo")
+        try:
+            available_fonts = set(QFontDatabase.families())
+        except Exception:
+            try:
+                available_fonts = set(QFontDatabase().families())
+            except Exception:
+                available_fonts = set()
+        system_fixed = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+        mono_family = system_fixed.family() or "Courier New"
+        for candidate in ("Menlo", "Monaco", "SF Mono", "Consolas", "Courier New", "Courier"):
+            if candidate in available_fonts:
+                mono_family = candidate
+                break
+        fixed_font = QFont(mono_family)
         try:
             fixed_font.setStyleHint(QFont.StyleHint.Monospace)
         except Exception:
@@ -254,6 +267,9 @@ class CodexAssistant(ToolInstance):
             fixed_font.setPointSize(11)
         except Exception:
             pass
+        mono_qss = f' font-family: "{mono_family}"; font-size: 11px;'
+        self._fixed_font = fixed_font
+        self._mono_qss = mono_qss
         control_arrow = self._icon_path("chevron-down.svg").replace("\\", "/")
 
         self.resize_grip = _DockResizeGrip(parent)
@@ -643,6 +659,7 @@ class CodexAssistant(ToolInstance):
         selection_layout.addLayout(selection_actions)
 
         self.session_status_label = QLabel("Session: initializing", parent)
+        self.session_status_label.setFont(fixed_font)
         self.session_status_label.setWordWrap(True)
         self.session_status_label.setMinimumWidth(0)
         self.session_status_label.setStyleSheet(
@@ -652,11 +669,13 @@ class CodexAssistant(ToolInstance):
             " border: 1px solid #3a4046;"
             " border-radius: 6px;"
             " padding: 6px 8px;"
+            f"{mono_qss}"
             "}"
         )
         layout.addWidget(self.session_status_label)
 
         self.result_status_label = QLabel("Result: ready", parent)
+        self.result_status_label.setFont(fixed_font)
         self.result_status_label.setWordWrap(True)
         self.result_status_label.setMinimumWidth(0)
         self.result_status_label.setStyleSheet(
@@ -666,6 +685,7 @@ class CodexAssistant(ToolInstance):
             " border: 1px solid #343a40;"
             " border-radius: 6px;"
             " padding: 6px 8px;"
+            f"{mono_qss}"
             "}"
         )
         layout.addWidget(self.result_status_label)
@@ -698,6 +718,7 @@ class CodexAssistant(ToolInstance):
             " border: 1px solid #343a40;"
             " border-radius: 8px;"
             " padding: 7px;"
+            f"{mono_qss}"
             "}"
         )
         layout.addWidget(self.result_detail_edit)
@@ -747,6 +768,7 @@ class CodexAssistant(ToolInstance):
             " border: 1px solid #343a40;"
             " border-radius: 6px;"
             " padding: 6px;"
+            f"{mono_qss}"
             "}"
         )
         workspace_layout.addWidget(self.workspace_edit, 1)
@@ -815,6 +837,7 @@ class CodexAssistant(ToolInstance):
             " color: #c6b79d;"
             " border: none;"
             " padding: 0px;"
+            f"{mono_qss}"
             "}"
         )
         self.ai_header_label.setVisible(False)
@@ -832,6 +855,7 @@ class CodexAssistant(ToolInstance):
             " border-radius: 10px;"
             " padding: 10px;"
             " selection-background-color: #3a424a;"
+            f"{mono_qss}"
             "}"
         )
         transcript_layout.addWidget(self.terminal_edit, 1)
@@ -881,6 +905,7 @@ class CodexAssistant(ToolInstance):
             " color: #c2b49c;"
             " border: none;"
             " padding: 0px;"
+            f"{mono_qss}"
             "}"
         )
         prompt_layout.addWidget(self.stage_label)
@@ -889,13 +914,13 @@ class CodexAssistant(ToolInstance):
         self.status_label.setFont(fixed_font)
         self.status_label.setWordWrap(True)
         self.status_label.setMinimumWidth(0)
-        self.status_label.setStyleSheet("QLabel { color: #b7aa94; }")
+        self.status_label.setStyleSheet("QLabel { color: #b7aa94;" + mono_qss + " }")
         self.status_label.setVisible(False)
         prompt_layout.addWidget(self.status_label)
 
         prompt_header = QLabel("AI Prompt", parent)
         prompt_header.setFont(fixed_font)
-        prompt_header.setStyleSheet("QLabel { color: #d8dde3; font-weight: 700; }")
+        prompt_header.setStyleSheet("QLabel { color: #d8dde3; font-weight: 700;" + mono_qss + " }")
         prompt_header.setVisible(False)
         prompt_layout.addWidget(prompt_header)
 
@@ -903,7 +928,7 @@ class CodexAssistant(ToolInstance):
         prompt_label = QLabel(">", parent)
         prompt_label.setFont(fixed_font)
         prompt_label.setAlignment(Qt.AlignmentFlag.AlignTop)
-        prompt_label.setStyleSheet("QLabel { color: #d8dde3; padding-top: 8px; }")
+        prompt_label.setStyleSheet("QLabel { color: #d8dde3; padding-top: 8px;" + mono_qss + " }")
         prompt_label.setVisible(False)
         prompt_row.addWidget(prompt_label)
 
@@ -927,6 +952,7 @@ class CodexAssistant(ToolInstance):
             " border-radius: 10px;"
             " padding: 8px;"
             " selection-background-color: #3a424a;"
+            f"{mono_qss}"
             "}"
             "QPlainTextEdit:focus { border: 1px solid #8b949e; }"
         )
@@ -974,6 +1000,7 @@ class CodexAssistant(ToolInstance):
             " border: 1px solid #4a5334;"
             " border-radius: 6px;"
             " padding: 6px;"
+            f"{mono_qss}"
             "}"
         )
         self.command_terminal_output.setMinimumHeight(60)
@@ -982,12 +1009,23 @@ class CodexAssistant(ToolInstance):
         terminal_row = QHBoxLayout()
         terminal_prompt = QLabel("cx>", parent)
         terminal_prompt.setFont(fixed_font)
-        terminal_prompt.setStyleSheet("QLabel { color: #d8dde3; }")
+        terminal_prompt.setStyleSheet("QLabel { color: #d8dde3;" + mono_qss + " }")
         terminal_row.addWidget(terminal_prompt)
 
         self.command_terminal_input = QLineEdit(parent)
         self.command_terminal_input.setFont(fixed_font)
         self.command_terminal_input.setPlaceholderText("show sel   or   !pwd")
+        self.command_terminal_input.setStyleSheet(
+            "QLineEdit {"
+            " background: #20252a;"
+            " color: #edf0f3;"
+            " border: 1px solid #3a424b;"
+            " border-radius: 8px;"
+            " padding: 5px 9px;"
+            " selection-background-color: #3a424a;"
+            f"{mono_qss}"
+            "}"
+        )
         self.command_terminal_input.returnPressed.connect(self._run_terminal_command)
         terminal_row.addWidget(self.command_terminal_input, 1)
 
@@ -2136,6 +2174,7 @@ class CodexAssistant(ToolInstance):
         return f"motifs {text}" if text else ""
 
     def _set_result_status(self, text, tone="neutral"):
+        mono_qss = getattr(self, "_mono_qss", "")
         color_map = {
             "neutral": ("#15181b", "#c7ccd2", "#343a40"),
             "running": ("#1b1f23", "#d8dde3", "#464d55"),
@@ -2151,6 +2190,7 @@ class CodexAssistant(ToolInstance):
             f" border: 1px solid {border};"
             " border-radius: 6px;"
             " padding: 6px 8px;"
+            f"{mono_qss}"
             "}"
         )
         display_text = " ".join(str(text or "").split())
@@ -2172,6 +2212,7 @@ class CodexAssistant(ToolInstance):
         return "analysis ready", "success"
 
     def _set_result_detail(self, text):
+        mono_qss = getattr(self, "_mono_qss", "")
         lowered = str(text or "").lower()
         if any(token in lowered for token in ("error", "failed", "traceback", "exception")):
             self.result_detail_edit.setStyleSheet(
@@ -2181,6 +2222,7 @@ class CodexAssistant(ToolInstance):
                 " border: 1px solid #74404a;"
                 " border-radius: 8px;"
                 " padding: 7px;"
+                f"{mono_qss}"
                 "}"
             )
         else:
@@ -2191,6 +2233,7 @@ class CodexAssistant(ToolInstance):
                 " border: 1px solid #343a40;"
                 " border-radius: 8px;"
                 " padding: 7px;"
+                f"{mono_qss}"
                 "}"
             )
         self.result_detail_edit.setPlainText(str(text or "").strip())

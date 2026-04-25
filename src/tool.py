@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 31
+    UI_LAYOUT_VERSION = 32
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -473,26 +473,6 @@ class CodexAssistant(ToolInstance):
         self._hide_removed_quick_analysis_buttons()
         self._set_sequence_buttons_compact(True)
         layout.addLayout(sequence_control_row)
-
-        try:
-            from .display_controls import DisplayControlsWidget
-
-            self.display_controls_widget = DisplayControlsWidget(self.session, parent=parent)
-            layout.addWidget(self.display_controls_widget)
-        except Exception as err:
-            self.display_controls_widget = None
-            display_error_label = QLabel(str(err) if str(err) else err.__class__.__name__, parent)
-            display_error_label.setWordWrap(True)
-            display_error_label.setStyleSheet(
-                "QLabel {"
-                " background: #2a1116;"
-                " color: #ffdce1;"
-                " border: 1px solid #8a3c48;"
-                " border-radius: 8px;"
-                " padding: 8px 10px;"
-                "}"
-            )
-            layout.addWidget(display_error_label)
 
         selection_panel = _SelectionPanelWindow()
         selection_panel._init_selection_window(self._set_selection_panel_visible)

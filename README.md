@@ -168,8 +168,8 @@ In the tool window:
 - The visible `Model` and `Reasoning` controls are real overrides passed to Codex CLI, OpenAI Responses API, Claude, or Gemini when supported
 - The main AI panel keeps only sequence-focused quick buttons, while analysis launchers live in the grouped `Analysis` menu and ChimeraX `AI` toolbar
 - The AI header includes a grouped `Analysis` menu for local reports, sequence/modeling tools, and structure-search launchers
-- Display controls are visible by default in the AI panel for selection transparency, cartoon width/thickness, and palette edits
-- The Action Pad includes `Targets` and `Controls` tabs, so model actions and display sliders live in one panel
+- Display controls open as a separate ChimeraX side tool from `Molecule Display > Display Ctrl`
+- The Action Pad stays PyMOL-style: model/chain/selection rows with A/S/H/L/C target menus
 - Requests like `구조 예쁘게 정리해줘` or `/figure clean` apply a restrained protein cartoon view without extra labels or repeated recoloring
 - Sequence quick controls expose `/sequence`, `/motif`, motif highlighting, and RCSB sequence-similarity search from the current chain
 - The transcript pane keeps a terminal-style history of progress, commands, and results

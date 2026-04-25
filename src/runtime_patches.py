@@ -2,11 +2,95 @@ import json
 from urllib.request import Request, urlopen
 
 
+_LOG_FONT_PATCH_VERSION = 1
+
+_LOG_MONO_CSS = """
+/* codex-bridge-log-font */
+body,
+p,
+div,
+span,
+a,
+table,
+tbody,
+thead,
+tr,
+td,
+th,
+pre,
+code,
+.cxcmd,
+.cxcmd_as_doc,
+.cxcmd_as_cmd {
+    font-family: Menlo, Monaco, "SF Mono", Consolas, "Courier New", monospace !important;
+    font-size: 11px !important;
+    line-height: 1.32 !important;
+}
+"""
+
+
 def apply_runtime_patches(session):
+    style_builtin_log(session)
     if getattr(session, "_codex_bridge_runtime_patches_applied", False):
         return
     session._codex_bridge_runtime_patches_applied = True
     _patch_blastprotein_pdbinfo()
+
+
+def style_builtin_log(session=None):
+    _patch_builtin_log_css()
+    if session is not None:
+        _refresh_open_builtin_log(session)
+
+
+def _patch_builtin_log_css():
+    try:
+        from chimerax.log import tool as log_tool
+    except Exception:
+        return
+
+    if getattr(log_tool, "_codex_bridge_log_font_patch_version", None) == _LOG_FONT_PATCH_VERSION:
+        return
+
+    original_cxcmd_css = getattr(
+        log_tool,
+        "_codex_bridge_original_cxcmd_css",
+        getattr(log_tool, "cxcmd_css", None),
+    )
+    if original_cxcmd_css is None:
+        return
+
+    def cxcmd_css_with_monospace(exec_links, _original=original_cxcmd_css):
+        css = _original(exec_links)
+        if "codex-bridge-log-font" not in css:
+            css += "\n" + _LOG_MONO_CSS
+        return css
+
+    log_tool._codex_bridge_original_cxcmd_css = original_cxcmd_css
+    log_tool.cxcmd_css = cxcmd_css_with_monospace
+    log_tool._codex_bridge_log_font_patched = True
+    log_tool._codex_bridge_log_font_patch_version = _LOG_FONT_PATCH_VERSION
+
+
+def _refresh_open_builtin_log(session):
+    try:
+        tools = list(session.tools.list())
+    except Exception:
+        return
+    for tool in tools:
+        try:
+            tool_name = getattr(tool, "tool_name", "")
+        except Exception:
+            continue
+        if tool_name != "Log":
+            continue
+        try:
+            tool.show_page_source()
+        except Exception:
+            try:
+                tool._show()
+            except Exception:
+                pass
 
 
 def _patch_blastprotein_pdbinfo():
@@ -99,4 +183,3 @@ def _patch_blastprotein_pdbinfo():
 
     pdbinfo.fetch_pdb_info = fetch_pdb_info_json
     pdbinfo._codex_bridge_patched = True
-

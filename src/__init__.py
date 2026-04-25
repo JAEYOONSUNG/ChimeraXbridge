@@ -156,6 +156,13 @@ def _apply_startup_layout(session, assistant=None):
         return
 
     try:
+        from .runtime_patches import style_builtin_log
+
+        style_builtin_log(session)
+    except Exception:
+        pass
+
+    try:
         from Qt.QtCore import Qt
     except Exception:
         return

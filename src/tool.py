@@ -295,13 +295,14 @@ class CodexAssistant(ToolInstance):
         content_container.setFont(ui_font)
         content_container.setLayout(layout)
         content_container.setStyleSheet(
-            "QLabel { color: #d9dde2; }"
+            "QLabel { color: #d9dde2; font-size: 13px; }"
             "QPushButton, QToolButton {"
             " background: #20252a;"
             " color: #eef1f4;"
             " border: 1px solid #3a424b;"
             " border-radius: 8px;"
             " padding: 5px 9px;"
+            " font-size: 13px;"
             "}"
             "QPushButton:hover, QToolButton:hover {"
             " background: #2a3036;"
@@ -324,6 +325,7 @@ class CodexAssistant(ToolInstance):
             " border-radius: 8px;"
             " padding: 5px 30px 5px 9px;"
             " selection-background-color: #3a424a;"
+            " font-size: 13px;"
             "}"
             "QComboBox:hover, QLineEdit:hover {"
             " background: #242a30;"
@@ -382,11 +384,13 @@ class CodexAssistant(ToolInstance):
         self.backend_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.backend_combo.setMinimumContentsLength(9)
         self.backend_combo.setMinimumWidth(0)
+        self.backend_combo.setMaximumWidth(380)
         self._populate_backend_combo()
 
         self.backend_setup_button = QToolButton(parent)
         self.backend_setup_button.setText("Setup")
         self.backend_setup_button.setMinimumWidth(0)
+        self.backend_setup_button.setMaximumWidth(120)
         self.backend_setup_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.backend_setup_menu = QMenu(parent)
         self.backend_setup_menu.aboutToShow.connect(self._refresh_backend_setup_menu)
@@ -397,22 +401,26 @@ class CodexAssistant(ToolInstance):
         self.model_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.model_combo.setMinimumContentsLength(14)
         self.model_combo.setMinimumWidth(0)
+        self.model_combo.setMaximumWidth(460)
 
         self.effort_combo = QComboBox(parent)
         self.effort_combo.currentIndexChanged.connect(self._effort_combo_changed)
         self.effort_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.effort_combo.setMinimumContentsLength(8)
         self.effort_combo.setMinimumWidth(0)
+        self.effort_combo.setMaximumWidth(150)
 
         self.quick_menu_button = QToolButton(parent)
         self.quick_menu_button.setText("Settings")
         self.quick_menu_button.setMinimumWidth(0)
+        self.quick_menu_button.setMaximumWidth(140)
         self.quick_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.quick_menu_button.setMenu(self._build_quick_menu(parent))
 
         self.analysis_menu_button = QToolButton(parent)
         self.analysis_menu_button.setText("Analysis")
         self.analysis_menu_button.setMinimumWidth(0)
+        self.analysis_menu_button.setMaximumWidth(140)
         self.analysis_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.analysis_menu_button.setMenu(self._build_analysis_menu(parent))
 
@@ -423,6 +431,7 @@ class CodexAssistant(ToolInstance):
         self.mode_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.mode_combo.setMinimumContentsLength(7)
         self.mode_combo.setMinimumWidth(0)
+        self.mode_combo.setMaximumWidth(140)
 
         self.speed_combo = QComboBox(parent)
         for profile in ("auto", "fast", "precise"):
@@ -431,6 +440,7 @@ class CodexAssistant(ToolInstance):
         self.speed_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.speed_combo.setMinimumContentsLength(7)
         self.speed_combo.setMinimumWidth(0)
+        self.speed_combo.setMaximumWidth(140)
 
         self.width_slider = QSlider(Qt.Orientation.Horizontal, parent)
         self.width_slider.setRange(10, 50)
@@ -1278,7 +1288,7 @@ class CodexAssistant(ToolInstance):
             grid.takeAt(0)
 
     def _apply_responsive_layout(self, width):
-        compact = int(width or 0) < 760
+        compact = int(width or 0) < 900
         if compact == self._compact_layout_active:
             return
         self._compact_layout_active = compact

@@ -38,18 +38,68 @@ CODEX_BRIDGE_CLI=/path/to/codex \
 
 ## Install
 
-Inside ChimeraX:
+Clone the repository:
+
+```bash
+git clone https://github.com/JAEYOONSUNG/ChimeraXbridge.git
+cd ChimeraXbridge
+```
+
+Install the bundle from inside ChimeraX. Replace `/path/to/ChimeraXbridge` with
+the folder you just cloned:
 
 ```chimerax
 devel install /path/to/ChimeraXbridge
 ```
 
-Or from a shell:
+On macOS, this usually looks like:
+
+```chimerax
+devel install /Users/yourname/ChimeraXbridge
+```
+
+Or install from a shell:
 
 ```bash
 /Applications/ChimeraX-1.10.1.app/Contents/bin/ChimeraX \
   --nogui \
   --cmd "devel install /path/to/ChimeraXbridge ; exit"
+```
+
+After installing, restart ChimeraX. If you are actively editing the plugin and
+want to reload the UI without reinstalling, run:
+
+```chimerax
+runscript /path/to/ChimeraXbridge/scripts/reload_codex_ui.py
+```
+
+### Wheel install
+
+A prebuilt wheel is included under `dist/`. This is useful when you want a
+copy-style install instead of a development install:
+
+```chimerax
+toolshed install /path/to/ChimeraXbridge/dist/chimerax_codexbridge-0.1.0-py3-none-any.whl
+```
+
+If ChimeraX reports that `toolshed install` cannot install local wheel paths in
+your version, use `devel install` instead.
+
+## Quick Start
+
+After restarting ChimeraX:
+
+```chimerax
+codex tool
+```
+
+Then use the AI toolbar or type a natural-language request in the ChimeraX
+command line, for example:
+
+```chimerax
+show the likely catalytic residues
+/pisa view
+/membrane view
 ```
 
 ## Examples

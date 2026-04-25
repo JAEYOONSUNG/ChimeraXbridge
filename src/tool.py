@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 30
+    UI_LAYOUT_VERSION = 31
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -470,6 +470,7 @@ class CodexAssistant(ToolInstance):
         self.quick_selection_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.quick_selection_menu_button.setMenu(self._build_selection_menu(parent))
         self._apply_analysis_button_icons()
+        self._hide_removed_quick_analysis_buttons()
         self._set_sequence_buttons_compact(True)
         layout.addLayout(sequence_control_row)
 
@@ -1318,6 +1319,35 @@ class CodexAssistant(ToolInstance):
         )
         for button, icon_name in icon_map:
             self._set_button_icon(button, icon_name)
+
+    def _hide_removed_quick_analysis_buttons(self):
+        removed_buttons = (
+            self.quick_catalytic_button,
+            self.quick_membrane_button,
+            self.quick_pisa_button,
+            self.quick_blast_button,
+            self.quick_hhpred_button,
+            self.quick_alphafold_button,
+            self.quick_profile_button,
+            self.quick_conservation_button,
+            self.quick_afcomplex_button,
+            self.quick_boltz_button,
+            self.quick_similar_web_button,
+            self.quick_foldmason_button,
+            self.quick_folddisco_button,
+            self.quick_nucdock_button,
+            self.quick_dali_button,
+            self.quick_vast_button,
+            self.quick_pdbefold_button,
+            self.quick_usalign_button,
+            self.quick_selection_menu_button,
+        )
+        for button in removed_buttons:
+            try:
+                button.hide()
+                button.setVisible(False)
+            except Exception:
+                pass
 
     def _set_sequence_buttons_compact(self, compact):
         grid = getattr(self, "sequence_control_row", None)

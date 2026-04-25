@@ -2,7 +2,6 @@ from Qt.QtCore import Qt, QTimer
 from Qt.QtGui import QColor, QLinearGradient, QPainter, QPen
 from Qt.QtWidgets import (
     QComboBox,
-    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -30,26 +29,6 @@ def _has_selection(session):
         return bool(session.selection.models() or len(selected_atoms(session)) or len(selected_residues(session)))
     except Exception:
         return False
-
-
-def _enable_styled_background(widget):
-    try:
-        widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-    except Exception:
-        try:
-            widget.setAttribute(Qt.WA_StyledBackground, True)
-        except Exception:
-            pass
-
-
-def _set_no_frame(frame):
-    try:
-        frame.setFrameShape(QFrame.Shape.NoFrame)
-    except Exception:
-        try:
-            frame.setFrameShape(QFrame.NoFrame)
-        except Exception:
-            pass
 
 
 class _RainbowRamp(QWidget):
@@ -143,17 +122,14 @@ class _RainbowRamp(QWidget):
         painter.drawEllipse(int(x) - 5, int(rect.center().y()) - 5, 10, 10)
 
 
-class _SliderBlock(QFrame):
+class _SliderBlock(QWidget):
 
     def __init__(self, title, minimum, maximum, value, formatter, changed_callback, parent=None):
         super().__init__(parent)
         self._formatter = formatter
-        self.setObjectName("MetricSlider")
-        _enable_styled_background(self)
-        _set_no_frame(self)
         layout = QVBoxLayout()
-        layout.setContentsMargins(4, 6, 4, 6)
-        layout.setSpacing(6)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(5)
         self.setLayout(layout)
 
         self.title_label = QLabel(title, self)
@@ -168,7 +144,6 @@ class _SliderBlock(QFrame):
         self.slider.setTickPosition(QSlider.TickPosition.TicksRight)
         self.slider.setTickInterval(max(1, int((maximum - minimum) / 5)))
         self.slider.valueChanged.connect(changed_callback)
-        self.slider.setMinimumHeight(154)
         layout.addWidget(self.slider, 1, Qt.AlignmentFlag.AlignHCenter)
 
         self.value_label = QLabel(self._formatter(value), self)
@@ -208,15 +183,10 @@ class DisplayControlsWidget(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.setStyleSheet(
             "QWidget#DisplayControlsRoot { background: #171a1d; color: #e5e8ec; }"
-            "QLabel { color: #d9dde2; background: transparent; }"
+            "QLabel { color: #d9dde2; background: transparent; border: none; }"
             "QLabel#PanelHeader { font-size: 14px; font-weight: 700; color: #f0f3f6; }"
             "QLabel#SectionTitle { font-size: 12px; font-weight: 700; color: #f0f3f6; }"
             "QLabel#MutedCaption { color: #aeb6bf; font-size: 11px; letter-spacing: 0.02em; }"
-            "QFrame#InlineSliderRow {"
-            " background: #1b1f23;"
-            " border: 1px solid #343c44;"
-            " border-radius: 13px;"
-            "}"
             "QLabel#InlineSliderTitle {"
             " background: transparent;"
             " border: none;"
@@ -230,15 +200,6 @@ class DisplayControlsWidget(QWidget):
             " color: #f0f4f8;"
             " padding: 0px;"
             " font-weight: 700;"
-            "}"
-            "QFrame#MetricsPanel {"
-            " background: transparent;"
-            " border: 1px solid #323a42;"
-            " border-radius: 14px;"
-            "}"
-            "QFrame#MetricSlider {"
-            " background: transparent;"
-            " border: none;"
             "}"
             "QLabel#MetricSliderTitle {"
             " background: transparent;"
@@ -272,42 +233,34 @@ class DisplayControlsWidget(QWidget):
             "}"
             "QComboBox:hover, QLineEdit:hover { border-color: #656d76; }"
             "QSlider::groove:vertical {"
-            " background: #0f1317;"
-            " border: 1px solid #3d4650;"
-            " width: 10px;"
-            " border-radius: 5px;"
+            " background: #0d0f11;"
+            " border: 1px solid #343a40;"
+            " width: 8px;"
+            " border-radius: 4px;"
             "}"
             "QSlider::handle:vertical {"
-            " background: #9aa4af;"
-            " border: 1px solid #dbe1e7;"
-            " height: 18px;"
-            " margin: 0 -7px;"
-            " border-radius: 9px;"
-            "}"
-            "QSlider::handle:vertical:hover {"
-            " background: #c0c8d1;"
-            " border-color: #f0f3f6;"
+            " background: #8b949e;"
+            " border: 1px solid #d9dde2;"
+            " height: 16px;"
+            " margin: 0 -6px;"
+            " border-radius: 8px;"
             "}"
             "QSlider::groove:horizontal {"
-            " background: #0f1317;"
-            " border: 1px solid #3d4650;"
-            " height: 10px;"
-            " border-radius: 5px;"
+            " background: #0d0f11;"
+            " border: 1px solid #343a40;"
+            " height: 8px;"
+            " border-radius: 4px;"
             "}"
             "QSlider::sub-page:horizontal {"
-            " background: #8f9aa5;"
-            " border-radius: 5px;"
+            " background: #8b949e;"
+            " border-radius: 4px;"
             "}"
             "QSlider::handle:horizontal {"
-            " background: #dbe1e7;"
+            " background: #d9dde2;"
             " border: 1px solid #101214;"
-            " width: 18px;"
+            " width: 16px;"
             " margin: -5px 0;"
-            " border-radius: 9px;"
-            "}"
-            "QSlider::handle:horizontal:hover {"
-            " background: #f0f3f6;"
-            " border-color: #5f6973;"
+            " border-radius: 8px;"
             "}"
         )
 
@@ -322,16 +275,10 @@ class DisplayControlsWidget(QWidget):
 
         self._build_color_controls(layout)
 
-        metrics_panel = QFrame(self)
-        metrics_panel.setObjectName("MetricsPanel")
-        _set_no_frame(metrics_panel)
-        _enable_styled_background(metrics_panel)
         slider_grid = QGridLayout()
-        slider_grid.setContentsMargins(8, 8, 8, 8)
         slider_grid.setHorizontalSpacing(8)
         slider_grid.setVerticalSpacing(8)
-        metrics_panel.setLayout(slider_grid)
-        layout.addWidget(metrics_panel, 1)
+        layout.addLayout(slider_grid, 1)
 
         self.selection_transparency = self._make_slider("Sel\ntrans", 0, 100, 0, lambda v: f"{v}%", "selection")
         self.protein_width = self._make_slider("All\nwidth", 5, 60, 20, self._angstrom_label, "protein")
@@ -456,32 +403,26 @@ class DisplayControlsWidget(QWidget):
         scheme_row.addWidget(self.by_model_button)
 
     def _make_horizontal_slider(self, title, minimum, maximum, value, formatter, changed_callback, layout):
-        row_widget = QFrame(self)
-        row_widget.setObjectName("InlineSliderRow")
-        _set_no_frame(row_widget)
-        _enable_styled_background(row_widget)
         row = QHBoxLayout()
-        row.setContentsMargins(12, 8, 12, 8)
-        row.setSpacing(12)
-        row_widget.setLayout(row)
-        layout.addWidget(row_widget)
+        row.setSpacing(8)
+        layout.addLayout(row)
 
-        label = QLabel(title, row_widget)
+        label = QLabel(title, self)
         label.setObjectName("InlineSliderTitle")
-        label.setMinimumWidth(104)
+        label.setMinimumWidth(78)
         row.addWidget(label, 0)
 
-        slider = QSlider(Qt.Orientation.Horizontal, row_widget)
+        slider = QSlider(Qt.Orientation.Horizontal, self)
         slider.setRange(minimum, maximum)
         slider.setValue(value)
         slider.setTickPosition(QSlider.TickPosition.NoTicks)
         slider.valueChanged.connect(changed_callback)
         row.addWidget(slider, 1)
 
-        value_label = QLabel(formatter(value), row_widget)
+        value_label = QLabel(formatter(value), self)
         value_label.setObjectName("InlineSliderValue")
-        value_label.setMinimumWidth(58)
-        value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        value_label.setMinimumWidth(42)
+        value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(value_label, 0)
         return slider, value_label
 
@@ -666,7 +607,7 @@ class CodexDisplayControls(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 7
+    UI_LAYOUT_VERSION = 8
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):

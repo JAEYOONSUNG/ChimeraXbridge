@@ -24,6 +24,19 @@ ChimeraX session.
 - Agent planning now uses typed ChimeraX actions instead of a raw command list
 - Analyze/chat replies keep suggested ChimeraX commands separate instead of auto-running them by default
 
+## Interface Preview
+
+![ChimeraXbridge workspace running inside UCSF ChimeraX](docs/images/chimeraxbridge-main.png)
+
+ChimeraXbridge adds a top sequence bar, AI toolbar entry, model/action controls,
+and a right-side AI Assistant workspace inside ChimeraX.
+
+![AI Assistant quick actions for sequence, catalytic, membrane, PISA, and structure-search tools](docs/images/chimeraxbridge-ai-panel.png)
+
+The AI Assistant panel exposes quick actions for sequence reports, motif
+highlighting, catalytic-residue triage, membrane views, PISA-style interface
+analysis, and structure-search launchers.
+
 ## Requirements
 
 - ChimeraX 1.10.x

@@ -1,9 +1,15 @@
 import importlib
+import importlib.util
 import sys
+from pathlib import Path
 
 from Qt.QtCore import QTimer
 from Qt.QtCore import QSize
 from Qt.QtWidgets import QAbstractScrollArea, QDockWidget, QLayout, QSizePolicy, QWidget
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SOURCE_DIR = REPO_ROOT / "src"
+PACKAGE_NAME = "chimerax.codex_bridge"
 
 
 def _dock_title(dock_widget):
@@ -87,14 +93,30 @@ def _close_old_tools(session):
 
 def _drop_codex_modules():
     for name in list(sys.modules):
-        if name == "chimerax.codex_bridge" or name.startswith("chimerax.codex_bridge."):
+        if name == PACKAGE_NAME or name.startswith(PACKAGE_NAME + "."):
             del sys.modules[name]
+
+
+def _load_repo_package():
+    init_path = SOURCE_DIR / "__init__.py"
+    if not init_path.exists():
+        session.logger.warning(f"Codex Bridge reload source not found: {init_path}")
+        return
+    spec = importlib.util.spec_from_file_location(
+        PACKAGE_NAME,
+        str(init_path),
+        submodule_search_locations=[str(SOURCE_DIR)],
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[PACKAGE_NAME] = module
+    spec.loader.exec_module(module)
 
 
 _release_all_dock_constraints(session)
 _close_old_tools(session)
 importlib.invalidate_caches()
 _drop_codex_modules()
+_load_repo_package()
 
 from chimerax.codex_bridge import _apply_startup_layout, _install_runtime_toolbar_buttons
 from chimerax.codex_bridge.tool import CodexAssistant
@@ -131,6 +153,7 @@ QTimer.singleShot(1200, lambda ses=session: _release_all_dock_constraints(ses))
 
 session.logger.info(
     f"Reloaded Codex AI UI from {sys.modules['chimerax.codex_bridge.tool'].__file__}; "
+    f"repo_source={SOURCE_DIR}; "
     f"UI_LAYOUT_VERSION={CodexAssistant.UI_LAYOUT_VERSION}; "
     f"SEQUENCE_BAR_VERSION={CodexSequenceBar.UI_LAYOUT_VERSION}"
 )

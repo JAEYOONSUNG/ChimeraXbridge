@@ -1,5 +1,6 @@
 import importlib
 import importlib.util
+import shutil
 import sys
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from Qt.QtWidgets import QAbstractScrollArea, QDockWidget, QLayout, QSizePolicy,
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DIR = REPO_ROOT / "src"
 PACKAGE_NAME = "chimerax.codex_bridge"
+IGNORE_SYNC_NAMES = {"__pycache__", ".DS_Store"}
 
 
 def _dock_title(dock_widget):
@@ -97,6 +99,47 @@ def _drop_codex_modules():
             del sys.modules[name]
 
 
+def _installed_package_dirs():
+    candidates = []
+    app_support = Path.home() / "Library" / "Application Support" / "ChimeraX"
+    if app_support.exists():
+        candidates.extend(app_support.glob("*/lib/python/site-packages/chimerax/codex_bridge"))
+    candidates.append(REPO_ROOT / "build" / "lib" / "chimerax" / "codex_bridge")
+
+    seen = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except Exception:
+            continue
+        if resolved == SOURCE_DIR.resolve() or resolved in seen:
+            continue
+        if not candidate.exists():
+            continue
+        seen.add(resolved)
+        yield candidate
+
+
+def _sync_repo_source_to_installed_copies():
+    synced = []
+    for package_dir in _installed_package_dirs():
+        for item in SOURCE_DIR.iterdir():
+            if item.name in IGNORE_SYNC_NAMES:
+                continue
+            target = package_dir / item.name
+            if item.is_dir():
+                shutil.copytree(
+                    item,
+                    target,
+                    dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns(*IGNORE_SYNC_NAMES),
+                )
+            else:
+                shutil.copy2(item, target)
+        synced.append(str(package_dir))
+    return synced
+
+
 def _load_repo_package():
     init_path = SOURCE_DIR / "__init__.py"
     if not init_path.exists():
@@ -115,6 +158,7 @@ def _load_repo_package():
 _release_all_dock_constraints(session)
 _close_old_tools(session)
 importlib.invalidate_caches()
+synced_package_dirs = _sync_repo_source_to_installed_copies()
 _drop_codex_modules()
 _load_repo_package()
 
@@ -154,6 +198,7 @@ QTimer.singleShot(1200, lambda ses=session: _release_all_dock_constraints(ses))
 session.logger.info(
     f"Reloaded Codex AI UI from {sys.modules['chimerax.codex_bridge.tool'].__file__}; "
     f"repo_source={SOURCE_DIR}; "
+    f"synced_installed={synced_package_dirs}; "
     f"UI_LAYOUT_VERSION={CodexAssistant.UI_LAYOUT_VERSION}; "
     f"SEQUENCE_BAR_VERSION={CodexSequenceBar.UI_LAYOUT_VERSION}"
 )

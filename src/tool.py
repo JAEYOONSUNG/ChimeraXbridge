@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 29
+    UI_LAYOUT_VERSION = 30
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):

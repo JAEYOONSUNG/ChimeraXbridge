@@ -213,8 +213,8 @@ class DisplayControlsWidget(QWidget):
             "QLabel#SectionTitle { font-size: 12px; font-weight: 700; color: #f0f3f6; }"
             "QLabel#MutedCaption { color: #aeb6bf; font-size: 11px; letter-spacing: 0.02em; }"
             "QFrame#InlineSliderRow {"
-            " background: #24292f;"
-            " border: 1px solid #434c56;"
+            " background: #1b1f23;"
+            " border: 1px solid #343c44;"
             " border-radius: 13px;"
             "}"
             "QLabel#InlineSliderTitle {"
@@ -232,8 +232,8 @@ class DisplayControlsWidget(QWidget):
             " font-weight: 700;"
             "}"
             "QFrame#MetricsPanel {"
-            " background: #20252a;"
-            " border: 1px solid #3f4852;"
+            " background: transparent;"
+            " border: 1px solid #323a42;"
             " border-radius: 14px;"
             "}"
             "QFrame#MetricSlider {"
@@ -317,9 +317,7 @@ class DisplayControlsWidget(QWidget):
 
         self.status_label = QLabel("", self)
         self.status_label.setWordWrap(True)
-        self.status_label.setStyleSheet(
-            "QLabel { background: #101214; border: 1px solid #343a40; border-radius: 6px; padding: 6px 8px; }"
-        )
+        self.status_label.setObjectName("MutedCaption")
         layout.addWidget(self.status_label)
 
         self._build_color_controls(layout)
@@ -668,7 +666,7 @@ class CodexDisplayControls(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 6
+    UI_LAYOUT_VERSION = 7
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):

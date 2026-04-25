@@ -608,7 +608,7 @@ class CodexActionPad(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_action_pad.html"
-    UI_LAYOUT_VERSION = 6
+    UI_LAYOUT_VERSION = 7
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):

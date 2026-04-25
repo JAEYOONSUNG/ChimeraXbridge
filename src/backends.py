@@ -383,6 +383,24 @@ def resolve_backend_api_key(backend_id, strict=True):
     return None
 
 
+def backend_availability(backend_id):
+    """Return (available, short_status, detail) for UI gating."""
+    spec = BACKEND_SPECS[backend_id]
+    if backend_uses_cli(backend_id):
+        path = resolve_backend_cli(backend_id, strict=False)
+        if path:
+            return True, "installed", f"{path}. Login/subscription is verified by the CLI when a request runs."
+        cli_hint = ", ".join(spec.get("cli_envs") or ())
+        detail = f"CLI not found. Set {cli_hint} or install/login to {spec['label']}."
+        return False, "missing CLI", detail
+
+    api_key = resolve_backend_api_key(backend_id, strict=False)
+    if api_key:
+        return True, "ready", "API key available"
+    env_hint = ", ".join(spec.get("api_key_envs") or ())
+    return False, "missing API key", f"Set {env_hint} before launching ChimeraX."
+
+
 def backend_status_lines(session):
     ensure_session_preferences(session)
     current = get_current_backend_id(session)

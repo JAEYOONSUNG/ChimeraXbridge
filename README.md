@@ -164,6 +164,8 @@ In the tool window:
 - A live workspace pane tracks session context, selection focus, and recommended figure flow
 - The AI tool header shows the currently resolved protein chain, sequence length, and default motif hits
 - Interactive suggestions can be double-clicked or applied directly back into ChimeraX
+- The AI control bar disables unavailable engines and exposes `Setup` actions for CLI login or OpenAI API-key setup
+- The visible `Model` and `Reasoning` controls are real overrides passed to Codex CLI, OpenAI Responses API, Claude, or Gemini when supported
 - The main AI panel keeps only sequence-focused quick buttons, while analysis launchers live in the grouped `Analysis` menu and ChimeraX `AI` toolbar
 - The AI header includes a grouped `Analysis` menu for local reports, sequence/modeling tools, and structure-search launchers
 - Display controls are visible by default in the AI panel for selection transparency, cartoon width/thickness, and palette edits
@@ -172,6 +174,6 @@ In the tool window:
 - Sequence quick controls expose `/sequence`, `/motif`, motif highlighting, and RCSB sequence-similarity search from the current chain
 - The transcript pane keeps a terminal-style history of progress, commands, and results
 - The in-app terminal accepts raw ChimeraX commands such as `show sel` and shell commands such as `!pwd`
-- The `Quick` popup in the AI tool lets you switch mode, speed, backend, and GPT model presets faster than the combo boxes
+- The `Settings` popup in the AI tool provides secondary mode, speed, backend, and model shortcuts
 - Use `/backend`, `/model`, `/speed`, and `/status` to switch between available AI CLIs and quality profiles
 - `speed auto` uses fast mode for agent/visual execution and precise reasoning for `analyze` and `chat`

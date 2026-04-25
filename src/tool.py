@@ -1,16 +1,21 @@
 import os
+import json
+import shlex
 import subprocess
 import threading
 
+from Qt.QtCore import Qt
 from Qt.QtWidgets import QWidget
 
 from chimerax.core.tools import ToolInstance, get_singleton
 
 from .backends import (
+    backend_availability,
     backend_status_lines,
     clear_effort_override,
     clear_model_override,
     ensure_session_preferences,
+    get_backend_spec,
     get_backend_defaults,
     get_effort_override,
     get_backend_label,
@@ -19,6 +24,7 @@ from .backends import (
     get_routing_mode,
     get_speed_profile,
     list_backend_ids,
+    resolve_backend_cli,
     resolve_request_quality,
     set_current_backend_id,
     set_effort_override,
@@ -163,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 28
+    UI_LAYOUT_VERSION = 29
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -295,18 +301,39 @@ class CodexAssistant(ToolInstance):
         top_control_row.setVerticalSpacing(7)
         self.top_control_row = top_control_row
         self.engine_label = QLabel("Engine", parent)
+        self.model_label = QLabel("Model", parent)
+        self.effort_label = QLabel("Reasoning", parent)
         self.mode_label = QLabel("Mode", parent)
         self.speed_label = QLabel("Speed", parent)
         self.backend_combo = QComboBox(parent)
-        for backend_id in list_backend_ids():
-            self.backend_combo.addItem(self._backend_combo_label(backend_id), backend_id)
         self.backend_combo.currentIndexChanged.connect(self._backend_combo_changed)
         self.backend_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.backend_combo.setMinimumContentsLength(9)
         self.backend_combo.setMinimumWidth(0)
+        self._populate_backend_combo()
+
+        self.backend_setup_button = QToolButton(parent)
+        self.backend_setup_button.setText("Setup")
+        self.backend_setup_button.setMinimumWidth(0)
+        self.backend_setup_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.backend_setup_menu = QMenu(parent)
+        self.backend_setup_menu.aboutToShow.connect(self._refresh_backend_setup_menu)
+        self.backend_setup_button.setMenu(self.backend_setup_menu)
+
+        self.model_combo = QComboBox(parent)
+        self.model_combo.currentIndexChanged.connect(self._model_combo_changed)
+        self.model_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.model_combo.setMinimumContentsLength(14)
+        self.model_combo.setMinimumWidth(0)
+
+        self.effort_combo = QComboBox(parent)
+        self.effort_combo.currentIndexChanged.connect(self._effort_combo_changed)
+        self.effort_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.effort_combo.setMinimumContentsLength(8)
+        self.effort_combo.setMinimumWidth(0)
 
         self.quick_menu_button = QToolButton(parent)
-        self.quick_menu_button.setText("Quick")
+        self.quick_menu_button.setText("Settings")
         self.quick_menu_button.setMinimumWidth(0)
         self.quick_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.quick_menu_button.setMenu(self._build_quick_menu(parent))
@@ -1192,30 +1219,40 @@ class CodexAssistant(ToolInstance):
         if compact:
             grid.addWidget(self.engine_label, 0, 0)
             grid.addWidget(self.backend_combo, 0, 1)
-            grid.addWidget(self.mode_label, 1, 0)
-            grid.addWidget(self.mode_combo, 1, 1)
-            grid.addWidget(self.speed_label, 2, 0)
-            grid.addWidget(self.speed_combo, 2, 1)
-            grid.addWidget(self.quick_menu_button, 3, 0)
-            grid.addWidget(self.analysis_menu_button, 3, 1)
+            grid.addWidget(self.model_label, 1, 0)
+            grid.addWidget(self.model_combo, 1, 1)
+            grid.addWidget(self.effort_label, 2, 0)
+            grid.addWidget(self.effort_combo, 2, 1)
+            grid.addWidget(self.mode_label, 3, 0)
+            grid.addWidget(self.mode_combo, 3, 1)
+            grid.addWidget(self.speed_label, 4, 0)
+            grid.addWidget(self.speed_combo, 4, 1)
+            grid.addWidget(self.backend_setup_button, 5, 0)
+            grid.addWidget(self.quick_menu_button, 5, 1)
+            grid.addWidget(self.analysis_menu_button, 6, 0, 1, 2)
             grid.setColumnStretch(0, 0)
             grid.setColumnStretch(1, 1)
         else:
             grid.addWidget(self.engine_label, 0, 0)
-            grid.addWidget(self.backend_combo, 0, 1)
-            grid.addWidget(self.quick_menu_button, 0, 2)
-            grid.addWidget(self.analysis_menu_button, 0, 3)
+            grid.addWidget(self.backend_combo, 0, 1, 1, 2)
+            grid.addWidget(self.backend_setup_button, 0, 3)
             grid.addWidget(self.mode_label, 0, 4)
             grid.addWidget(self.mode_combo, 0, 5)
             grid.addWidget(self.speed_label, 0, 6)
             grid.addWidget(self.speed_combo, 0, 7)
+            grid.addWidget(self.model_label, 1, 0)
+            grid.addWidget(self.model_combo, 1, 1, 1, 3)
+            grid.addWidget(self.effort_label, 1, 4)
+            grid.addWidget(self.effort_combo, 1, 5)
+            grid.addWidget(self.quick_menu_button, 1, 6)
+            grid.addWidget(self.analysis_menu_button, 1, 7)
             grid.setColumnStretch(0, 0)
             grid.setColumnStretch(1, 3)
             grid.setColumnStretch(2, 1)
             grid.setColumnStretch(3, 1)
             grid.setColumnStretch(4, 0)
             grid.setColumnStretch(5, 1)
-            grid.setColumnStretch(6, 0)
+            grid.setColumnStretch(6, 1)
             grid.setColumnStretch(7, 1)
 
     def _set_action_buttons_compact(self, compact):
@@ -1389,14 +1426,17 @@ class CodexAssistant(ToolInstance):
 
         backend_menu = menu.addMenu("Engine")
         for backend_id in list_backend_ids():
-            backend_menu.addAction(
+            available, _status, detail = backend_availability(backend_id)
+            action = backend_menu.addAction(
                 self._backend_combo_label(backend_id),
                 lambda checked=False, b=backend_id: self._quick_set_backend(b),
             )
+            action.setEnabled(bool(available))
+            action.setToolTip(detail)
 
-        model_menu = menu.addMenu("GPT / Model")
-        model_menu.addAction("gpt-5.4", lambda: self._quick_set_model("gpt-5.4"))
-        model_menu.addAction("gpt-5.4-mini", lambda: self._quick_set_model("gpt-5.4-mini"))
+        model_menu = menu.addMenu("Model")
+        for model_name in suggested_models_for_backend(get_current_backend_id(self.session))[:8]:
+            model_menu.addAction(model_name, lambda checked=False, m=model_name: self._quick_set_model(m))
         model_menu.addAction("provider default", lambda: self._quick_clear_model())
         sequence_menu = menu.addMenu("Sequence")
         sequence_menu.addAction("Toggle top sequence bar", self._toggle_sequence_bar)
@@ -1411,6 +1451,81 @@ class CodexAssistant(ToolInstance):
         menu.addSeparator()
         menu.addAction("Open Action Pad", self._open_action_pad)
         return menu
+
+    def _refresh_backend_setup_menu(self):
+        menu = self.backend_setup_menu
+        menu.clear()
+        current_backend = get_current_backend_id(self.session)
+        for backend_id in list_backend_ids():
+            available, status, detail = backend_availability(backend_id)
+            prefix = "*" if backend_id == current_backend else "-"
+            action = menu.addAction(f"{prefix} {get_backend_label(backend_id)}: {status}")
+            action.setEnabled(False)
+            action.setToolTip(detail)
+        menu.addSeparator()
+        menu.addAction("Refresh engine status", self._refresh_engine_status)
+        current_action = menu.addAction(f"Setup current: {get_backend_label(current_backend)}")
+        current_action.triggered.connect(lambda _checked=False, b=current_backend: self._setup_backend(b))
+        for backend_id in list_backend_ids():
+            if backend_id == current_backend:
+                continue
+            action = menu.addAction(f"Setup {get_backend_label(backend_id)}")
+            action.triggered.connect(lambda _checked=False, b=backend_id: self._setup_backend(b))
+
+    def _refresh_engine_status(self):
+        self._populate_backend_combo()
+        self._populate_model_controls()
+        self._sync_control_widgets()
+        self._set_result_status("Engine status refreshed.")
+
+    def _setup_backend(self, backend_id):
+        spec = get_backend_spec(backend_id)
+        if spec.get("transport") == "api":
+            env_names = ", ".join(spec.get("api_key_envs") or ())
+            self._copy_text_to_clipboard(f"{spec.get('api_key_envs', ('OPENAI_API_KEY',))[0]}=YOUR_API_KEY")
+            self._set_result_status(
+                f"{get_backend_label(backend_id)} uses an API key. Copied env template; set {env_names} before launching ChimeraX.",
+                tone="warn",
+            )
+            return
+
+        cli_path = resolve_backend_cli(backend_id, strict=False)
+        if not cli_path:
+            env_names = ", ".join(spec.get("cli_envs") or ())
+            self._set_result_status(
+                f"{get_backend_label(backend_id)} CLI not found. Install it or set {env_names} before launching ChimeraX.",
+                tone="warn",
+            )
+            return
+
+        login_args = {
+            "codex": "login",
+            "claude": "login",
+            "gemini": "auth login",
+        }.get(backend_id, "login")
+        command = f"{shlex.quote(cli_path)} {login_args}"
+        try:
+            script = f'tell application "Terminal" to do script {json.dumps(command)}\ntell application "Terminal" to activate'
+            subprocess.Popen(["osascript", "-e", script])
+            self._set_result_status(f"Opened Terminal for {get_backend_label(backend_id)} login. Refresh engine status after login.", tone="warn")
+        except Exception as err:
+            self._copy_text_to_clipboard(command)
+            self._set_result_status(
+                f"Could not open Terminal automatically. Copied login command: {command}. Error: {str(err) if str(err) else err.__class__.__name__}",
+                tone="warn",
+            )
+
+    def _copy_text_to_clipboard(self, text):
+        try:
+            from Qt.QtWidgets import QApplication
+
+            clipboard = QApplication.clipboard()
+            if clipboard is not None:
+                clipboard.setText(str(text or ""))
+                return True
+        except Exception:
+            pass
+        return False
 
     def _build_analysis_menu(self, parent):
         from Qt.QtWidgets import QMenu
@@ -1555,6 +1670,10 @@ class CodexAssistant(ToolInstance):
         self._queue_workspace_refresh()
 
     def _quick_set_backend(self, backend_id):
+        available, _status, detail = backend_availability(backend_id)
+        if not available:
+            self._set_result_status(f"{get_backend_label(backend_id)} unavailable: {detail}", tone="warn")
+            return
         set_current_backend_id(self.session, backend_id)
         self._append_system(f"backend: {backend_id} ({self._backend_label()})")
         self._sync_control_widgets()
@@ -1857,7 +1976,8 @@ class CodexAssistant(ToolInstance):
         self.session_status_label.setText(
             "Session: "
             + f"{len(models)} model(s) | selection {selection_text} | "
-            + f"engine {self._backend_label()} | route {get_routing_mode(self.session)} | mode {self._mode} | speed {self._speed_text(self._mode)}"
+            + f"engine {self._backend_label()} | model {self._active_model_display(self._mode)} | "
+            + f"route {get_routing_mode(self.session)} | mode {self._mode} | speed {self._speed_text(self._mode)}"
         )
 
     def _update_sequence_status(self):
@@ -2049,15 +2169,94 @@ class CodexAssistant(ToolInstance):
             return "\n".join(focus[:6]) if focus else "\n".join(lines[:6])
         return "\n".join(lines[:6])
 
+    def _populate_backend_combo(self):
+        if not hasattr(self, "backend_combo"):
+            return
+        current = get_current_backend_id(self.session)
+        self.backend_combo.blockSignals(True)
+        try:
+            self.backend_combo.clear()
+            for backend_id in list_backend_ids():
+                available, status, detail = backend_availability(backend_id)
+                label = self._backend_combo_label(backend_id, available=available, status=status)
+                self.backend_combo.addItem(label, backend_id)
+                index = self.backend_combo.count() - 1
+                self.backend_combo.setItemData(index, detail, Qt.ItemDataRole.ToolTipRole)
+                if not available:
+                    item = self.backend_combo.model().item(index)
+                    if item is not None:
+                        item.setEnabled(False)
+            index = self.backend_combo.findData(current)
+            if index < 0:
+                index = 0
+            self.backend_combo.setCurrentIndex(index)
+        finally:
+            self.backend_combo.blockSignals(False)
+
+    def _populate_model_controls(self):
+        if not hasattr(self, "model_combo") or not hasattr(self, "effort_combo"):
+            return
+        backend_id = get_current_backend_id(self.session)
+        available, _status, detail = backend_availability(backend_id)
+
+        self.model_combo.blockSignals(True)
+        self.effort_combo.blockSignals(True)
+        try:
+            self.model_combo.clear()
+            default_model = self._active_default_model_display(self._mode)
+            self.model_combo.addItem(f"provider default ({default_model})", "__default__")
+            seen = set()
+            override = get_model_override(self.session, backend_id)
+            models = list(suggested_models_for_backend(backend_id))
+            if override and override not in models:
+                models.insert(0, override)
+            for model in models:
+                if not model or model in seen:
+                    continue
+                seen.add(model)
+                self.model_combo.addItem(model, model)
+            model_index = self.model_combo.findData(override) if override else 0
+            self.model_combo.setCurrentIndex(max(0, model_index))
+            self.model_combo.setEnabled(bool(available))
+            self.model_combo.setToolTip(
+                "Model is passed to the active backend request."
+                if available
+                else f"Disabled because {get_backend_label(backend_id)} is unavailable: {detail}"
+            )
+
+            self.effort_combo.clear()
+            default_effort = self._active_default_effort_display(self._mode)
+            self.effort_combo.addItem(f"default ({default_effort})", "__default__")
+            override_effort = get_effort_override(self.session, backend_id)
+            efforts = list(suggested_efforts_for_backend(backend_id))
+            for effort in efforts:
+                self.effort_combo.addItem(effort, effort)
+            effort_index = self.effort_combo.findData(override_effort) if override_effort else 0
+            self.effort_combo.setCurrentIndex(max(0, effort_index))
+            self.effort_combo.setEnabled(bool(available and efforts))
+            if not efforts:
+                self.effort_combo.setToolTip(f"{get_backend_label(backend_id)} does not expose reasoning controls here.")
+            elif not available:
+                self.effort_combo.setToolTip(f"Disabled because {get_backend_label(backend_id)} is unavailable: {detail}")
+            else:
+                self.effort_combo.setToolTip("Reasoning effort is passed to the active backend when supported.")
+        finally:
+            self.model_combo.blockSignals(False)
+            self.effort_combo.blockSignals(False)
+
     def _sync_control_widgets(self):
         self.backend_combo.blockSignals(True)
+        self.model_combo.blockSignals(True)
+        self.effort_combo.blockSignals(True)
         self.mode_combo.blockSignals(True)
         self.speed_combo.blockSignals(True)
         self.width_slider.blockSignals(True)
         try:
+            self._populate_backend_combo()
             backend_id = get_current_backend_id(self.session)
             backend_index = max(0, self.backend_combo.findData(backend_id))
             self.backend_combo.setCurrentIndex(backend_index)
+            self._populate_model_controls()
 
             mode_index = max(0, self.mode_combo.findData(self._mode))
             self.mode_combo.setCurrentIndex(mode_index)
@@ -2068,6 +2267,8 @@ class CodexAssistant(ToolInstance):
             self.width_slider.setValue(int(round(self._dock_fraction_value() * 100)))
         finally:
             self.backend_combo.blockSignals(False)
+            self.model_combo.blockSignals(False)
+            self.effort_combo.blockSignals(False)
             self.mode_combo.blockSignals(False)
             self.speed_combo.blockSignals(False)
             self.width_slider.blockSignals(False)
@@ -2191,9 +2392,43 @@ class CodexAssistant(ToolInstance):
         backend_id = self.backend_combo.itemData(index)
         if not backend_id:
             return
+        available, _status, detail = backend_availability(backend_id)
+        if not available:
+            self._set_result_status(f"{get_backend_label(backend_id)} unavailable: {detail}", tone="warn")
+            self._sync_control_widgets()
+            return
         set_current_backend_id(self.session, backend_id)
         self._append_system(f"backend: {backend_id} ({self._backend_label()})")
         self._append_system(f"model: {self._active_model_display(self._mode)}")
+        self._populate_model_controls()
+        self._queue_workspace_refresh()
+
+    def _model_combo_changed(self, index):
+        value = self.model_combo.itemData(index)
+        if not value:
+            return
+        backend_id = get_current_backend_id(self.session)
+        if value == "__default__":
+            clear_model_override(self.session, backend_id)
+            self._append_system(f"model override cleared for {get_backend_label(backend_id)}")
+        else:
+            set_model_override(self.session, str(value), backend_id)
+            self._append_system(f"model override for {get_backend_label(backend_id)}: {value}")
+        self._populate_model_controls()
+        self._queue_workspace_refresh()
+
+    def _effort_combo_changed(self, index):
+        value = self.effort_combo.itemData(index)
+        if not value:
+            return
+        backend_id = get_current_backend_id(self.session)
+        if value == "__default__":
+            clear_effort_override(self.session, backend_id)
+            self._append_system(f"reasoning override cleared for {get_backend_label(backend_id)}")
+        else:
+            set_effort_override(self.session, str(value), backend_id)
+            self._append_system(f"reasoning override for {get_backend_label(backend_id)}: {value}")
+        self._populate_model_controls()
         self._queue_workspace_refresh()
 
     def _mode_combo_changed(self, index):
@@ -2204,6 +2439,7 @@ class CodexAssistant(ToolInstance):
         self._append_system(f"mode: {self._mode}")
         self.status_label.setText(f"Mode: {self._mode}")
         self.stage_label.setText(f"Mode · {self._mode}")
+        self._populate_model_controls()
         self._queue_workspace_refresh()
 
     def _speed_combo_changed(self, index):
@@ -2212,6 +2448,7 @@ class CodexAssistant(ToolInstance):
             return
         set_speed_profile(self.session, profile)
         self._append_system(f"speed: {self._speed_text(self._mode)}")
+        self._populate_model_controls()
         self._queue_workspace_refresh()
 
     def _default_workspace_suggestions(self):
@@ -3174,14 +3411,17 @@ class CodexAssistant(ToolInstance):
     def _backend_label(self):
         return get_backend_label(get_current_backend_id(self.session))
 
-    def _backend_combo_label(self, backend_id):
+    def _backend_combo_label(self, backend_id, available=None, status=None):
         detail = {
             "codex": "local app",
             "openai": "direct API",
             "claude": "local CLI",
             "gemini": "local CLI",
         }.get(backend_id, "engine")
-        return f"{get_backend_label(backend_id)} · {detail}"
+        if available is None:
+            available, status, _detail = backend_availability(backend_id)
+        status_text = status or ("ready" if available else "unavailable")
+        return f"{get_backend_label(backend_id)} · {detail} · {status_text}"
 
     def _request_mode_for_action(self, action):
         return "chat" if action == "ask" else self._mode
@@ -3199,6 +3439,10 @@ class CodexAssistant(ToolInstance):
         override = get_model_override(self.session, backend_id)
         if override:
             return override
+        return self._active_default_model_display(request_mode)
+
+    def _active_default_model_display(self, request_mode=None):
+        backend_id = get_current_backend_id(self.session)
         fast_mode = self._effective_fast_mode(request_mode)
         model, _reasoning = get_backend_defaults(backend_id, fast_mode)
         return model or "(provider default)"
@@ -3208,6 +3452,10 @@ class CodexAssistant(ToolInstance):
         override = get_effort_override(self.session, backend_id)
         if override:
             return override
+        return self._active_default_effort_display(request_mode)
+
+    def _active_default_effort_display(self, request_mode=None):
+        backend_id = get_current_backend_id(self.session)
         fast_mode = self._effective_fast_mode(request_mode)
         _model, reasoning = get_backend_defaults(backend_id, fast_mode)
         return reasoning or "(provider default)"

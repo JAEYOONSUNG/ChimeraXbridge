@@ -1,0 +1,109 @@
+<!--
+ChimeraX bundle names must start with "ChimeraX-".
+-->
+
+<BundleInfo name="ChimeraX-CodexBridge"
+    version="0.1.0" package="chimerax.codex_bridge"
+    minSessionVersion="1" maxSessionVersion="1"
+    customInit="true">
+
+  <Author>ChimeraXbridge contributors</Author>
+  <Email>chimerax@local.invalid</Email>
+  <URL>https://www.cgl.ucsf.edu/chimerax/</URL>
+
+  <Synopsis>Integrated AI workspace for ChimeraX</Synopsis>
+  <Description>
+    Adds a ChimeraX-integrated AI workspace for querying local AI CLIs such as
+    Codex, Claude, and Gemini, or the OpenAI Responses API tool-calling backend,
+    with open-model, selection, view, and structure
+    reference context. Provides the commands "ai", "codex ask", "codex backend",
+    "codex model", "codex routing", "codex context", "codex selftest",
+    "codex tool", and "codex seqbar", plus a live Qt workspace
+    with quick actions and interactive suggestions.
+  </Description>
+
+  <Categories>
+    <Category name="General"/>
+  </Categories>
+
+  <DataFiles>
+    <DataFile>docs/user/commands/codex.html</DataFile>
+    <DataFile>docs/user/tools/codex_assistant.html</DataFile>
+    <DataFile>docs/user/tools/codex_action_pad.html</DataFile>
+  </DataFiles>
+
+  <Dependencies>
+    <Dependency name="ChimeraX-Core" version="~=1.10"/>
+    <Dependency name="ChimeraX-Atomic" version="~=1.10"/>
+    <Dependency name="ChimeraX-UI" version="~=1.10"/>
+  </Dependencies>
+
+  <Classifiers>
+    <PythonClassifier>Development Status :: 3 - Alpha</PythonClassifier>
+    <PythonClassifier>License :: OSI Approved :: MIT License</PythonClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: ai :: General ::
+      Run AI-planned ChimeraX commands from natural language</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex ask :: General ::
+      Query the selected AI backend with ChimeraX session context</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex backend :: General ::
+      Show or switch the current AI backend</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex model :: General ::
+      Show or override the current AI model</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex effort :: General ::
+      Show or override the current AI reasoning effort</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex auto :: General ::
+      Enable or disable natural-language fallback in the ChimeraX command line</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex context :: General ::
+      Show the ChimeraX context sent to Codex</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex selftest :: General ::
+      Run an in-app self-test for Codex Bridge routing, parser hints, and backend availability</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex routing :: General ::
+      Show or switch natural-language routing between local rules and backend AI</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex tool :: General ::
+      Open the AI Assistant tool</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex actions :: General ::
+      Open the PyMOL-style action pad</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex seqbar :: General ::
+      Open the PyMOL-style top sequence bar</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-tab :: toolbar :: tab:AI :: after:"Right Mouse" :: help:help:user/tools/codex_assistant.html</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-layout-quick :: toolbar :: tab:AI :: section:Quick</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-layout-analysis :: toolbar :: tab:AI :: section:Analysis :: after:Quick</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-quick-analyze :: toolbar :: tab:AI :: section:Quick :: display_name:Analyze :: icon:ai-analyze.svg :: description:"Run AI analysis on the current selection"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-quick-view :: toolbar :: tab:AI :: section:Quick :: display_name:View :: icon:ai-view.svg :: description:"Apply the next AI-guided structure view"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-quick-site :: toolbar :: tab:AI :: section:Quick :: display_name:Site :: icon:ai-site.svg :: description:"Focus the most likely site or interface"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-quick-figure :: toolbar :: tab:AI :: section:Quick :: display_name:Figure :: icon:ai-figure.svg :: description:"Cycle figure-ready views"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-blast :: toolbar :: tab:AI :: section:Analysis :: display_name:Blast :: icon:blast-logo.png :: description:"Open sequence-analysis site chooser for the current protein sequence"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-alphafold :: toolbar :: tab:AI :: section:Analysis :: display_name:AlphaFold :: icon:alphafold-logo.png :: description:"Open AlphaFold Server for the current protein sequence(s)"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-similar :: toolbar :: tab:AI :: section:Analysis :: display_name:Similar :: icon:foldseek-logo.png :: description:"Open RCSB sequence similarity search for the current chain"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-foldmason :: toolbar :: tab:AI :: section:Analysis :: display_name:FoldMason :: icon:foldmason-logo.png :: description:"Export open structures and launch FoldMason multiple structure alignment"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-folddisco :: toolbar :: tab:AI :: section:Analysis :: display_name:FoldDisco :: icon:folddisco-logo.png :: description:"Search a selected structural motif with FoldDisco"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-nucdock :: toolbar :: tab:AI :: section:Analysis :: display_name:NucDock :: icon:hdock-logo.png :: description:"Paste DNA/RNA sequence and dock it against the current receptor with HDOCK"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-afcomplex :: toolbar :: tab:AI :: section:Analysis :: display_name:"AF Complex" :: icon:alphafold-logo.png :: description:"Paste DNA/RNA sequence and open AlphaFold Server with current protein chains"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-boltz :: toolbar :: tab:AI :: section:Analysis :: display_name:Boltz :: icon:boltz-logo.svg :: description:"Run official latest Boltz CLI on current chains, or open native Boltz panel"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-hhpred :: toolbar :: tab:AI :: section:Analysis :: display_name:HHpred :: icon:hhpred-logo.svg :: description:"Open HHpred / HHblits with the current protein sequence"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-catalytic :: toolbar :: tab:AI :: section:Analysis :: display_name:Catalytic :: icon:ai-site.svg :: description:"Rank and highlight catalytic residue candidates"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-membrane :: toolbar :: tab:AI :: section:Analysis :: display_name:Membrane :: icon:ai-membrane.svg :: description:"Create a virtual graphite membrane slab and run MLP hydrophobic analysis"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-pisa :: toolbar :: tab:AI :: section:Analysis :: display_name:PISA :: icon:pisa-logo.svg :: description:"Measure and highlight chain-chain interface buried surface area"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-dali :: toolbar :: tab:AI :: section:Structure :: display_name:DALI :: icon:dali-logo.png :: description:"Export current structure and open DALI"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-vast :: toolbar :: tab:AI :: section:Structure :: display_name:VAST :: icon:vast-logo.png :: description:"Export current structure and open NCBI VAST"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-pdbefold :: toolbar :: tab:AI :: section:Structure :: display_name:PDBeFold :: icon:pdbefold-logo.png :: description:"Export current structure and open PDBeFold / SSM"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-usalign :: toolbar :: tab:AI :: section:Structure :: display_name:US-align :: icon:usalign-logo.png :: description:"Export structures and open US-align / TM-score alignment"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-profile :: toolbar :: tab:AI :: section:Analysis :: display_name:Profile :: icon:uniprot-logo.png :: description:"Open UniProt BLAST with the current protein sequence"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-conserve :: toolbar :: tab:AI :: section:Analysis :: display_name:Consurf :: icon:consurf-logo.png :: description:"Open the ConSurf Colab workflow for the current sequence"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-display-controls :: toolbar :: tab:"Molecule Display" :: section:Adjust :: display_name:"Display Ctrl" :: icon:display-controls.svg :: description:"Open display sliders and a rainbow color palette"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-nucleotide-dock :: toolbar :: tab:Nucleotides :: section:"AI Tools" :: display_name:NucDock :: icon:hdock-logo.png :: description:"Paste DNA/RNA sequence and open HDOCK with the current receptor structure"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-nucleotide-afcomplex :: toolbar :: tab:Nucleotides :: section:"AI Tools" :: display_name:"AF Complex" :: icon:alphafold-logo.png :: description:"Paste DNA/RNA sequence and open AlphaFold Server with current protein chains"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-nucleotide-boltz :: toolbar :: tab:Nucleotides :: section:"AI Tools" :: display_name:Boltz :: icon:boltz-logo.svg :: description:"Run official latest Boltz CLI on current protein/DNA/RNA chains"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-nucleotide-folddisco :: toolbar :: tab:Nucleotides :: section:"AI Tools" :: link:ChimeraX-CodexBridge:ai-analysis-folddisco :: display_name:FoldDisco</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-nucleotide-foldmason :: toolbar :: tab:Nucleotides :: section:"AI Tools" :: link:ChimeraX-CodexBridge:ai-analysis-foldmason :: display_name:FoldMason</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Tool :: AI Assistant :: General ::
+      Ask the selected AI backend from a terminal-style ChimeraX workspace</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Tool :: Action Pad :: General ::
+      PyMOL-style action pad for models and chains</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Tool :: Sequence Bar :: General ::
+      PyMOL-style clickable protein sequence bar above the structure view</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Tool :: Display Controls :: General ::
+      Slider controls and a rainbow color palette for molecule display</ChimeraXClassifier>
+  </Classifiers>
+
+</BundleInfo>

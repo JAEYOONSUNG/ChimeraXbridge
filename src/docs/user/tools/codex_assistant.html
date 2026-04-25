@@ -1,0 +1,32 @@
+<html>
+<head>
+  <title>Codex Assistant</title>
+</head>
+<body>
+<h1>Codex Assistant</h1>
+
+<p>Codex Assistant is a ChimeraX-integrated AI workspace for asking the selected
+AI CLI backend, such as Codex, Claude, or Gemini, for structure-aware analysis,
+visualization planning, and interactive command execution.</p>
+
+<h2>Usage</h2>
+
+<ol>
+  <li>Open the tool with <code>codex tool</code> or from the Tools menu.</li>
+  <li>Use the control bar to switch backend, mode, and speed profile. The default mode is <b>agent</b>, which can directly change the ChimeraX scene.</li>
+  <li>Use the <b>Quick</b> popup for fast mode/backend/model preset switching, or <b>Action Pad</b> to open the PyMOL-style action panel.</li>
+  <li>Review the live workspace pane for current ChimeraX context, selection focus, and figure recommendations.</li>
+  <li>Use quick buttons such as <b>Analyze Sel</b>, <b>Improve View</b>, <b>Explain Site</b>, or <b>Best Figure</b> for integrated workflows.</li>
+  <li>Type a request into the prompt at the bottom of the transcript and press <b>Enter</b> to run the agent, or <b>Shift+Enter</b> to insert a new line.</li>
+  <li>Use the in-app terminal for raw commands: plain input runs ChimeraX commands, and lines starting with <code>!</code> run shell commands.</li>
+  <li>Double-click an interactive suggestion or use <b>Apply Suggestion</b> to push an AI recommendation back into ChimeraX.</li>
+</ol>
+
+<p>The right pane behaves like a terminal transcript. It keeps your request,
+live progress messages, executed ChimeraX commands, and final summaries in one
+continuous history. The left pane stays synchronized with ChimeraX selection
+and command changes so the tool can be used as a structure-analysis workbench
+instead of a standalone chat box.</p>
+
+</body>
+</html>

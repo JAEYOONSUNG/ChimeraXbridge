@@ -1,0 +1,64 @@
+<html>
+<head>
+  <title>codex command</title>
+</head>
+<body>
+<h1>codex command</h1>
+
+<p>The <b>codex</b> bundle sends a compact summary of the current ChimeraX
+session to the currently selected AI CLI backend and returns the reply.</p>
+
+<h2>Commands</h2>
+
+<pre>
+codex auto [true|false]
+codex backend [name]
+codex model [name|default]
+codex routing [ai-first|local-first|backend-only]
+codex selftest
+ai &lt;text&gt;
+codex ask &lt;text&gt;
+codex context [includeModels true|false] [includeSelection true|false]
+codex tool
+/scene save [name] [note...]
+/scene load [name] [frames]
+/scene info [name]
+/scene note &lt;name&gt; &lt;text&gt;
+/scene list
+</pre>
+
+<h2>Examples</h2>
+
+<pre>
+Align these two structures using only the catalytic core
+codex auto false
+codex backend gemini
+codex model gemini-2.5-flash
+codex routing ai-first
+codex selftest
+ai align #2 to #1 using only the catalytic core
+/scene save pocket_closeup inward-facing candidate
+/scene info pocket_closeup
+codex context
+codex ask Align #2 to #1 using only the catalytic core.
+codex context includeSelection false
+codex tool
+</pre>
+
+<h2>Notes</h2>
+
+<ul>
+  <li>When natural-language fallback is enabled, unknown multi-word input in the ChimeraX command line is sent to Codex automatically.</li>
+  <li><code>ai</code> is the auto-run mode. It asks Codex for ChimeraX commands and executes them immediately.</li>
+  <li><code>codex backend</code> changes the active AI CLI backend.</li>
+  <li><code>codex model</code> overrides the model for the active backend.</li>
+  <li><code>codex routing</code> controls whether natural-language requests prefer local rules or real AI backends.</li>
+  <li><code>codex selftest</code> runs an in-app diagnostic for backend availability and natural-language parsing hints.</li>
+  <li><code>/scene ...</code> provides lightweight figure-bookmark save/load/info commands built on ChimeraX named views plus extra metadata such as caption, legend, and notes.</li>
+  <li>The bridge expects a working local AI CLI such as <code>codex</code>, <code>claude</code>, or <code>gemini</code>.</li>
+  <li>The attached context is a summary of model IDs, names, and selection
+      ranges, not a full structure export.</li>
+</ul>
+
+</body>
+</html>

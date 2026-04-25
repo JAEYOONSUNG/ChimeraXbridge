@@ -311,6 +311,12 @@ class CodexAssistant(ToolInstance):
         self.quick_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.quick_menu_button.setMenu(self._build_quick_menu(parent))
 
+        self.analysis_menu_button = QToolButton(parent)
+        self.analysis_menu_button.setText("Analysis")
+        self.analysis_menu_button.setMinimumWidth(0)
+        self.analysis_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.analysis_menu_button.setMenu(self._build_analysis_menu(parent))
+
         self.mode_combo = QComboBox(parent)
         for mode in self._mode_order:
             self.mode_combo.addItem(mode, mode)
@@ -1170,24 +1176,27 @@ class CodexAssistant(ToolInstance):
             grid.addWidget(self.mode_combo, 1, 1)
             grid.addWidget(self.speed_label, 2, 0)
             grid.addWidget(self.speed_combo, 2, 1)
-            grid.addWidget(self.quick_menu_button, 3, 0, 1, 2)
+            grid.addWidget(self.quick_menu_button, 3, 0)
+            grid.addWidget(self.analysis_menu_button, 3, 1)
             grid.setColumnStretch(0, 0)
             grid.setColumnStretch(1, 1)
         else:
             grid.addWidget(self.engine_label, 0, 0)
             grid.addWidget(self.backend_combo, 0, 1)
             grid.addWidget(self.quick_menu_button, 0, 2)
-            grid.addWidget(self.mode_label, 0, 3)
-            grid.addWidget(self.mode_combo, 0, 4)
-            grid.addWidget(self.speed_label, 0, 5)
-            grid.addWidget(self.speed_combo, 0, 6)
+            grid.addWidget(self.analysis_menu_button, 0, 3)
+            grid.addWidget(self.mode_label, 0, 4)
+            grid.addWidget(self.mode_combo, 0, 5)
+            grid.addWidget(self.speed_label, 0, 6)
+            grid.addWidget(self.speed_combo, 0, 7)
             grid.setColumnStretch(0, 0)
             grid.setColumnStretch(1, 3)
             grid.setColumnStretch(2, 1)
-            grid.setColumnStretch(3, 0)
-            grid.setColumnStretch(4, 1)
-            grid.setColumnStretch(5, 0)
-            grid.setColumnStretch(6, 1)
+            grid.setColumnStretch(3, 1)
+            grid.setColumnStretch(4, 0)
+            grid.setColumnStretch(5, 1)
+            grid.setColumnStretch(6, 0)
+            grid.setColumnStretch(7, 1)
 
     def _set_action_buttons_compact(self, compact):
         grid = getattr(self, "bottom_control_row", None)
@@ -1416,9 +1425,48 @@ class CodexAssistant(ToolInstance):
         sequence_menu.addAction("PISA-like interface area", self._quick_pisa)
         sequence_menu.addAction("RCSB similar web", self._quick_similar_web)
         self._populate_selection_menu(sequence_menu.addMenu("Selection"))
+        self._populate_analysis_menu(menu.addMenu("Analysis"))
         menu.addSeparator()
         menu.addAction("Open Action Pad", self._open_action_pad)
         return menu
+
+    def _build_analysis_menu(self, parent):
+        from Qt.QtWidgets import QMenu
+
+        menu = QMenu(parent)
+        self._populate_analysis_menu(menu)
+        return menu
+
+    def _populate_analysis_menu(self, menu):
+        local_menu = menu.addMenu("Local / scene analysis")
+        local_menu.addAction("Sequence report", self._quick_sequence_summary)
+        local_menu.addAction("Motif report", self._quick_motif_summary)
+        local_menu.addAction("Highlight motifs", self._quick_motif_view)
+        local_menu.addAction("Catalytic residue triage", self._quick_catalytic)
+        local_menu.addAction("Membrane view", self._quick_membrane)
+        local_menu.addAction("PISA-like interfaces", self._quick_pisa)
+
+        sequence_menu = menu.addMenu("Sequence / modeling web tools")
+        sequence_menu.addAction("BLAST", self._quick_blast)
+        sequence_menu.addAction("HHpred / HHblits", self._quick_hhpred)
+        sequence_menu.addAction("UniProt BLAST", self._quick_profile)
+        sequence_menu.addAction("ConSurf", self._quick_conservation)
+        sequence_menu.addAction("AlphaFold Server", self._quick_alphafold)
+        sequence_menu.addAction("AF Complex", self._quick_afcomplex)
+        sequence_menu.addAction("Boltz", self._quick_boltz)
+
+        structure_menu = menu.addMenu("Structure search / alignment")
+        structure_menu.addAction("Foldseek similar", self._quick_similar_web)
+        structure_menu.addAction("FoldMason", self._quick_foldmason)
+        structure_menu.addAction("FoldDisco motif", self._quick_folddisco)
+        structure_menu.addAction("NucDock", self._quick_nucdock)
+        structure_menu.addAction("DALI", self._quick_dali)
+        structure_menu.addAction("VAST", self._quick_vast)
+        structure_menu.addAction("PDBeFold", self._quick_pdbefold)
+        structure_menu.addAction("US-align", self._quick_usalign)
+
+        menu.addSeparator()
+        menu.addAction("Open Action Pad controls", self._open_action_pad)
 
     def _build_selection_menu(self, parent):
         from Qt.QtWidgets import QMenu

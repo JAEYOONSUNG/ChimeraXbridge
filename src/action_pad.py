@@ -8,6 +8,7 @@ from Qt.QtWidgets import (
     QMenu,
     QPushButton,
     QSizePolicy,
+    QTabWidget,
     QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
@@ -112,12 +113,47 @@ class ActionPadWidget(QWidget):
         self.pick_default_button = QPushButton("Default Mouse", self)
         self.pick_default_button.clicked.connect(lambda: self._set_pick_mode("default"))
         toolbar.addWidget(self.pick_default_button, 1, 2)
+
+        self.targets_tab_button = QPushButton("Targets", self)
+        self.targets_tab_button.clicked.connect(self._show_targets_tab)
+        toolbar.addWidget(self.targets_tab_button, 2, 0)
+
+        self.controls_tab_button = QPushButton("Controls", self)
+        self.controls_tab_button.clicked.connect(self._show_controls_tab)
+        toolbar.addWidget(self.controls_tab_button, 2, 1)
+
+        self.ai_analyze_button = QPushButton("AI Analyze", self)
+        self.ai_analyze_button.clicked.connect(
+            lambda: self._launch_ai_prompt("Analyze the current ChimeraX scene with evidence and confidence.", "analyze")
+        )
+        toolbar.addWidget(self.ai_analyze_button, 2, 2)
         layout.addLayout(toolbar)
 
         self.status_label = QLabel("Ready.", self)
         self.status_label.setFont(fixed_font)
         self.status_label.setStyleSheet("QLabel { color: #c7ccd2; }")
         layout.addWidget(self.status_label)
+
+        self.pad_tabs = QTabWidget(self)
+        self.pad_tabs.setStyleSheet(
+            "QTabWidget::pane { border: 1px solid #343a40; border-radius: 8px; }"
+            "QTabBar::tab {"
+            " background: #111315;"
+            " color: #aeb4bb;"
+            " padding: 7px 12px;"
+            " margin-right: 2px;"
+            " border-top-left-radius: 7px;"
+            " border-top-right-radius: 7px;"
+            "}"
+            "QTabBar::tab:selected { background: #2a3035; color: #f0f2f4; }"
+        )
+        layout.addWidget(self.pad_tabs, 1)
+
+        targets_page = QWidget(self)
+        targets_layout = QVBoxLayout()
+        targets_layout.setContentsMargins(6, 6, 6, 6)
+        targets_layout.setSpacing(6)
+        targets_page.setLayout(targets_layout)
 
         self.tree = QTreeWidget(self)
         self.tree.setFont(fixed_font)
@@ -152,7 +188,7 @@ class ActionPadWidget(QWidget):
         for index in range(1, 6):
             header_view.setSectionResizeMode(index, QHeaderView.ResizeMode.Fixed)
             self.tree.setColumnWidth(index, 30)
-        layout.addWidget(self.tree, 1)
+        targets_layout.addWidget(self.tree, 1)
 
         self.current_spec_label = QLabel("Current target: (none)", self)
         self.current_spec_label.setFont(fixed_font)
@@ -165,11 +201,11 @@ class ActionPadWidget(QWidget):
             " padding: 6px 8px;"
             "}"
         )
-        layout.addWidget(self.current_spec_label)
+        targets_layout.addWidget(self.current_spec_label)
 
         current_header = QLabel("Current Target Controls", self)
         current_header.setStyleSheet("QLabel { color: #d8dde3; font-weight: 700; }")
-        layout.addWidget(current_header)
+        targets_layout.addWidget(current_header)
 
         current_actions = QHBoxLayout()
         current_actions.setSpacing(6)
@@ -196,12 +232,31 @@ class ActionPadWidget(QWidget):
         self.current_color_button = self._menu_button("C", parent=self)
         current_actions.addWidget(self.current_color_button)
         current_actions.addStretch(1)
-        layout.addLayout(current_actions)
+        targets_layout.addLayout(current_actions)
 
         self.pick_mode_label = QLabel("Mouse: default", self)
         self.pick_mode_label.setFont(fixed_font)
         self.pick_mode_label.setStyleSheet("QLabel { color: #95f0b8; }")
-        layout.addWidget(self.pick_mode_label)
+        targets_layout.addWidget(self.pick_mode_label)
+
+        self.pad_tabs.addTab(targets_page, "Targets")
+
+        controls_page = QWidget(self)
+        controls_layout = QVBoxLayout()
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(0)
+        controls_page.setLayout(controls_layout)
+        try:
+            from .display_controls import DisplayControlsWidget
+
+            self.display_controls = DisplayControlsWidget(self.session, parent=controls_page)
+            controls_layout.addWidget(self.display_controls)
+        except Exception as err:
+            fallback = QLabel(str(err) if str(err) else err.__class__.__name__, controls_page)
+            fallback.setWordWrap(True)
+            fallback.setStyleSheet("QLabel { color: #ffdce1; padding: 8px; }")
+            controls_layout.addWidget(fallback)
+        self.pad_tabs.addTab(controls_page, "Controls")
 
     def install_handlers(self):
         if self.handlers:
@@ -535,13 +590,25 @@ class ActionPadWidget(QWidget):
         self.pick_mode_label.setText("Mouse: " + message.replace("Left click ", "").replace("Right click ", ""))
         self.status_label.setText(message)
 
+    def _show_targets_tab(self):
+        self.pad_tabs.setCurrentIndex(0)
+
+    def _show_controls_tab(self):
+        self.pad_tabs.setCurrentIndex(1)
+        controls = getattr(self, "display_controls", None)
+        if controls is not None:
+            try:
+                controls.refresh()
+            except Exception:
+                pass
+
 
 class CodexActionPad(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_action_pad.html"
-    UI_LAYOUT_VERSION = 3
+    UI_LAYOUT_VERSION = 4
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):

@@ -165,6 +165,8 @@ In the tool window:
 - The AI tool header shows the currently resolved protein chain, sequence length, and default motif hits
 - Interactive suggestions can be double-clicked or applied directly back into ChimeraX
 - Quick buttons let you analyze the current selection, improve the current view, explain the likely site, or apply the recommended figure
+- The AI header includes a grouped `Analysis` menu for local reports, sequence/modeling tools, and structure-search launchers
+- The Action Pad includes `Targets` and `Controls` tabs, so model actions and display sliders live in one panel
 - Requests like `구조 예쁘게 정리해줘` or `/figure clean` apply a restrained protein cartoon view without extra labels or repeated recoloring
 - Sequence quick controls expose `/sequence`, `/motif`, motif highlighting, and RCSB sequence-similarity search from the current chain
 - The transcript pane keeps a terminal-style history of progress, commands, and results

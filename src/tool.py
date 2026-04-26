@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 42
+    UI_LAYOUT_VERSION = 43
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1292,9 +1292,19 @@ class CodexAssistant(ToolInstance):
             if widget is not None:
                 try:
                     if widget.property("codexDynamicTopControlRow"):
+                        for child in getattr(self, "_top_control_widgets", ()):
+                            try:
+                                if child.parent() is widget:
+                                    child.setParent(grid.parentWidget())
+                            except Exception:
+                                pass
                         widget.deleteLater()
                 except Exception:
                     pass
+            layout = item.layout() if item is not None else None
+            if layout is not None:
+                while layout.count():
+                    layout.takeAt(0)
         for column in range(10):
             try:
                 grid.setColumnStretch(column, 0)
@@ -1310,9 +1320,11 @@ class CodexAssistant(ToolInstance):
 
     def _apply_responsive_layout(self, width):
         width = int(width or 0)
-        if width < 430:
+        if width < 520:
             layout_mode = "narrow"
-        elif width < 920:
+        elif width < 720:
+            layout_mode = "stacked"
+        elif width < 1040:
             layout_mode = "compact"
         else:
             layout_mode = "wide"
@@ -1325,7 +1337,7 @@ class CodexAssistant(ToolInstance):
         self._set_sequence_buttons_compact(compact)
 
     def _set_top_controls_compact(self, layout_mode):
-        from Qt.QtWidgets import QHBoxLayout, QSizePolicy, QWidget
+        from Qt.QtWidgets import QHBoxLayout, QSizePolicy
 
         grid = getattr(self, "top_control_row", None)
         if grid is None:
@@ -1343,7 +1355,12 @@ class CodexAssistant(ToolInstance):
             self.mode_label,
             self.speed_label,
         )
-        controls = (
+        self._top_control_widgets = (
+            self.engine_label,
+            self.model_label,
+            self.effort_label,
+            self.mode_label,
+            self.speed_label,
             self.backend_combo,
             self.model_combo,
             self.effort_combo,
@@ -1374,16 +1391,12 @@ class CodexAssistant(ToolInstance):
             widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         def top_row(*widgets):
-            row = QWidget(grid.parentWidget())
-            row.setProperty("codexDynamicTopControlRow", True)
             row_layout = QHBoxLayout()
             row_layout.setContentsMargins(0, 0, 0, 0)
             row_layout.setSpacing(7)
-            row.setLayout(row_layout)
             for widget in widgets:
                 row_layout.addWidget(widget)
-            row_layout.addStretch(1)
-            return row
+            return row_layout
 
         if layout_mode == "narrow":
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -1414,10 +1427,10 @@ class CodexAssistant(ToolInstance):
             grid.setColumnStretch(0, 0)
             grid.setColumnStretch(1, 1)
             grid.setColumnMinimumWidth(0, 88)
-        elif layout_mode == "compact":
+        elif layout_mode == "stacked":
             grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            fixed_control(self.backend_combo, 420)
-            fixed_control(self.model_combo, 385)
+            fixed_control(self.backend_combo, 390)
+            fixed_control(self.model_combo, 360)
             fixed_control(self.effort_combo, 150)
             fixed_control(self.mode_combo, 120)
             fixed_control(self.speed_combo, 105)
@@ -1428,12 +1441,34 @@ class CodexAssistant(ToolInstance):
                 fixed_label(label, 82)
             fixed_label(self.mode_label, 58)
             fixed_label(self.speed_label, 58)
-            grid.addWidget(top_row(self.engine_label, self.backend_combo, self.backend_setup_button), 0, 0)
-            grid.addWidget(top_row(self.model_label, self.model_combo), 1, 0)
-            grid.addWidget(
+            grid.addLayout(top_row(self.engine_label, self.backend_combo), 0, 0)
+            grid.addLayout(top_row(self.model_label, self.model_combo), 1, 0)
+            grid.addLayout(top_row(self.effort_label, self.effort_combo), 2, 0)
+            grid.addLayout(top_row(self.mode_label, self.mode_combo, self.speed_label, self.speed_combo), 3, 0)
+            grid.addLayout(
+                top_row(self.backend_setup_button, self.quick_menu_button, self.analysis_menu_button),
+                4,
+                0,
+            )
+            grid.setColumnStretch(0, 0)
+        elif layout_mode == "compact":
+            grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            fixed_control(self.backend_combo, 390)
+            fixed_control(self.model_combo, 360)
+            fixed_control(self.effort_combo, 150)
+            fixed_control(self.mode_combo, 120)
+            fixed_control(self.speed_combo, 105)
+            fixed_control(self.backend_setup_button, 120)
+            fixed_control(self.quick_menu_button, 125)
+            fixed_control(self.analysis_menu_button, 125)
+            for label in labels:
+                fixed_label(label, 82)
+            fixed_label(self.mode_label, 58)
+            fixed_label(self.speed_label, 58)
+            grid.addLayout(top_row(self.engine_label, self.backend_combo, self.backend_setup_button), 0, 0)
+            grid.addLayout(top_row(self.model_label, self.model_combo, self.effort_label, self.effort_combo), 1, 0)
+            grid.addLayout(
                 top_row(
-                    self.effort_label,
-                    self.effort_combo,
                     self.mode_label,
                     self.mode_combo,
                     self.speed_label,
@@ -1447,8 +1482,8 @@ class CodexAssistant(ToolInstance):
             grid.setColumnStretch(0, 0)
         else:
             grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            fixed_control(self.backend_combo, 420)
-            fixed_control(self.model_combo, 385)
+            fixed_control(self.backend_combo, 390)
+            fixed_control(self.model_combo, 360)
             fixed_control(self.effort_combo, 160)
             fixed_control(self.mode_combo, 130)
             fixed_control(self.speed_combo, 110)
@@ -1459,7 +1494,7 @@ class CodexAssistant(ToolInstance):
                 fixed_label(label, 74)
             fixed_label(self.mode_label, 54)
             fixed_label(self.speed_label, 54)
-            grid.addWidget(
+            grid.addLayout(
                 top_row(
                     self.engine_label,
                     self.backend_combo,
@@ -1472,7 +1507,7 @@ class CodexAssistant(ToolInstance):
                 0,
                 0,
             )
-            grid.addWidget(
+            grid.addLayout(
                 top_row(
                     self.model_label,
                     self.model_combo,
@@ -1485,6 +1520,13 @@ class CodexAssistant(ToolInstance):
                 0,
             )
             grid.setColumnStretch(0, 0)
+        try:
+            grid.invalidate()
+            parent = grid.parentWidget()
+            if parent is not None:
+                parent.updateGeometry()
+        except Exception:
+            pass
 
     def _set_action_buttons_compact(self, compact):
         grid = getattr(self, "bottom_control_row", None)

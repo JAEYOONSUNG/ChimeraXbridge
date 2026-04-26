@@ -327,7 +327,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
                 "tab": "AI",
                 "section": "Structure",
                 "display_name": "DALI",
-                "icon": "dali-logo.png",
+                "icon": "dali-logo.svg",
                 "description": "Export current/selected structure and open the DALI structure-comparison server",
             },
         ),
@@ -337,7 +337,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
                 "tab": "AI",
                 "section": "Structure",
                 "display_name": "VAST",
-                "icon": "vast-logo.png",
+                "icon": "vast-logo.svg",
                 "description": "Export current/selected structure and open NCBI VAST",
             },
         ),
@@ -357,7 +357,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
                 "tab": "AI",
                 "section": "Structure",
                 "display_name": "US-align",
-                "icon": "usalign-logo.png",
+                "icon": "usalign-logo.svg",
                 "description": "Export two or more structures and open US-align / TM-score alignment",
             },
         ),
@@ -407,6 +407,12 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             else:
                 return
             toolbar_tool._build_tabs()
+            try:
+                from .runtime_patches import style_ai_toolbar
+
+                style_ai_toolbar(session)
+            except Exception:
+                pass
             session._codex_bridge_toolbar_runtime_installed = True
     except Exception:
         pass

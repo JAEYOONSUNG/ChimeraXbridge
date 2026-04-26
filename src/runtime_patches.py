@@ -3,6 +3,35 @@ from urllib.request import Request, urlopen
 
 
 _LOG_FONT_PATCH_VERSION = 1
+_AI_TOOLBAR_STYLE_VERSION = 1
+
+_AI_TOOLBAR_BUTTON_TITLES = {
+    "Analyze",
+    "View",
+    "Site",
+    "Figure",
+    "Blast",
+    "AlphaFold",
+    "Similar",
+    "FoldMason",
+    "FoldDisco",
+    "NucDock",
+    "AF Complex",
+    "Profile",
+    "Consurf",
+    "Boltz",
+    "HHpred",
+    "Catalytic",
+    "Membrane",
+    "PISA",
+    "DALI",
+    "VAST",
+    "PDBeFold",
+    "US-align",
+    "Display Ctrl",
+}
+
+_AI_TOOLBAR_SECTION_TITLES = {"Quick", "Analysis", "Structure", "AI Tools", "Adjust"}
 
 _LOG_MONO_CSS = """
 /* codex-bridge-log-font */
@@ -41,6 +70,80 @@ def style_builtin_log(session=None):
     _patch_builtin_log_css()
     if session is not None:
         _refresh_open_builtin_log(session)
+
+
+def style_ai_toolbar(session):
+    """Normalize Codex Bridge toolbar button geometry after ChimeraX rebuilds it."""
+    try:
+        from Qt.QtCore import QSize, Qt
+        from Qt.QtWidgets import QLabel, QToolButton
+        from chimerax.toolbar.tool import get_toolbar_singleton
+    except Exception:
+        return
+
+    try:
+        toolbar_tool = get_toolbar_singleton(session, create=False)
+        ttb = getattr(toolbar_tool, "ttb", None)
+    except Exception:
+        return
+    if ttb is None:
+        return
+
+    for button in ttb.findChildren(QToolButton):
+        try:
+            title = " ".join(str(button.text() or "").split())
+        except Exception:
+            continue
+        if title not in _AI_TOOLBAR_BUTTON_TITLES:
+            continue
+        try:
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+            button.setIconSize(QSize(34, 34))
+            button.setMinimumHeight(68)
+            button.setMaximumHeight(76)
+            button.setMinimumWidth(max(button.minimumWidth(), 54))
+            font = button.font()
+            font.setPointSize(10)
+            try:
+                font.setWeight(500)
+            except Exception:
+                from Qt.QtGui import QFont
+
+                font.setWeight(QFont.Weight.Medium)
+            button.setFont(font)
+            button.setStyleSheet(
+                "QToolButton {"
+                " padding: 1px 5px 3px 5px;"
+                " margin: 0px;"
+                " text-align: center;"
+                "}"
+                "QToolButton::menu-indicator { image: none; width: 0px; }"
+            )
+            button.setProperty("codexToolbarStyled", _AI_TOOLBAR_STYLE_VERSION)
+        except Exception:
+            pass
+
+    for label in ttb.findChildren(QLabel):
+        try:
+            title = str(label.text() or "").strip()
+        except Exception:
+            continue
+        if title not in _AI_TOOLBAR_SECTION_TITLES:
+            continue
+        try:
+            label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+            label.setMinimumHeight(18)
+            font = label.font()
+            font.setPointSize(11)
+            try:
+                font.setWeight(600)
+            except Exception:
+                from Qt.QtGui import QFont
+
+                font.setWeight(QFont.Weight.DemiBold)
+            label.setFont(font)
+        except Exception:
+            pass
 
 
 def _patch_builtin_log_css():

@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 40
+    UI_LAYOUT_VERSION = 41
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1394,34 +1394,37 @@ class CodexAssistant(ToolInstance):
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
             expand_control(self.backend_combo, 220)
             expand_control(self.model_combo, 220)
-            fixed_control(self.effort_combo, 160)
-            fixed_control(self.mode_combo, 130)
-            fixed_control(self.speed_combo, 130)
-            fixed_control(self.backend_setup_button, 125)
-            fixed_control(self.quick_menu_button, 135)
-            fixed_control(self.analysis_menu_button, 135)
+            expand_control(self.effort_combo, 150)
+            expand_control(self.mode_combo, 120)
+            expand_control(self.speed_combo, 120)
+            expand_control(self.backend_setup_button, 120)
+            expand_control(self.quick_menu_button, 125)
+            expand_control(self.analysis_menu_button, 125)
             for label in labels:
                 label.setMinimumWidth(82)
                 label.setMaximumWidth(82)
             grid.addWidget(self.engine_label, 0, 0, 1, 1, label_alignment)
-            grid.addWidget(self.backend_combo, 0, 1, 1, 2)
-            grid.addWidget(self.backend_setup_button, 0, 3, 1, 1, fixed_control_alignment)
+            grid.addWidget(self.backend_combo, 0, 1, 1, 4)
+            grid.addWidget(self.backend_setup_button, 0, 5)
             grid.addWidget(self.model_label, 1, 0, 1, 1, label_alignment)
-            grid.addWidget(self.model_combo, 1, 1, 1, 3)
+            grid.addWidget(self.model_combo, 1, 1, 1, 5)
             grid.addWidget(self.effort_label, 2, 0, 1, 1, label_alignment)
-            grid.addWidget(self.effort_combo, 2, 1, 1, 1, fixed_control_alignment)
+            grid.addWidget(self.effort_combo, 2, 1)
             grid.addWidget(self.mode_label, 2, 2, 1, 1, label_alignment)
-            grid.addWidget(self.mode_combo, 2, 3, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.speed_label, 3, 0, 1, 1, label_alignment)
-            grid.addWidget(self.speed_combo, 3, 1, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.quick_menu_button, 3, 2, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.analysis_menu_button, 3, 3, 1, 1, fixed_control_alignment)
+            grid.addWidget(self.mode_combo, 2, 3)
+            grid.addWidget(self.speed_label, 2, 4, 1, 1, label_alignment)
+            grid.addWidget(self.speed_combo, 2, 5)
+            grid.addWidget(self.quick_menu_button, 3, 1, 1, 2)
+            grid.addWidget(self.analysis_menu_button, 3, 3, 1, 3)
             grid.setColumnStretch(0, 0)
             grid.setColumnStretch(1, 2)
-            grid.setColumnStretch(2, 1)
-            grid.setColumnStretch(3, 0)
+            grid.setColumnStretch(2, 0)
+            grid.setColumnStretch(3, 2)
+            grid.setColumnStretch(4, 0)
+            grid.setColumnStretch(5, 2)
             grid.setColumnMinimumWidth(0, 82)
             grid.setColumnMinimumWidth(2, 82)
+            grid.setColumnMinimumWidth(4, 70)
         else:
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
             expand_control(self.backend_combo, 220)

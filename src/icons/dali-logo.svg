@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DALI">
+  <defs>
+    <linearGradient id="dali-bg" x1="8" y1="7" x2="56" y2="57" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b1f3a"/>
+      <stop offset="1" stop-color="#1f6fb2"/>
+    </linearGradient>
+    <linearGradient id="dali-bars" x1="14" y1="17" x2="50" y2="45" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9be7ff"/>
+      <stop offset="1" stop-color="#f4fbff"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="13" fill="url(#dali-bg)"/>
+  <path d="M17 20h30M17 29h25M17 38h30" stroke="url(#dali-bars)" stroke-width="4.8" stroke-linecap="round"/>
+  <path d="M19 46c7-5 18-5 26 0" fill="none" stroke="#64d2ff" stroke-width="3.6" stroke-linecap="round"/>
+  <text x="32" y="15.2" text-anchor="middle" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="8.2" font-weight="800" fill="#eaf7ff" letter-spacing="1.2">DALI</text>
+</svg>

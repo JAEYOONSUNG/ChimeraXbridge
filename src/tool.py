@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 44
+    UI_LAYOUT_VERSION = 45
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1324,7 +1324,7 @@ class CodexAssistant(ToolInstance):
             layout_mode = "narrow"
         elif width < 580:
             layout_mode = "stacked"
-        elif width < 760:
+        elif width < 900:
             layout_mode = "compact"
         else:
             layout_mode = "wide"
@@ -1395,19 +1395,23 @@ class CodexAssistant(ToolInstance):
             widget.setMaximumWidth(max_width)
             widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-        def top_row(*widgets):
+        def top_row(*items):
             row = QWidget(grid.parentWidget())
             row.setProperty("codexDynamicTopControlRow", True)
             row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             row_layout = QHBoxLayout(row)
             row_layout.setContentsMargins(0, 0, 0, 0)
             row_layout.setSpacing(7)
-            for widget in widgets:
+            for item in items:
+                widget = item[0] if isinstance(item, tuple) else item
+                stretch = item[1] if isinstance(item, tuple) else 0
                 row_layout.addWidget(widget)
+                if stretch:
+                    row_layout.setStretch(row_layout.count() - 1, stretch)
             return row
 
-        def add_row(row_index, *widgets):
-            grid.addWidget(top_row(*widgets), row_index, 0)
+        def add_row(row_index, *items):
+            grid.addWidget(top_row(*items), row_index, 0)
 
         if layout_mode == "narrow":
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -1445,77 +1449,88 @@ class CodexAssistant(ToolInstance):
             fixed_control(self.effort_combo, 125)
             fixed_control(self.mode_combo, 105)
             fixed_control(self.speed_combo, 95)
-            fixed_control(self.backend_setup_button, 100)
-            fixed_control(self.quick_menu_button, 105)
-            fixed_control(self.analysis_menu_button, 105)
+            fixed_control(self.backend_setup_button, 92)
+            fixed_control(self.quick_menu_button, 100)
+            fixed_control(self.analysis_menu_button, 100)
             for label in labels:
                 fixed_label(label, 70)
             fixed_label(self.mode_label, 46)
             fixed_label(self.speed_label, 48)
-            add_row(0, self.engine_label, self.backend_combo)
-            add_row(1, self.model_label, self.model_combo)
+            add_row(0, self.engine_label, (self.backend_combo, 1))
+            add_row(1, self.model_label, (self.model_combo, 1))
             add_row(2, self.effort_label, self.effort_combo)
             add_row(3, self.mode_label, self.mode_combo, self.speed_label, self.speed_combo)
             add_row(4, self.backend_setup_button, self.quick_menu_button, self.analysis_menu_button)
             grid.setColumnStretch(0, 1)
         elif layout_mode == "compact":
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            flexible_control(self.backend_combo, 280)
-            flexible_control(self.model_combo, 270)
-            fixed_control(self.effort_combo, 112)
+            flexible_control(self.backend_combo, 135)
+            flexible_control(self.model_combo, 155)
+            fixed_control(self.effort_combo, 104)
             fixed_control(self.mode_combo, 95)
             fixed_control(self.speed_combo, 90)
-            fixed_control(self.backend_setup_button, 95)
+            fixed_control(self.backend_setup_button, 86)
             fixed_control(self.quick_menu_button, 95)
             fixed_control(self.analysis_menu_button, 95)
-            fixed_label(self.engine_label, 56)
-            fixed_label(self.model_label, 56)
-            fixed_label(self.effort_label, 70)
+            fixed_label(self.engine_label, 52)
+            fixed_label(self.model_label, 48)
+            fixed_label(self.effort_label, 62)
             fixed_label(self.mode_label, 44)
             fixed_label(self.speed_label, 46)
-            add_row(0, self.engine_label, self.backend_combo, self.backend_setup_button)
-            add_row(1, self.model_label, self.model_combo, self.effort_label, self.effort_combo)
             add_row(
-                2,
+                0,
+                self.engine_label,
+                (self.backend_combo, 1),
+                self.model_label,
+                (self.model_combo, 2),
+            )
+            add_row(
+                1,
+                self.effort_label,
+                self.effort_combo,
                 self.mode_label,
                 self.mode_combo,
                 self.speed_label,
                 self.speed_combo,
+            )
+            add_row(
+                2,
+                self.backend_setup_button,
                 self.quick_menu_button,
                 self.analysis_menu_button,
             )
             grid.setColumnStretch(0, 1)
         else:
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            flexible_control(self.backend_combo, 300)
-            flexible_control(self.model_combo, 280)
-            fixed_control(self.effort_combo, 112)
+            flexible_control(self.backend_combo, 135)
+            flexible_control(self.model_combo, 175)
+            fixed_control(self.effort_combo, 104)
             fixed_control(self.mode_combo, 100)
             fixed_control(self.speed_combo, 90)
-            fixed_control(self.backend_setup_button, 95)
+            fixed_control(self.backend_setup_button, 86)
             fixed_control(self.quick_menu_button, 100)
             fixed_control(self.analysis_menu_button, 100)
             fixed_label(self.engine_label, 52)
-            fixed_label(self.model_label, 52)
-            fixed_label(self.effort_label, 65)
+            fixed_label(self.model_label, 48)
+            fixed_label(self.effort_label, 62)
             fixed_label(self.mode_label, 40)
             fixed_label(self.speed_label, 45)
             add_row(
                 0,
                 self.engine_label,
-                self.backend_combo,
+                (self.backend_combo, 1),
+                self.model_label,
+                (self.model_combo, 2),
                 self.backend_setup_button,
+            )
+            add_row(
+                1,
+                self.effort_label,
+                self.effort_combo,
                 self.mode_label,
                 self.mode_combo,
                 self.speed_label,
                 self.speed_combo,
-            )
-            add_row(
-                1,
-                self.model_label,
-                self.model_combo,
-                self.effort_label,
-                self.effort_combo,
                 self.quick_menu_button,
                 self.analysis_menu_button,
             )
@@ -2511,7 +2526,7 @@ class CodexAssistant(ToolInstance):
         try:
             self.model_combo.clear()
             default_model = self._active_default_model_display(self._mode)
-            self.model_combo.addItem(f"provider default ({default_model})", "__default__")
+            self.model_combo.addItem(f"default {default_model}", "__default__")
             seen = set()
             override = get_model_override(self.session, backend_id)
             models = list(suggested_models_for_backend(backend_id))
@@ -3727,8 +3742,11 @@ class CodexAssistant(ToolInstance):
         }.get(backend_id, "engine")
         if available is None:
             available, status, _detail = backend_availability(backend_id)
+        label = get_backend_label(backend_id)
+        if backend_id == get_current_backend_id(self.session):
+            return label
         status_text = status or ("ready" if available else "unavailable")
-        return f"{get_backend_label(backend_id)} · {detail} · {status_text}"
+        return f"{label} · {detail} · {status_text}"
 
     def _request_mode_for_action(self, action):
         return "chat" if action == "ask" else self._mode

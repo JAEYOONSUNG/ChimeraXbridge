@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 50
+    UI_LAYOUT_VERSION = 51
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -476,13 +476,14 @@ class CodexAssistant(ToolInstance):
 
         self.open_action_pad_button = QPushButton("Actions", parent)
         self.open_action_pad_button.clicked.connect(self._open_action_pad)
+        self.open_display_controls_button = QPushButton("Display Ctrl", parent)
+        self.open_display_controls_button.clicked.connect(self._open_display_controls)
         self._set_action_buttons_compact(True)
-        layout.addLayout(bottom_control_row)
 
-        sequence_control_row = QGridLayout()
-        sequence_control_row.setHorizontalSpacing(6)
-        sequence_control_row.setVerticalSpacing(6)
-        self.sequence_control_row = sequence_control_row
+        sequence_status_row = QGridLayout()
+        sequence_status_row.setHorizontalSpacing(6)
+        sequence_status_row.setVerticalSpacing(6)
+        self.sequence_status_row = sequence_status_row
         self.sequence_status_label = QLabel("Sequence: no protein chain resolved", parent)
         self.sequence_status_label.setWordWrap(True)
         self.sequence_status_label.setMinimumWidth(0)
@@ -495,7 +496,15 @@ class CodexAssistant(ToolInstance):
             " padding: 6px 8px;"
             "}"
         )
-        sequence_control_row.addWidget(self.sequence_status_label, 0, 0, 1, 4)
+        sequence_status_row.addWidget(self.sequence_status_label, 0, 0)
+        sequence_status_row.setColumnStretch(0, 1)
+        layout.addLayout(sequence_status_row)
+        layout.addLayout(bottom_control_row)
+
+        sequence_control_row = QGridLayout()
+        sequence_control_row.setHorizontalSpacing(6)
+        sequence_control_row.setVerticalSpacing(6)
+        self.sequence_control_row = sequence_control_row
 
         self.sequence_strip_edit = None
 
@@ -1528,18 +1537,19 @@ class CodexAssistant(ToolInstance):
             grid.addWidget(self.toggle_workspace_button, 0, 1)
             grid.addWidget(self.toggle_terminal_button, 1, 0)
             grid.addWidget(self.open_action_pad_button, 1, 1)
-            grid.addWidget(self.toggle_selection_button, 2, 0, 1, 2)
+            grid.addWidget(self.toggle_selection_button, 2, 0)
+            grid.addWidget(self.open_display_controls_button, 2, 1)
             grid.setColumnStretch(0, 1)
             grid.setColumnStretch(1, 1)
         else:
             grid.addWidget(self.refresh_button, 0, 0)
             grid.addWidget(self.toggle_workspace_button, 0, 1)
             grid.addWidget(self.toggle_terminal_button, 0, 2)
-            grid.addWidget(self.open_action_pad_button, 1, 0, 1, 2)
-            grid.addWidget(self.toggle_selection_button, 1, 2)
-            grid.setColumnStretch(0, 1)
-            grid.setColumnStretch(1, 1)
-            grid.setColumnStretch(2, 1)
+            grid.addWidget(self.open_action_pad_button, 1, 0)
+            grid.addWidget(self.toggle_selection_button, 1, 1)
+            grid.addWidget(self.open_display_controls_button, 1, 2)
+            for column in range(3):
+                grid.setColumnStretch(column, 1)
 
     def _icon_path(self, icon_name):
         return os.path.join(os.path.dirname(__file__), "icons", icon_name)
@@ -1617,19 +1627,17 @@ class CodexAssistant(ToolInstance):
             return
         self._clear_grid_layout(grid)
         if compact:
-            grid.addWidget(self.sequence_status_label, 0, 0, 1, 2)
-            grid.addWidget(self.quick_sequence_bar_button, 1, 0)
-            grid.addWidget(self.quick_sequence_button, 1, 1)
-            grid.addWidget(self.quick_motif_button, 2, 0)
-            grid.addWidget(self.quick_motif_view_button, 2, 1)
+            grid.addWidget(self.quick_sequence_bar_button, 0, 0)
+            grid.addWidget(self.quick_sequence_button, 0, 1)
+            grid.addWidget(self.quick_motif_button, 1, 0)
+            grid.addWidget(self.quick_motif_view_button, 1, 1)
             grid.setColumnStretch(0, 1)
             grid.setColumnStretch(1, 1)
         else:
-            grid.addWidget(self.sequence_status_label, 0, 0, 1, 4)
-            grid.addWidget(self.quick_sequence_bar_button, 1, 0)
-            grid.addWidget(self.quick_sequence_button, 1, 1)
-            grid.addWidget(self.quick_motif_button, 1, 2)
-            grid.addWidget(self.quick_motif_view_button, 1, 3)
+            grid.addWidget(self.quick_sequence_bar_button, 0, 0)
+            grid.addWidget(self.quick_sequence_button, 0, 1)
+            grid.addWidget(self.quick_motif_button, 0, 2)
+            grid.addWidget(self.quick_motif_view_button, 0, 3)
             for column in range(4):
                 grid.setColumnStretch(column, 1)
 
@@ -1985,6 +1993,14 @@ class CodexAssistant(ToolInstance):
 
     def _open_action_pad(self):
         self._show_action_pad_tab()
+
+    def _open_display_controls(self):
+        from .display_controls import CodexDisplayControls
+
+        controls = CodexDisplayControls.get_singleton(self.session, create=True, display=True)
+        if controls is not None:
+            controls.display(True)
+        self._append_system("display controls opened")
 
     def _toggle_sequence_bar(self):
         try:

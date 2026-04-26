@@ -6,7 +6,7 @@ from pathlib import Path
 
 from Qt.QtCore import QTimer
 from Qt.QtCore import QSize
-from Qt.QtWidgets import QAbstractScrollArea, QDockWidget, QLayout, QSizePolicy, QWidget
+from Qt.QtWidgets import QAbstractButton, QAbstractScrollArea, QComboBox, QDockWidget, QLayout, QSizePolicy, QWidget
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DIR = REPO_ROOT / "src"
@@ -34,14 +34,18 @@ def _relax_dock_content_constraints(dock_widget):
             pass
 
     for widget in tuple(dict.fromkeys(widgets)):
+        protected_control = isinstance(widget, (QAbstractButton, QComboBox))
         try:
             widget.setMinimumSize(0, 0)
-            widget.setMinimumHeight(0)
+            if protected_control:
+                widget.setMinimumHeight(24)
+            else:
+                widget.setMinimumHeight(0)
             widget.setMaximumHeight(16777215)
         except Exception:
             pass
 
-        if aggressive:
+        if aggressive and not protected_control:
             try:
                 policy = widget.sizePolicy()
                 policy.setVerticalPolicy(QSizePolicy.Policy.Ignored)

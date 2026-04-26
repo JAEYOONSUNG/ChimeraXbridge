@@ -1,0 +1,759 @@
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import threading
+import time
+import zipfile
+from pathlib import Path
+
+from chimerax.core.tools import ToolInstance, get_singleton
+
+
+CAVER_WEB_URL = "https://loschmidt.chemi.muni.cz/caverweb/"
+DEFAULT_MAX_TUNNELS = 40
+
+
+def run_caver_action(session, arg="", executor=None):
+    action, rest = _split_action_arg(arg)
+    if action in {"", "panel", "tool", "gui", "open"}:
+        tool = CodexCaverTool.get_singleton(session)
+        if tool is not None:
+            tool.display(True)
+            tool.refresh()
+        return "Opened CAVER panel."
+    if action in {"web", "server", "online"}:
+        from .toolbar_actions import launch_caver_server
+
+        return launch_caver_server(session, executor=executor)
+    if action in {"prepare", "export", "job"}:
+        job = prepare_caver_job(session, executor=executor)
+        return format_caver_job(job)
+    if action in {"run", "local"}:
+        return run_caver_local(session, executor=executor)
+    if action in {"import", "load"}:
+        if not rest:
+            return "Usage: /caver import /path/to/caver_results.zip-or-folder"
+        return import_caver_results(session, rest, executor=executor)
+    if action in {"lining", "neighbors", "neighbours", "select"}:
+        return select_caver_lining_residues(session, rest, executor=executor)
+    if action in {"status", "help"}:
+        return caver_status(session)
+    return "Usage: /caver [panel|prepare|run|web|import <path>|lining [tunnel-number]]"
+
+
+def caver_status(session):
+    start = get_caver_start_point(session)
+    home, jar = _resolve_caver_home_and_jar()
+    imported = getattr(session, "_codex_bridge_caver_tunnels", []) or []
+    lines = [
+        "CAVER integration",
+        f"- start point: {start['label']} ({start['coords'][0]:.2f}, {start['coords'][1]:.2f}, {start['coords'][2]:.2f})"
+        if start
+        else "- start point: no model/selection resolved",
+        f"- CAVER_HOME: {home or '(not configured)'}",
+        f"- caver.jar: {jar or '(not configured)'}",
+        f"- imported tunnels: {len(imported)}",
+        "- local run needs CAVER_HOME or CAVER_JAR plus Java; otherwise use Prepare/Web and Import Result.",
+    ]
+    return "\n".join(lines)
+
+
+def get_caver_start_point(session):
+    try:
+        import numpy as np
+        from chimerax.atomic import AtomicStructure, selected_atoms, selected_residues
+    except Exception:
+        return None
+
+    try:
+        atoms = selected_atoms(session)
+        if len(atoms):
+            coords = np.asarray(atoms.scene_coords, dtype=float).mean(axis=0)
+            return {"coords": tuple(float(v) for v in coords), "label": f"selected atoms ({len(atoms)})"}
+    except Exception:
+        pass
+
+    try:
+        residues = selected_residues(session)
+        residue_coords = []
+        residue_count = 0
+        for _structure, _chain_id, group in residues.by_chain:
+            for residue in list(group):
+                residue_count += 1
+                try:
+                    residue_coords.append(np.asarray(residue.atoms.scene_coords, dtype=float))
+                except Exception:
+                    pass
+        if residue_coords:
+            coords = np.concatenate(residue_coords, axis=0).mean(axis=0)
+            return {"coords": tuple(float(v) for v in coords), "label": f"selected residues ({residue_count})"}
+    except Exception:
+        pass
+
+    try:
+        for model in session.models.list(type=AtomicStructure):
+            atoms = model.atoms
+            if not len(atoms):
+                continue
+            coords = np.asarray(atoms.scene_coords, dtype=float).mean(axis=0)
+            return {
+                "coords": tuple(float(v) for v in coords),
+                "label": f"model center #{getattr(model, 'id_string', '?')}",
+            }
+    except Exception:
+        pass
+    return None
+
+
+def prepare_caver_job(session, output_dir=None, executor=None):
+    from .toolbar_actions import _export_first_structure_file
+
+    start = get_caver_start_point(session)
+    if start is None:
+        raise RuntimeError("No atomic model or selection is available for CAVER start point.")
+
+    root = Path(output_dir).expanduser() if output_dir else _default_job_dir()
+    input_dir = root / "input_pdb"
+    output = root / "output"
+    input_dir.mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=True)
+
+    exported, _tmp_dir = _export_first_structure_file(session, fmt="pdb", prefix="chimerax_caver_query", executor=executor)
+    if exported is None:
+        raise RuntimeError("No atomic structure is open for CAVER.")
+    query_path = input_dir / "query.pdb"
+    shutil.copy2(exported, query_path)
+
+    config_path = root / "config.txt"
+    coords = start["coords"]
+    config_path.write_text(
+        "\n".join(
+            [
+                "# CAVER config generated by ChimeraXbridge",
+                "# Edit probe/shell settings here if needed before running local CAVER.",
+                "load_tunnels no",
+                "load_cluster_tree no",
+                "stop_after never",
+                "time_sparsity 1",
+                "first_frame 1",
+                "last_frame 1",
+                f"starting_point_coordinates {coords[0]:.3f} {coords[1]:.3f} {coords[2]:.3f}",
+                "probe_radius 0.9",
+                "shell_radius 3",
+                "shell_depth 4",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    job = {
+        "root": root,
+        "input_dir": input_dir,
+        "output_dir": output,
+        "query_pdb": query_path,
+        "config": config_path,
+        "start": start,
+    }
+    session._codex_bridge_last_caver_job = job
+    return job
+
+
+def format_caver_job(job):
+    return "\n".join(
+        [
+            "CAVER job prepared.",
+            f"- query PDB: {job['query_pdb']}",
+            f"- config: {job['config']}",
+            f"- output: {job['output_dir']}",
+            f"- start point: {job['start']['label']} ({job['start']['coords'][0]:.2f}, {job['start']['coords'][1]:.2f}, {job['start']['coords'][2]:.2f})",
+        ]
+    )
+
+
+def run_caver_local(session, output_dir=None, executor=None, import_after=True):
+    home, jar = _resolve_caver_home_and_jar()
+    java = shutil.which(os.environ.get("CAVER_JAVA", "java"))
+    if not java:
+        return "Local CAVER not run: Java was not found. Set CAVER_JAVA or install Java."
+    if not jar:
+        return "Local CAVER not run: set CAVER_HOME to a CAVER 3.0 directory or CAVER_JAR to caver.jar."
+    if not home:
+        home = str(Path(jar).resolve().parent)
+
+    try:
+        job = prepare_caver_job(session, output_dir=output_dir, executor=executor)
+    except Exception as err:
+        return f"Local CAVER not run: {err}"
+
+    command = [
+        java,
+        "-Xmx1200m",
+        "-cp",
+        str(Path(home) / "lib" / "*"),
+        "-jar",
+        str(jar),
+        "-home",
+        str(home),
+        "-pdb",
+        str(job["input_dir"]),
+        "-conf",
+        str(job["config"]),
+        "-out",
+        str(job["output_dir"]),
+    ]
+    env = os.environ.copy()
+    result = subprocess.run(command, capture_output=True, text=True, timeout=3600, check=False, env=env)
+    log_path = job["root"] / "caver_run.log"
+    log_path.write_text(
+        "COMMAND:\n"
+        + " ".join(_quote_shell(part) for part in command)
+        + "\n\nSTDOUT:\n"
+        + (result.stdout or "")
+        + "\n\nSTDERR:\n"
+        + (result.stderr or ""),
+        encoding="utf-8",
+    )
+    if result.returncode != 0:
+        return "\n".join(
+            [
+                f"CAVER exited with code {result.returncode}.",
+                f"- job: {job['root']}",
+                f"- log: {log_path}",
+                "- inspect config/output and rerun, or use CAVER Web from the panel.",
+            ]
+        )
+    if import_after:
+        imported = import_caver_results(session, job["output_dir"], executor=executor)
+    else:
+        imported = "Import skipped."
+    return "\n".join(["Local CAVER finished.", f"- job: {job['root']}", f"- log: {log_path}", imported])
+
+
+def import_caver_results(session, path, executor=None, max_tunnels=DEFAULT_MAX_TUNNELS):
+    result_path = Path(str(path)).expanduser()
+    return _run_on_ui_thread(
+        session,
+        lambda: _import_caver_results_on_ui(session, result_path, executor=executor, max_tunnels=max_tunnels),
+    )
+
+
+def select_caver_lining_residues(session, arg="", executor=None, distance=4.0):
+    tunnels = list(getattr(session, "_codex_bridge_caver_tunnels", []) or [])
+    if not tunnels:
+        return "No CAVER tunnels are imported. Use CAVER panel > Import Result first."
+    try:
+        index = int(str(arg or "").strip().split()[0]) - 1 if str(arg or "").strip() else 0
+    except Exception:
+        index = 0
+    index = max(0, min(index, len(tunnels) - 1))
+    tunnel = tunnels[index]
+    return _run_on_ui_thread(
+        session,
+        lambda: _select_lining_on_ui(session, tunnel, distance=distance, executor=executor),
+    )
+
+
+def _import_caver_results_on_ui(session, result_path, executor=None, max_tunnels=DEFAULT_MAX_TUNNELS):
+    root, cleanup_root = _materialize_caver_result_path(result_path)
+    try:
+        tunnel_files = _find_caver_tunnel_files(root)
+        if not tunnel_files:
+            return f"No CAVER tunnel PDB files found under {result_path}."
+        tunnel_files = tunnel_files[: max(1, int(max_tunnels))]
+        before = {id(model) for model in session.models.list()}
+        opened = []
+        commands = []
+        for path in tunnel_files:
+            label = _tunnel_label_from_path(path)
+            command = f"open {_quote_chimerax(str(path))} name {_quote_chimerax(label)}"
+            _run(session, command, executor=executor)
+            commands.append(command)
+            opened.extend(_new_atomic_models(session, before))
+            before.update(id(model) for model in opened)
+
+        opened = _dedupe_models(opened)
+        if not opened:
+            return f"CAVER tunnel files were opened, but no atomic tunnel models were detected: {result_path}"
+        _style_tunnel_models(session, opened, executor=executor)
+        summary = _summarize_tunnels(opened)
+        session._codex_bridge_caver_tunnels = [
+            {"model": model, "spec": f"#{getattr(model, 'id_string', '?')}", "name": getattr(model, "name", "tunnel")}
+            for model in opened
+        ]
+        lines = [
+            f"Imported {len(opened)} CAVER tunnel model(s).",
+            f"- source: {result_path}",
+            "- radii: atom radii set from CAVER B-factor values",
+            "- style: spheres + rainbow by tunnel",
+            "- command: /caver lining [1..N] selects protein residues within 4 A of a tunnel",
+        ]
+        lines.extend(summary[:8])
+        if len(summary) > 8:
+            lines.append(f"- ... {len(summary) - 8} more tunnel(s)")
+        return "\n".join(lines)
+    finally:
+        if cleanup_root is not None:
+            session._codex_bridge_caver_temp_roots = list(getattr(session, "_codex_bridge_caver_temp_roots", []) or [])
+            session._codex_bridge_caver_temp_roots.append(str(cleanup_root))
+
+
+def _style_tunnel_models(session, models, executor=None):
+    specs = " ".join(f"#{getattr(model, 'id_string', '?')}" for model in models)
+    if not specs:
+        return
+    for model in models:
+        try:
+            for atom in model.atoms:
+                radius = float(getattr(atom, "bfactor", 0.0) or 0.0)
+                if radius > 0:
+                    atom.radius = max(0.08, min(radius, 8.0))
+        except Exception:
+            pass
+    for command in (f"style {specs} sphere", f"rainbow {specs} structures", f"transparency {specs} 12 target a"):
+        try:
+            _run(session, command, executor=executor)
+        except Exception:
+            pass
+
+
+def _select_lining_on_ui(session, tunnel, distance=4.0, executor=None):
+    try:
+        import numpy as np
+        from chimerax.atomic import AtomicStructure
+    except Exception as err:
+        return f"Could not select CAVER lining residues: {err}"
+
+    tunnel_model = tunnel.get("model")
+    if tunnel_model is None:
+        return "The selected CAVER tunnel model is no longer available."
+    try:
+        tunnel_coords = np.asarray(tunnel_model.atoms.scene_coords, dtype=float)
+    except Exception:
+        return "The selected CAVER tunnel has no atom coordinates."
+    if tunnel_coords.size == 0:
+        return "The selected CAVER tunnel has no coordinates."
+
+    selected_specs = []
+    tunnel_ids = {id(item.get("model")) for item in getattr(session, "_codex_bridge_caver_tunnels", []) or []}
+    cutoff2 = float(distance) * float(distance)
+    for model in session.models.list(type=AtomicStructure):
+        if id(model) in tunnel_ids:
+            continue
+        model_spec = f"#{getattr(model, 'id_string', '?')}"
+        for residue in model.residues:
+            try:
+                coords = np.asarray(residue.atoms.scene_coords, dtype=float)
+            except Exception:
+                continue
+            if coords.size == 0:
+                continue
+            if _within_cutoff(coords, tunnel_coords, cutoff2):
+                selected_specs.append(_residue_spec(model_spec, residue))
+
+    if not selected_specs:
+        return f"No protein residues found within {distance:.1f} A of {tunnel.get('name', 'CAVER tunnel')}."
+    selection_text = " ".join(selected_specs[:400])
+    commands = [
+        f"select {selection_text}",
+        "name frozen caver_lining sel",
+        "show sel atoms",
+        "style sel stick",
+        "color sel #ffcc66 target ac",
+    ]
+    for command in commands:
+        _run(session, command, executor=executor)
+    return "\n".join(
+        [
+            f"Selected {len(selected_specs)} residue(s) lining {tunnel.get('name', 'CAVER tunnel')}.",
+            "- named selection: caver_lining",
+            "Executed ChimeraX commands:",
+            *[f"- {command}" for command in commands],
+        ]
+    )
+
+
+def _within_cutoff(coords_a, coords_b, cutoff2):
+    import numpy as np
+
+    # Chunked distance test avoids allocating a huge all-vs-all matrix for large proteins.
+    coords_a = np.asarray(coords_a, dtype=float)
+    coords_b = np.asarray(coords_b, dtype=float)
+    for start in range(0, len(coords_a), 64):
+        delta = coords_a[start : start + 64, None, :] - coords_b[None, :, :]
+        if np.any(np.sum(delta * delta, axis=2) <= cutoff2):
+            return True
+    return False
+
+
+def _residue_spec(model_spec, residue):
+    chain = str(getattr(residue, "chain_id", "") or "?").strip() or "?"
+    number = getattr(residue, "number", "?")
+    return f"{model_spec}/{chain}:{number}"
+
+
+def _find_caver_tunnel_files(root):
+    root = Path(root)
+    preferred_dirs = [
+        root / "results" / "data" / "clusters_timeless",
+        root / "data" / "clusters_timeless",
+        root / "clusters_timeless",
+    ]
+    candidates = []
+    for directory in preferred_dirs:
+        if directory.exists():
+            candidates.extend(directory.glob("tun*.pdb"))
+    if not candidates:
+        candidates.extend(root.rglob("tun_cl_*.pdb"))
+    if not candidates:
+        candidates.extend(path for path in root.rglob("*.pdb") if "tun" in path.name.lower())
+    return sorted(set(candidates), key=_tunnel_sort_key)
+
+
+def _materialize_caver_result_path(path):
+    path = Path(path).expanduser()
+    if not path.exists():
+        raise FileNotFoundError(str(path))
+    if path.is_dir():
+        return path, None
+    suffix = path.suffix.lower()
+    if suffix == ".zip":
+        root = Path(tempfile.mkdtemp(prefix="chimerax_caver_import_"))
+        with zipfile.ZipFile(path) as archive:
+            archive.extractall(root)
+        return root, root
+    if suffix == ".pdb":
+        root = Path(tempfile.mkdtemp(prefix="chimerax_caver_import_"))
+        shutil.copy2(path, root / path.name)
+        return root, root
+    raise ValueError("CAVER import expects a result folder, .zip archive, or tunnel .pdb file.")
+
+
+def _new_atomic_models(session, before_ids):
+    try:
+        from chimerax.atomic import AtomicStructure
+    except Exception:
+        return []
+    return [model for model in session.models.list(type=AtomicStructure) if id(model) not in before_ids]
+
+
+def _dedupe_models(models):
+    seen = set()
+    unique = []
+    for model in models:
+        marker = id(model)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        unique.append(model)
+    return unique
+
+
+def _summarize_tunnels(models):
+    lines = []
+    for index, model in enumerate(models, start=1):
+        radii = []
+        try:
+            radii = [float(getattr(atom, "bfactor", 0.0) or 0.0) for atom in model.atoms]
+            radii = [value for value in radii if value > 0]
+        except Exception:
+            radii = []
+        if radii:
+            lines.append(
+                f"- tunnel {index}: {getattr(model, 'name', 'tunnel')} radius min {min(radii):.2f} A, max {max(radii):.2f} A"
+            )
+        else:
+            lines.append(f"- tunnel {index}: {getattr(model, 'name', 'tunnel')}")
+    return lines
+
+
+def _tunnel_label_from_path(path):
+    match = re.search(r"tun(?:nel)?[_-]?cl[_-]?(\d+)", path.stem, re.I)
+    if match:
+        return f"CAVER tunnel {int(match.group(1)):02d}"
+    return "CAVER " + path.stem
+
+
+def _tunnel_sort_key(path):
+    numbers = [int(item) for item in re.findall(r"\d+", path.name)]
+    return (numbers or [999999], path.name)
+
+
+def _default_job_dir():
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    return Path.home() / "ChimeraX_CAVER" / f"caver_job_{stamp}"
+
+
+def _resolve_caver_home_and_jar():
+    jar_env = os.environ.get("CAVER_JAR")
+    home_env = os.environ.get("CAVER_HOME")
+    home = Path(home_env).expanduser() if home_env else None
+    jar = Path(jar_env).expanduser() if jar_env else None
+    if jar is None and home is not None:
+        candidate = home / "caver.jar"
+        if candidate.exists():
+            jar = candidate
+    if home is None and jar is not None:
+        home = jar.parent
+    return (str(home) if home and home.exists() else "", str(jar) if jar and jar.exists() else "")
+
+
+def _quote_chimerax(text):
+    from chimerax.core.commands import StringArg
+
+    return StringArg.unparse(str(text))
+
+
+def _quote_shell(text):
+    import shlex
+
+    return shlex.quote(str(text))
+
+
+def _run(session, command, executor=None):
+    if executor is not None:
+        return executor(command)
+    from chimerax.core.commands import run
+
+    return run(session, command)
+
+
+def _run_on_ui_thread(session, func):
+    if _is_ui_thread():
+        return func()
+    result = {}
+    done = threading.Event()
+
+    def wrapped():
+        try:
+            result["value"] = func()
+        except Exception as err:
+            result["error"] = err
+        finally:
+            done.set()
+
+    try:
+        session.ui.thread_safe(wrapped)
+        done.wait(120)
+    except Exception:
+        return func()
+    if not done.is_set():
+        raise TimeoutError("Timed out waiting for ChimeraX UI thread.")
+    if "error" in result:
+        raise result["error"]
+    return result.get("value")
+
+
+def _is_ui_thread():
+    try:
+        from Qt.QtCore import QThread
+        from Qt.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        return app is not None and QThread.currentThread() == app.thread()
+    except Exception:
+        return True
+
+
+def _split_action_arg(arg):
+    text = str(arg or "").strip()
+    if not text:
+        return "", ""
+    head, _, tail = text.partition(" ")
+    return head.strip().lower(), tail.strip()
+
+
+class CodexCaverTool(ToolInstance):
+
+    SESSION_ENDURING = False
+    SESSION_SAVE = False
+    UI_LAYOUT_VERSION = 1
+
+    @classmethod
+    def get_singleton(cls, session, create=True, display=True, **kw):
+        instance = get_singleton(session, cls, "CAVER", create=create, display=display, **kw)
+        if instance is not None and getattr(instance, "_ui_layout_version", None) != cls.UI_LAYOUT_VERSION:
+            try:
+                instance.delete()
+            except Exception:
+                pass
+            instance = get_singleton(session, cls, "CAVER", create=create, display=display, **kw)
+        return instance
+
+    def __init__(self, session, tool_name):
+        super().__init__(session, tool_name)
+        self._ui_layout_version = self.UI_LAYOUT_VERSION
+        from chimerax.ui import MainToolWindow
+
+        self.tool_window = MainToolWindow(self, close_destroys=True)
+        self._build_ui()
+
+    def _build_ui(self):
+        from Qt.QtCore import Qt
+        from Qt.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QPlainTextEdit, QVBoxLayout
+
+        parent = self.tool_window.ui_area
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
+        parent.setLayout(layout)
+        parent.setStyleSheet(
+            "QWidget { background: #171a1d; color: #e5e8ec; }"
+            "QLabel { background: transparent; border: none; }"
+            "QLineEdit, QPlainTextEdit { background: #101417; color: #eef1f4; border: 1px solid #344150; border-radius: 7px; padding: 5px 8px; }"
+            "QPushButton { background: #20262d; color: #eef1f4; border: 1px solid #344150; border-radius: 7px; padding: 5px 9px; }"
+            "QPushButton:hover { background: #29313a; border-color: #5c6a78; }"
+        )
+
+        title = QLabel("CAVER tunnel/channel analysis", parent)
+        title_font = title.font()
+        title_font.setPointSize(13)
+        title_font.setBold(True)
+        title.setFont(title_font)
+        layout.addWidget(title)
+
+        caption = QLabel("Select catalytic residues, ligand, or a cavity-adjacent residue first. CAVER uses that centroid as the starting point.", parent)
+        caption.setWordWrap(True)
+        layout.addWidget(caption)
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(6)
+        layout.addLayout(grid)
+
+        self.start_label = QLabel("Start", parent)
+        self.start_field = QLineEdit(parent)
+        self.start_field.setReadOnly(True)
+        grid.addWidget(self.start_label, 0, 0)
+        grid.addWidget(self.start_field, 0, 1)
+
+        self.caver_home_label = QLabel("CAVER_HOME", parent)
+        self.caver_home_field = QLineEdit(parent)
+        self.caver_home_field.setPlaceholderText("Optional: /path/to/caver or set CAVER_HOME")
+        grid.addWidget(self.caver_home_label, 1, 0)
+        grid.addWidget(self.caver_home_field, 1, 1)
+
+        row = QHBoxLayout()
+        layout.addLayout(row)
+        buttons = [
+            ("Refresh", self.refresh),
+            ("Prepare Job", self.prepare_job),
+            ("Run Local", self.run_local),
+            ("Open Web", self.open_web),
+        ]
+        for label, callback in buttons:
+            button = QPushButton(label, parent)
+            button.clicked.connect(callback)
+            row.addWidget(button)
+
+        row2 = QHBoxLayout()
+        layout.addLayout(row2)
+        buttons2 = [
+            ("Import ZIP/PDB", self.import_file),
+            ("Import Folder", self.import_folder),
+            ("Select Lining", self.select_lining),
+            ("Status", self.show_status),
+        ]
+        for label, callback in buttons2:
+            button = QPushButton(label, parent)
+            button.clicked.connect(callback)
+            row2.addWidget(button)
+
+        self.output = QPlainTextEdit(parent)
+        self.output.setReadOnly(True)
+        self.output.setMinimumHeight(130)
+        layout.addWidget(self.output, 1)
+        self.tool_window.manage(placement="side")
+        self.refresh()
+
+    def refresh(self):
+        start = get_caver_start_point(self.session)
+        if start is None:
+            self.start_field.setText("No atomic model/selection")
+        else:
+            coords = start["coords"]
+            self.start_field.setText(f"{start['label']} · {coords[0]:.2f}, {coords[1]:.2f}, {coords[2]:.2f}")
+        home, _jar = _resolve_caver_home_and_jar()
+        if home and not self.caver_home_field.text().strip():
+            self.caver_home_field.setText(home)
+
+    def prepare_job(self):
+        self._append("Preparing CAVER job...")
+        try:
+            job = prepare_caver_job(self.session)
+            self._append(format_caver_job(job))
+        except Exception as err:
+            self._append(f"error: {err}")
+
+    def run_local(self):
+        home_text = self.caver_home_field.text().strip()
+        if home_text:
+            os.environ["CAVER_HOME"] = home_text
+        self._append("Running local CAVER in background...")
+
+        def worker():
+            try:
+                result = run_caver_local(self.session)
+            except Exception as err:
+                result = f"error: {err}"
+            self._append_threadsafe(result)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def open_web(self):
+        self._append("Opening CAVER Web...")
+        try:
+            from .toolbar_actions import launch_caver_server
+
+            self._append(launch_caver_server(self.session))
+        except Exception as err:
+            self._append(f"error: {err}")
+
+    def import_file(self):
+        from Qt.QtWidgets import QFileDialog
+
+        path, _filter = QFileDialog.getOpenFileName(
+            self.tool_window.ui_area,
+            "Import CAVER result ZIP or tunnel PDB",
+            str(Path.home()),
+            "CAVER results (*.zip *.pdb);;All files (*)",
+        )
+        if path:
+            self._append(import_caver_results(self.session, path))
+
+    def import_folder(self):
+        from Qt.QtWidgets import QFileDialog
+
+        path = QFileDialog.getExistingDirectory(self.tool_window.ui_area, "Import CAVER result folder", str(Path.home()))
+        if path:
+            self._append(import_caver_results(self.session, path))
+
+    def select_lining(self):
+        try:
+            self._append(select_caver_lining_residues(self.session))
+        except Exception as err:
+            self._append(f"error: {err}")
+
+    def show_status(self):
+        self.refresh()
+        self._append(caver_status(self.session))
+
+    def displayed(self):
+        dock_widget = getattr(self.tool_window, "_dock_widget", None)
+        if dock_widget is not None:
+            return bool(dock_widget.isVisible())
+        ui_area = getattr(self.tool_window, "ui_area", None)
+        return bool(ui_area is not None and ui_area.isVisible())
+
+    def _append(self, text):
+        self.output.appendPlainText(str(text or ""))
+        scrollbar = self.output.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
+    def _append_threadsafe(self, text):
+        try:
+            self.session.ui.thread_safe(lambda: self._append(text))
+        except Exception:
+            pass

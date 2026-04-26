@@ -2001,7 +2001,9 @@ def run_toolbar_action(session, name):
         _run_toolbar_chimerax_task(session, "PISA", pisa_task)
         return
     elif action == "ai-analysis-caver":
-        _run_toolbar_chimerax_task(session, "CAVER", lambda executor: launch_caver_server(session, executor=executor))
+        from .caver import CodexCaverTool
+
+        _toggle_singleton_tool(session, CodexCaverTool, "CAVER")
         return
     elif action == "ai-analysis-dali":
         _run_toolbar_chimerax_task(session, "DALI", lambda executor: launch_dali_server(session, executor=executor))

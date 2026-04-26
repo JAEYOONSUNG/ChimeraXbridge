@@ -179,6 +179,7 @@ def list_builtin_commands():
         "/membrane [view|mlp|web|opm|charmm|memgen|clear]  create a virtual membrane slab and launch membrane builders",
         "/pisa [view|report|web]  select interface residues, measure buried area, and open PDBePISA",
         "/pisaweb            export current/selected structure and upload to PDBePISA",
+        "/caver [panel|prepare|run|web|import <path>|lining]  native CAVER job/result workflow",
         "/seqview [chain]     open Sequence Viewer for a chain",
         "/profile [alignment-id]  open Profile Grid for an existing alignment",
         "/dali [selection|domain N|spec]  export a target and open the DALI server",
@@ -395,6 +396,12 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
 
     if command == "/pisaweb":
         write_block(_run_structure_web_tool(session, "pisa", executor=executor))
+        return True
+
+    if command == "/caver":
+        from .caver import run_caver_action
+
+        write_block(run_caver_action(session, arg, executor=executor))
         return True
 
     if command == "/usalign":

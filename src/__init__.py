@@ -686,6 +686,9 @@ class _MyAPI(BundleAPI):
         if ti.name == "Display Controls":
             from .display_controls import CodexDisplayControls
             return CodexDisplayControls.get_singleton(session)
+        if ti.name == "CAVER":
+            from .caver import CodexCaverTool
+            return CodexCaverTool.get_singleton(session)
         raise ValueError("trying to start unknown tool: %s" % ti.name)
 
     @staticmethod
@@ -702,6 +705,9 @@ class _MyAPI(BundleAPI):
         if class_name == "CodexDisplayControls":
             from .display_controls import CodexDisplayControls
             return CodexDisplayControls
+        if class_name == "CodexCaverTool":
+            from .caver import CodexCaverTool
+            return CodexCaverTool
         return None
 
 

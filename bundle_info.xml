@@ -109,6 +109,8 @@ ChimeraX bundle names must start with "ChimeraX-".
       PyMOL-style clickable protein sequence bar above the structure view</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Tool :: Display Controls :: General ::
       Slider controls and a rainbow color palette for molecule display</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Tool :: CAVER :: General ::
+      Native CAVER job preparation, result import, tunnel display, and lining-residue selection</ChimeraXClassifier>
   </Classifiers>
 
 </BundleInfo>

@@ -3646,6 +3646,8 @@ class CodexAssistant(ToolInstance):
             "pisaweb": "/pisaweb",
             "pdbe-pisa": "/pisa",
             "pdbepisa": "/pisa",
+            "caver": "/caver",
+            "caverweb": "/caver web",
             "usalign": "/usalign",
             "us-align": "/usalign",
             "tmalign": "/usalign",

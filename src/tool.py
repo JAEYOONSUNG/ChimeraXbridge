@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 36
+    UI_LAYOUT_VERSION = 37
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -455,7 +455,7 @@ class CodexAssistant(ToolInstance):
         self.width_equal_button = QPushButton("1:1", parent)
         self.width_equal_button.clicked.connect(lambda: self._set_dock_fraction(0.5))
         self.width_equal_button.setVisible(False)
-        self._set_top_controls_compact(True)
+        self._set_top_controls_compact("narrow")
         layout.addLayout(top_control_row)
 
         bottom_control_row = QGridLayout()
@@ -1065,6 +1065,8 @@ class CodexAssistant(ToolInstance):
         self.workspace_tab_index = self.content_tabs.insertTab(1, workspace_panel, "Context")
 
         self._make_small_screen_friendly(content_container)
+        self._compact_layout_active = None
+        self._apply_responsive_layout(content_container.width() or 640)
         parent.setLayout(outer_layout)
         self.tool_window.manage(placement="side")
         self._sync_control_widgets()
@@ -1300,49 +1302,137 @@ class CodexAssistant(ToolInstance):
                 pass
 
     def _apply_responsive_layout(self, width):
-        compact = int(width or 0) < 900
-        if compact == self._compact_layout_active:
+        width = int(width or 0)
+        if width < 600:
+            layout_mode = "narrow"
+        elif width < 1050:
+            layout_mode = "compact"
+        else:
+            layout_mode = "wide"
+        if layout_mode == self._compact_layout_active:
             return
-        self._compact_layout_active = compact
-        self._set_top_controls_compact(compact)
+        self._compact_layout_active = layout_mode
+        self._set_top_controls_compact(layout_mode)
+        compact = layout_mode != "wide"
         self._set_action_buttons_compact(compact)
         self._set_sequence_buttons_compact(compact)
 
-    def _set_top_controls_compact(self, compact):
+    def _set_top_controls_compact(self, layout_mode):
+        from Qt.QtWidgets import QSizePolicy
+
         grid = getattr(self, "top_control_row", None)
         if grid is None:
             return
+        if layout_mode is True:
+            layout_mode = "narrow"
+        elif layout_mode is False:
+            layout_mode = "wide"
         self._clear_grid_layout(grid)
-        if compact:
+        labels = (
+            self.engine_label,
+            self.model_label,
+            self.effort_label,
+            self.mode_label,
+            self.speed_label,
+        )
+        controls = (
+            self.backend_combo,
+            self.model_combo,
+            self.effort_combo,
+            self.mode_combo,
+            self.speed_combo,
+            self.backend_setup_button,
+            self.quick_menu_button,
+            self.analysis_menu_button,
+        )
+        label_alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        control_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        for label in labels:
+            label.setAlignment(label_alignment)
+
+        if layout_mode == "narrow":
             grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            self.backend_combo.setMaximumWidth(360)
-            self.model_combo.setMaximumWidth(360)
-            self.effort_combo.setMaximumWidth(230)
-            self.mode_combo.setMaximumWidth(230)
-            self.speed_combo.setMaximumWidth(230)
-            self.backend_setup_button.setMaximumWidth(230)
-            self.quick_menu_button.setMaximumWidth(230)
-            self.analysis_menu_button.setMaximumWidth(230)
-            label_alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-            control_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-            grid.addWidget(self.engine_label, 0, 0, label_alignment)
-            grid.addWidget(self.backend_combo, 0, 1, control_alignment)
-            grid.addWidget(self.model_label, 1, 0, label_alignment)
-            grid.addWidget(self.model_combo, 1, 1, control_alignment)
-            grid.addWidget(self.effort_label, 2, 0, label_alignment)
-            grid.addWidget(self.effort_combo, 2, 1, control_alignment)
-            grid.addWidget(self.mode_label, 3, 0, label_alignment)
-            grid.addWidget(self.mode_combo, 3, 1, control_alignment)
-            grid.addWidget(self.speed_label, 4, 0, label_alignment)
-            grid.addWidget(self.speed_combo, 4, 1, control_alignment)
-            grid.addWidget(self.backend_setup_button, 5, 1, control_alignment)
-            grid.addWidget(self.quick_menu_button, 6, 1, control_alignment)
-            grid.addWidget(self.analysis_menu_button, 7, 1, control_alignment)
+            for widget, width in (
+                (self.backend_combo, 300),
+                (self.model_combo, 300),
+                (self.effort_combo, 220),
+                (self.mode_combo, 220),
+                (self.speed_combo, 220),
+                (self.backend_setup_button, 220),
+                (self.quick_menu_button, 220),
+                (self.analysis_menu_button, 220),
+            ):
+                widget.setMinimumWidth(width)
+                max_width = 360 if widget is self.backend_combo or widget is self.model_combo else 260
+                widget.setMaximumWidth(max_width)
+                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            for label in labels:
+                label.setMinimumWidth(88)
+                label.setMaximumWidth(88)
+            grid.addWidget(self.engine_label, 0, 0, 1, 1, label_alignment)
+            grid.addWidget(self.backend_combo, 0, 1, 1, 1, control_alignment)
+            grid.addWidget(self.model_label, 1, 0, 1, 1, label_alignment)
+            grid.addWidget(self.model_combo, 1, 1, 1, 1, control_alignment)
+            grid.addWidget(self.effort_label, 2, 0, 1, 1, label_alignment)
+            grid.addWidget(self.effort_combo, 2, 1, 1, 1, control_alignment)
+            grid.addWidget(self.mode_label, 3, 0, 1, 1, label_alignment)
+            grid.addWidget(self.mode_combo, 3, 1, 1, 1, control_alignment)
+            grid.addWidget(self.speed_label, 4, 0, 1, 1, label_alignment)
+            grid.addWidget(self.speed_combo, 4, 1, 1, 1, control_alignment)
+            grid.addWidget(self.backend_setup_button, 5, 1, 1, 1, control_alignment)
+            grid.addWidget(self.quick_menu_button, 6, 1, 1, 1, control_alignment)
+            grid.addWidget(self.analysis_menu_button, 7, 1, 1, 1, control_alignment)
+            grid.setColumnStretch(0, 0)
+            grid.setColumnStretch(1, 1)
+            grid.setColumnStretch(2, 1)
+            grid.setColumnMinimumWidth(0, 88)
+        elif layout_mode == "compact":
+            grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            for widget, width in (
+                (self.backend_combo, 300),
+                (self.model_combo, 300),
+                (self.effort_combo, 160),
+                (self.mode_combo, 160),
+                (self.speed_combo, 160),
+                (self.backend_setup_button, 150),
+                (self.quick_menu_button, 150),
+                (self.analysis_menu_button, 150),
+            ):
+                widget.setMinimumWidth(width)
+                widget.setMaximumWidth(width)
+                widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            for label in labels:
+                label.setMinimumWidth(82)
+                label.setMaximumWidth(82)
+            grid.addWidget(self.engine_label, 0, 0, 1, 1, label_alignment)
+            grid.addWidget(self.backend_combo, 0, 1, 1, 1, control_alignment)
+            grid.addWidget(self.backend_setup_button, 0, 2, 1, 1, control_alignment)
+            grid.addWidget(self.model_label, 1, 0, 1, 1, label_alignment)
+            grid.addWidget(self.model_combo, 1, 1, 1, 2, control_alignment)
+            grid.addWidget(self.effort_label, 2, 0, 1, 1, label_alignment)
+            grid.addWidget(self.effort_combo, 2, 1, 1, 1, control_alignment)
+            grid.addWidget(self.mode_label, 2, 2, 1, 1, label_alignment)
+            grid.addWidget(self.mode_combo, 2, 3, 1, 1, control_alignment)
+            grid.addWidget(self.speed_label, 3, 0, 1, 1, label_alignment)
+            grid.addWidget(self.speed_combo, 3, 1, 1, 1, control_alignment)
+            grid.addWidget(self.quick_menu_button, 3, 2, 1, 1, control_alignment)
+            grid.addWidget(self.analysis_menu_button, 3, 3, 1, 1, control_alignment)
             grid.setColumnStretch(0, 0)
             grid.setColumnStretch(1, 0)
-            grid.setColumnMinimumWidth(0, 92)
+            grid.setColumnStretch(2, 0)
+            grid.setColumnStretch(3, 0)
+            grid.setColumnStretch(4, 1)
+            grid.setColumnMinimumWidth(0, 82)
+            grid.setColumnMinimumWidth(2, 82)
         else:
             grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            for widget in controls:
+                widget.setMinimumWidth(0)
+                widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+            for label in labels:
+                label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                label.setMinimumWidth(0)
+                label.setMaximumWidth(16777215)
             self.backend_combo.setMaximumWidth(380)
             self.model_combo.setMaximumWidth(460)
             self.effort_combo.setMaximumWidth(150)

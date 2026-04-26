@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 39
+    UI_LAYOUT_VERSION = 40
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1303,9 +1303,9 @@ class CodexAssistant(ToolInstance):
 
     def _apply_responsive_layout(self, width):
         width = int(width or 0)
-        if width < 560:
+        if width < 430:
             layout_mode = "narrow"
-        elif width < 1020:
+        elif width < 920:
             layout_mode = "compact"
         else:
             layout_mode = "wide"

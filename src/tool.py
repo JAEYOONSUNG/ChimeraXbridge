@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 49
+    UI_LAYOUT_VERSION = 50
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1440,74 +1440,74 @@ class CodexAssistant(ToolInstance):
             grid.setColumnMinimumWidth(0, 88)
         elif layout_mode == "compact":
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            flexible_control(self.backend_combo, 104)
-            flexible_control(self.model_combo, 92)
-            fixed_control(self.effort_combo, 64)
-            fixed_control(self.mode_combo, 70)
-            fixed_control(self.speed_combo, 60)
-            fixed_control(self.backend_setup_button, 76)
-            fixed_control(self.quick_menu_button, 72)
-            fixed_control(self.analysis_menu_button, 76)
+            flexible_control(self.backend_combo, 86)
+            flexible_control(self.model_combo, 86)
+            flexible_control(self.effort_combo, 46)
+            flexible_control(self.mode_combo, 52)
+            flexible_control(self.speed_combo, 44)
+            flexible_control(self.backend_setup_button, 64)
+            flexible_control(self.quick_menu_button, 62)
+            flexible_control(self.analysis_menu_button, 64)
             self.effort_label.setText("Reason")
-            fixed_label(self.engine_label, 48)
-            fixed_label(self.model_label, 42)
-            fixed_label(self.effort_label, 46)
-            fixed_label(self.mode_label, 32)
-            fixed_label(self.speed_label, 34)
+            fixed_label(self.engine_label, 44)
+            fixed_label(self.model_label, 38)
+            fixed_label(self.effort_label, 44)
+            fixed_label(self.mode_label, 30)
+            fixed_label(self.speed_label, 32)
             add_row(
                 0,
                 self.engine_label,
-                (self.backend_combo, 1),
+                (self.backend_combo, 3),
                 self.model_label,
-                (self.model_combo, 2),
-                self.backend_setup_button,
+                (self.model_combo, 4),
+                (self.backend_setup_button, 2),
             )
             add_row(
                 1,
                 self.effort_label,
-                self.effort_combo,
+                (self.effort_combo, 2),
                 self.mode_label,
-                self.mode_combo,
+                (self.mode_combo, 2),
                 self.speed_label,
-                self.speed_combo,
-                self.quick_menu_button,
-                self.analysis_menu_button,
+                (self.speed_combo, 2),
+                (self.quick_menu_button, 2),
+                (self.analysis_menu_button, 2),
             )
             grid.setColumnStretch(0, 1)
         else:
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
             self.effort_label.setText("Reason")
-            flexible_control(self.backend_combo, 135)
-            flexible_control(self.model_combo, 175)
-            fixed_control(self.effort_combo, 104)
-            fixed_control(self.mode_combo, 100)
-            fixed_control(self.speed_combo, 90)
-            fixed_control(self.backend_setup_button, 86)
-            fixed_control(self.quick_menu_button, 100)
-            fixed_control(self.analysis_menu_button, 100)
+            flexible_control(self.backend_combo, 100)
+            flexible_control(self.model_combo, 120)
+            flexible_control(self.effort_combo, 60)
+            flexible_control(self.mode_combo, 66)
+            flexible_control(self.speed_combo, 56)
+            flexible_control(self.backend_setup_button, 72)
+            flexible_control(self.quick_menu_button, 72)
+            flexible_control(self.analysis_menu_button, 78)
             fixed_label(self.engine_label, 52)
             fixed_label(self.model_label, 48)
-            fixed_label(self.effort_label, 62)
-            fixed_label(self.mode_label, 40)
-            fixed_label(self.speed_label, 45)
+            fixed_label(self.effort_label, 54)
+            fixed_label(self.mode_label, 36)
+            fixed_label(self.speed_label, 38)
             add_row(
                 0,
                 self.engine_label,
-                (self.backend_combo, 1),
+                (self.backend_combo, 3),
                 self.model_label,
-                (self.model_combo, 2),
-                self.backend_setup_button,
+                (self.model_combo, 4),
+                (self.backend_setup_button, 2),
             )
             add_row(
                 1,
                 self.effort_label,
-                self.effort_combo,
+                (self.effort_combo, 2),
                 self.mode_label,
-                self.mode_combo,
+                (self.mode_combo, 2),
                 self.speed_label,
-                self.speed_combo,
-                self.quick_menu_button,
-                self.analysis_menu_button,
+                (self.speed_combo, 2),
+                (self.quick_menu_button, 2),
+                (self.analysis_menu_button, 2),
             )
             grid.setColumnStretch(0, 1)
         try:

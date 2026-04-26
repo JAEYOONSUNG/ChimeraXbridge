@@ -63,7 +63,7 @@ def _run_command_thread_safe(session, command):
 
 class ActionPadWidget(QWidget):
 
-    BUTTON_HEIGHT = 30
+    BUTTON_HEIGHT = 28
 
     def __init__(self, session, *, open_ai_callback=None, launch_ai_callback=None, parent=None):
         super().__init__(parent)
@@ -76,8 +76,8 @@ class ActionPadWidget(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
         self.setLayout(layout)
         self.setObjectName("ActionPadRoot")
         self.setMinimumWidth(0)
@@ -92,9 +92,10 @@ class ActionPadWidget(QWidget):
             " color: #eef2f5;"
             " border: 1px solid #36424d;"
             " border-radius: 6px;"
-            " padding: 2px 8px;"
-            " min-height: 24px;"
-            " max-height: 30px;"
+            " padding: 1px 8px;"
+            " min-height: 22px;"
+            " max-height: 28px;"
+            " font-size: 12px;"
             " font-weight: 400;"
             "}"
             "QPushButton:hover { background: #2b333a; border-color: #52616f; }"
@@ -110,7 +111,7 @@ class ActionPadWidget(QWidget):
 
         toolbar = QGridLayout()
         toolbar.setHorizontalSpacing(5)
-        toolbar.setVerticalSpacing(4)
+        toolbar.setVerticalSpacing(3)
         self.refresh_button = QPushButton("Refresh", self)
         self.refresh_button.clicked.connect(self.refresh)
         toolbar.addWidget(self.refresh_button, 0, 0)
@@ -152,6 +153,8 @@ class ActionPadWidget(QWidget):
             self.pick_default_button,
             self.ai_analyze_button,
         ):
+            button.setMinimumHeight(self.BUTTON_HEIGHT)
+            button.setMaximumHeight(self.BUTTON_HEIGHT)
             button.setFixedHeight(self.BUTTON_HEIGHT)
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -593,7 +596,7 @@ class CodexActionPad(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_action_pad.html"
-    UI_LAYOUT_VERSION = 10
+    UI_LAYOUT_VERSION = 11
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):

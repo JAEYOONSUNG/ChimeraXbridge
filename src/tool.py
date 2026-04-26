@@ -1997,10 +1997,15 @@ class CodexAssistant(ToolInstance):
     def _open_display_controls(self):
         from .display_controls import CodexDisplayControls
 
+        controls = CodexDisplayControls.get_singleton(self.session, create=False, display=False)
+        if controls is not None and controls.displayed():
+            controls.display(False)
+            self._append_system("display controls hidden")
+            return
         controls = CodexDisplayControls.get_singleton(self.session, create=True, display=True)
         if controls is not None:
             controls.display(True)
-        self._append_system("display controls opened")
+            self._append_system("display controls opened")
 
     def _toggle_sequence_bar(self):
         try:

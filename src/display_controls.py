@@ -607,7 +607,7 @@ class CodexDisplayControls(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 8
+    UI_LAYOUT_VERSION = 9
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):
@@ -637,3 +637,10 @@ class CodexDisplayControls(ToolInstance):
         self.widget = DisplayControlsWidget(self.session, parent=parent)
         layout.addWidget(self.widget)
         self.tool_window.manage(placement="side")
+
+    def displayed(self):
+        dock_widget = getattr(self.tool_window, "_dock_widget", None)
+        if dock_widget is not None:
+            return bool(dock_widget.isVisible())
+        ui_area = getattr(self.tool_window, "ui_area", None)
+        return bool(ui_area is not None and ui_area.isVisible())

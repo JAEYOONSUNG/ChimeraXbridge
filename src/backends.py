@@ -15,9 +15,9 @@ BACKEND_SPECS = {
         "precise_model_env": "CODEX_BRIDGE_OPENAI_PRECISE_MODEL",
         "precise_reasoning_env": "CODEX_BRIDGE_OPENAI_PRECISE_REASONING",
         "fast_model_default": "gpt-5.5",
-        "fast_reasoning_default": "low",
+        "fast_reasoning_default": "high",
         "precise_model_default": "gpt-5.5",
-        "precise_reasoning_default": "medium",
+        "precise_reasoning_default": "high",
         "supports_schema": True,
         "supports_tools": True,
         "transport": "api",
@@ -36,9 +36,9 @@ BACKEND_SPECS = {
         "precise_model_env": "CODEX_BRIDGE_CODEX_PRECISE_MODEL",
         "precise_reasoning_env": "CODEX_BRIDGE_CODEX_PRECISE_REASONING",
         "fast_model_default": "gpt-5.5",
-        "fast_reasoning_default": "low",
+        "fast_reasoning_default": "high",
         "precise_model_default": "gpt-5.5",
-        "precise_reasoning_default": "medium",
+        "precise_reasoning_default": "high",
         "supports_schema": True,
         "supports_tools": False,
         "transport": "cli",
@@ -56,9 +56,9 @@ BACKEND_SPECS = {
         "precise_model_env": "CODEX_BRIDGE_CLAUDE_PRECISE_MODEL",
         "precise_reasoning_env": "CODEX_BRIDGE_CLAUDE_PRECISE_REASONING",
         "fast_model_default": "claude-opus-4-7",
-        "fast_reasoning_default": "low",
+        "fast_reasoning_default": "xhigh",
         "precise_model_default": "claude-opus-4-7",
-        "precise_reasoning_default": "medium",
+        "precise_reasoning_default": "xhigh",
         "supports_schema": True,
         "supports_tools": False,
         "transport": "cli",
@@ -546,5 +546,5 @@ def suggested_efforts_for_backend(backend_id):
     if backend_id in {"openai", "codex"}:
         return ["low", "medium", "high", "xhigh"]
     if backend_id == "claude":
-        return ["low", "medium", "high", "xhigh" if backend_id == "codex" else "max"]
+        return ["low", "medium", "high", "xhigh", "max"]
     return []

@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 45
+    UI_LAYOUT_VERSION = 46
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -2526,7 +2526,7 @@ class CodexAssistant(ToolInstance):
         try:
             self.model_combo.clear()
             default_model = self._active_default_model_display(self._mode)
-            self.model_combo.addItem(f"default {default_model}", "__default__")
+            self.model_combo.addItem(default_model, "__default__")
             seen = set()
             override = get_model_override(self.session, backend_id)
             models = list(suggested_models_for_backend(backend_id))

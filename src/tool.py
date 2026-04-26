@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 37
+    UI_LAYOUT_VERSION = 38
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1303,9 +1303,9 @@ class CodexAssistant(ToolInstance):
 
     def _apply_responsive_layout(self, width):
         width = int(width or 0)
-        if width < 600:
+        if width < 560:
             layout_mode = "narrow"
-        elif width < 1050:
+        elif width < 1020:
             layout_mode = "compact"
         else:
             layout_mode = "wide"
@@ -1328,6 +1328,7 @@ class CodexAssistant(ToolInstance):
         elif layout_mode is False:
             layout_mode = "wide"
         self._clear_grid_layout(grid)
+        max_qt_width = 16777215
         labels = (
             self.engine_label,
             self.model_label,
@@ -1346,101 +1347,90 @@ class CodexAssistant(ToolInstance):
             self.analysis_menu_button,
         )
         label_alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        control_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         for label in labels:
             label.setAlignment(label_alignment)
 
         if layout_mode == "narrow":
-            grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            grid.setAlignment(Qt.AlignmentFlag.AlignTop)
             for widget, width in (
-                (self.backend_combo, 300),
-                (self.model_combo, 300),
-                (self.effort_combo, 220),
-                (self.mode_combo, 220),
-                (self.speed_combo, 220),
-                (self.backend_setup_button, 220),
-                (self.quick_menu_button, 220),
-                (self.analysis_menu_button, 220),
-            ):
-                widget.setMinimumWidth(width)
-                max_width = 360 if widget is self.backend_combo or widget is self.model_combo else 260
-                widget.setMaximumWidth(max_width)
-                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            for label in labels:
-                label.setMinimumWidth(88)
-                label.setMaximumWidth(88)
-            grid.addWidget(self.engine_label, 0, 0, 1, 1, label_alignment)
-            grid.addWidget(self.backend_combo, 0, 1, 1, 1, control_alignment)
-            grid.addWidget(self.model_label, 1, 0, 1, 1, label_alignment)
-            grid.addWidget(self.model_combo, 1, 1, 1, 1, control_alignment)
-            grid.addWidget(self.effort_label, 2, 0, 1, 1, label_alignment)
-            grid.addWidget(self.effort_combo, 2, 1, 1, 1, control_alignment)
-            grid.addWidget(self.mode_label, 3, 0, 1, 1, label_alignment)
-            grid.addWidget(self.mode_combo, 3, 1, 1, 1, control_alignment)
-            grid.addWidget(self.speed_label, 4, 0, 1, 1, label_alignment)
-            grid.addWidget(self.speed_combo, 4, 1, 1, 1, control_alignment)
-            grid.addWidget(self.backend_setup_button, 5, 1, 1, 1, control_alignment)
-            grid.addWidget(self.quick_menu_button, 6, 1, 1, 1, control_alignment)
-            grid.addWidget(self.analysis_menu_button, 7, 1, 1, 1, control_alignment)
-            grid.setColumnStretch(0, 0)
-            grid.setColumnStretch(1, 1)
-            grid.setColumnStretch(2, 1)
-            grid.setColumnMinimumWidth(0, 88)
-        elif layout_mode == "compact":
-            grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            for widget, width in (
-                (self.backend_combo, 300),
-                (self.model_combo, 300),
-                (self.effort_combo, 160),
-                (self.mode_combo, 160),
-                (self.speed_combo, 160),
+                (self.backend_combo, 180),
+                (self.model_combo, 180),
+                (self.effort_combo, 150),
+                (self.mode_combo, 150),
+                (self.speed_combo, 150),
                 (self.backend_setup_button, 150),
                 (self.quick_menu_button, 150),
                 (self.analysis_menu_button, 150),
             ):
                 widget.setMinimumWidth(width)
-                widget.setMaximumWidth(width)
-                widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+                widget.setMaximumWidth(max_qt_width)
+                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            for label in labels:
+                label.setMinimumWidth(88)
+                label.setMaximumWidth(88)
+            grid.addWidget(self.engine_label, 0, 0, 1, 1, label_alignment)
+            grid.addWidget(self.backend_combo, 0, 1)
+            grid.addWidget(self.model_label, 1, 0, 1, 1, label_alignment)
+            grid.addWidget(self.model_combo, 1, 1)
+            grid.addWidget(self.effort_label, 2, 0, 1, 1, label_alignment)
+            grid.addWidget(self.effort_combo, 2, 1)
+            grid.addWidget(self.mode_label, 3, 0, 1, 1, label_alignment)
+            grid.addWidget(self.mode_combo, 3, 1)
+            grid.addWidget(self.speed_label, 4, 0, 1, 1, label_alignment)
+            grid.addWidget(self.speed_combo, 4, 1)
+            grid.addWidget(self.backend_setup_button, 5, 1)
+            grid.addWidget(self.quick_menu_button, 6, 1)
+            grid.addWidget(self.analysis_menu_button, 7, 1)
+            grid.setColumnStretch(0, 0)
+            grid.setColumnStretch(1, 1)
+            grid.setColumnMinimumWidth(0, 88)
+        elif layout_mode == "compact":
+            grid.setAlignment(Qt.AlignmentFlag.AlignTop)
+            for widget, width in (
+                (self.backend_combo, 220),
+                (self.model_combo, 220),
+                (self.effort_combo, 130),
+                (self.mode_combo, 130),
+                (self.speed_combo, 130),
+                (self.backend_setup_button, 120),
+                (self.quick_menu_button, 120),
+                (self.analysis_menu_button, 120),
+            ):
+                widget.setMinimumWidth(width)
+                widget.setMaximumWidth(max_qt_width)
+                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             for label in labels:
                 label.setMinimumWidth(82)
                 label.setMaximumWidth(82)
             grid.addWidget(self.engine_label, 0, 0, 1, 1, label_alignment)
-            grid.addWidget(self.backend_combo, 0, 1, 1, 1, control_alignment)
-            grid.addWidget(self.backend_setup_button, 0, 2, 1, 1, control_alignment)
+            grid.addWidget(self.backend_combo, 0, 1, 1, 2)
+            grid.addWidget(self.backend_setup_button, 0, 3)
             grid.addWidget(self.model_label, 1, 0, 1, 1, label_alignment)
-            grid.addWidget(self.model_combo, 1, 1, 1, 2, control_alignment)
+            grid.addWidget(self.model_combo, 1, 1, 1, 3)
             grid.addWidget(self.effort_label, 2, 0, 1, 1, label_alignment)
-            grid.addWidget(self.effort_combo, 2, 1, 1, 1, control_alignment)
+            grid.addWidget(self.effort_combo, 2, 1)
             grid.addWidget(self.mode_label, 2, 2, 1, 1, label_alignment)
-            grid.addWidget(self.mode_combo, 2, 3, 1, 1, control_alignment)
+            grid.addWidget(self.mode_combo, 2, 3)
             grid.addWidget(self.speed_label, 3, 0, 1, 1, label_alignment)
-            grid.addWidget(self.speed_combo, 3, 1, 1, 1, control_alignment)
-            grid.addWidget(self.quick_menu_button, 3, 2, 1, 1, control_alignment)
-            grid.addWidget(self.analysis_menu_button, 3, 3, 1, 1, control_alignment)
+            grid.addWidget(self.speed_combo, 3, 1)
+            grid.addWidget(self.quick_menu_button, 3, 2)
+            grid.addWidget(self.analysis_menu_button, 3, 3)
             grid.setColumnStretch(0, 0)
-            grid.setColumnStretch(1, 0)
-            grid.setColumnStretch(2, 0)
-            grid.setColumnStretch(3, 0)
-            grid.setColumnStretch(4, 1)
+            grid.setColumnStretch(1, 2)
+            grid.setColumnStretch(2, 1)
+            grid.setColumnStretch(3, 2)
             grid.setColumnMinimumWidth(0, 82)
             grid.setColumnMinimumWidth(2, 82)
         else:
-            grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            grid.setAlignment(Qt.AlignmentFlag.AlignTop)
             for widget in controls:
-                widget.setMinimumWidth(0)
-                widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+                widget.setMinimumWidth(110)
+                widget.setMaximumWidth(max_qt_width)
+                widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             for label in labels:
                 label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 label.setMinimumWidth(0)
                 label.setMaximumWidth(16777215)
-            self.backend_combo.setMaximumWidth(380)
-            self.model_combo.setMaximumWidth(460)
-            self.effort_combo.setMaximumWidth(150)
-            self.mode_combo.setMaximumWidth(140)
-            self.speed_combo.setMaximumWidth(140)
-            self.backend_setup_button.setMaximumWidth(120)
-            self.quick_menu_button.setMaximumWidth(140)
-            self.analysis_menu_button.setMaximumWidth(140)
             grid.addWidget(self.engine_label, 0, 0)
             grid.addWidget(self.backend_combo, 0, 1, 1, 2)
             grid.addWidget(self.backend_setup_button, 0, 3)
@@ -1455,8 +1445,8 @@ class CodexAssistant(ToolInstance):
             grid.addWidget(self.quick_menu_button, 1, 6)
             grid.addWidget(self.analysis_menu_button, 1, 7)
             grid.setColumnStretch(0, 0)
-            grid.setColumnStretch(1, 3)
-            grid.setColumnStretch(2, 1)
+            grid.setColumnStretch(1, 2)
+            grid.setColumnStretch(2, 2)
             grid.setColumnStretch(3, 1)
             grid.setColumnStretch(4, 0)
             grid.setColumnStretch(5, 1)

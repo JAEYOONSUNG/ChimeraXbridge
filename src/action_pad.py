@@ -85,7 +85,7 @@ class ActionPadWidget(QWidget):
         self.setStyleSheet(
             "QWidget#ActionPadRoot { background: #171a1d; color: #e6eaee; }"
             "QLabel { color: #dce1e6; background: transparent; border: none; }"
-            "QLabel#ActionPadHeader { color: #f0f3f6; font-size: 13px; font-weight: 700; }"
+            "QLabel#ActionPadHeader { color: #dce1e6; font-size: 12px; font-weight: 500; }"
             "QLabel#ActionPadStatus { color: #adb6bf; font-size: 11px; }"
             "QPushButton {"
             " background: #22282e;"
@@ -95,7 +95,7 @@ class ActionPadWidget(QWidget):
             " padding: 2px 8px;"
             " min-height: 24px;"
             " max-height: 32px;"
-            " font-weight: 650;"
+            " font-weight: 400;"
             "}"
             "QPushButton:hover { background: #2b333a; border-color: #52616f; }"
             "QPushButton:pressed { background: #11161a; }"

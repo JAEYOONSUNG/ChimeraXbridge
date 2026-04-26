@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 48
+    UI_LAYOUT_VERSION = 49
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1442,18 +1442,18 @@ class CodexAssistant(ToolInstance):
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
             flexible_control(self.backend_combo, 104)
             flexible_control(self.model_combo, 92)
-            fixed_control(self.effort_combo, 72)
-            fixed_control(self.mode_combo, 76)
-            fixed_control(self.speed_combo, 66)
+            fixed_control(self.effort_combo, 64)
+            fixed_control(self.mode_combo, 70)
+            fixed_control(self.speed_combo, 60)
             fixed_control(self.backend_setup_button, 76)
-            fixed_control(self.quick_menu_button, 78)
-            fixed_control(self.analysis_menu_button, 78)
+            fixed_control(self.quick_menu_button, 72)
+            fixed_control(self.analysis_menu_button, 76)
             self.effort_label.setText("Reason")
             fixed_label(self.engine_label, 48)
             fixed_label(self.model_label, 42)
-            fixed_label(self.effort_label, 50)
-            fixed_label(self.mode_label, 34)
-            fixed_label(self.speed_label, 38)
+            fixed_label(self.effort_label, 46)
+            fixed_label(self.mode_label, 32)
+            fixed_label(self.speed_label, 34)
             add_row(
                 0,
                 self.engine_label,
@@ -1470,9 +1470,6 @@ class CodexAssistant(ToolInstance):
                 self.mode_combo,
                 self.speed_label,
                 self.speed_combo,
-            )
-            add_row(
-                2,
                 self.quick_menu_button,
                 self.analysis_menu_button,
             )
@@ -1529,17 +1526,17 @@ class CodexAssistant(ToolInstance):
         if compact:
             grid.addWidget(self.refresh_button, 0, 0)
             grid.addWidget(self.toggle_workspace_button, 0, 1)
-            grid.addWidget(self.toggle_selection_button, 1, 0)
-            grid.addWidget(self.toggle_terminal_button, 1, 1)
-            grid.addWidget(self.open_action_pad_button, 2, 0, 1, 2)
+            grid.addWidget(self.toggle_terminal_button, 1, 0)
+            grid.addWidget(self.open_action_pad_button, 1, 1)
+            grid.addWidget(self.toggle_selection_button, 2, 0, 1, 2)
             grid.setColumnStretch(0, 1)
             grid.setColumnStretch(1, 1)
         else:
             grid.addWidget(self.refresh_button, 0, 0)
             grid.addWidget(self.toggle_workspace_button, 0, 1)
-            grid.addWidget(self.toggle_selection_button, 0, 2)
-            grid.addWidget(self.toggle_terminal_button, 1, 0)
-            grid.addWidget(self.open_action_pad_button, 1, 1, 1, 2)
+            grid.addWidget(self.toggle_terminal_button, 0, 2)
+            grid.addWidget(self.open_action_pad_button, 1, 0, 1, 2)
+            grid.addWidget(self.toggle_selection_button, 1, 2)
             grid.setColumnStretch(0, 1)
             grid.setColumnStretch(1, 1)
             grid.setColumnStretch(2, 1)

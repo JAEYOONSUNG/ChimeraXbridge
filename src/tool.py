@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 47
+    UI_LAYOUT_VERSION = 48
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -376,7 +376,7 @@ class CodexAssistant(ToolInstance):
         self.top_control_row = top_control_row
         self.engine_label = QLabel("Engine", parent)
         self.model_label = QLabel("Model", parent)
-        self.effort_label = QLabel("Reasoning", parent)
+        self.effort_label = QLabel("Reason", parent)
         self.mode_label = QLabel("Mode", parent)
         self.speed_label = QLabel("Speed", parent)
         self.backend_combo = QComboBox(parent)
@@ -455,7 +455,7 @@ class CodexAssistant(ToolInstance):
         self.width_equal_button = QPushButton("1:1", parent)
         self.width_equal_button.clicked.connect(lambda: self._set_dock_fraction(0.5))
         self.width_equal_button.setVisible(False)
-        self._set_top_controls_compact("narrow")
+        self._set_top_controls_compact("compact")
         layout.addLayout(top_control_row)
 
         bottom_control_row = QGridLayout()
@@ -1320,11 +1320,7 @@ class CodexAssistant(ToolInstance):
 
     def _apply_responsive_layout(self, width):
         width = int(width or 0)
-        if width < 430:
-            layout_mode = "narrow"
-        elif width < 580:
-            layout_mode = "stacked"
-        elif width < 720:
+        if width < 720:
             layout_mode = "compact"
         else:
             layout_mode = "wide"
@@ -1442,41 +1438,22 @@ class CodexAssistant(ToolInstance):
             grid.setColumnStretch(0, 0)
             grid.setColumnStretch(1, 1)
             grid.setColumnMinimumWidth(0, 88)
-        elif layout_mode == "stacked":
-            grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            flexible_control(self.backend_combo, 230)
-            flexible_control(self.model_combo, 230)
-            fixed_control(self.effort_combo, 125)
-            fixed_control(self.mode_combo, 105)
-            fixed_control(self.speed_combo, 95)
-            fixed_control(self.backend_setup_button, 92)
-            fixed_control(self.quick_menu_button, 100)
-            fixed_control(self.analysis_menu_button, 100)
-            for label in labels:
-                fixed_label(label, 70)
-            fixed_label(self.mode_label, 46)
-            fixed_label(self.speed_label, 48)
-            add_row(0, self.engine_label, (self.backend_combo, 1))
-            add_row(1, self.model_label, (self.model_combo, 1))
-            add_row(2, self.effort_label, self.effort_combo)
-            add_row(3, self.mode_label, self.mode_combo, self.speed_label, self.speed_combo)
-            add_row(4, self.backend_setup_button, self.quick_menu_button, self.analysis_menu_button)
-            grid.setColumnStretch(0, 1)
         elif layout_mode == "compact":
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            flexible_control(self.backend_combo, 112)
-            flexible_control(self.model_combo, 130)
-            fixed_control(self.effort_combo, 92)
-            fixed_control(self.mode_combo, 95)
-            fixed_control(self.speed_combo, 90)
-            fixed_control(self.backend_setup_button, 86)
-            fixed_control(self.quick_menu_button, 95)
-            fixed_control(self.analysis_menu_button, 95)
-            fixed_label(self.engine_label, 52)
-            fixed_label(self.model_label, 48)
-            fixed_label(self.effort_label, 62)
-            fixed_label(self.mode_label, 44)
-            fixed_label(self.speed_label, 46)
+            flexible_control(self.backend_combo, 104)
+            flexible_control(self.model_combo, 92)
+            fixed_control(self.effort_combo, 72)
+            fixed_control(self.mode_combo, 76)
+            fixed_control(self.speed_combo, 66)
+            fixed_control(self.backend_setup_button, 76)
+            fixed_control(self.quick_menu_button, 78)
+            fixed_control(self.analysis_menu_button, 78)
+            self.effort_label.setText("Reason")
+            fixed_label(self.engine_label, 48)
+            fixed_label(self.model_label, 42)
+            fixed_label(self.effort_label, 50)
+            fixed_label(self.mode_label, 34)
+            fixed_label(self.speed_label, 38)
             add_row(
                 0,
                 self.engine_label,
@@ -1502,6 +1479,7 @@ class CodexAssistant(ToolInstance):
             grid.setColumnStretch(0, 1)
         else:
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
+            self.effort_label.setText("Reason")
             flexible_control(self.backend_combo, 135)
             flexible_control(self.model_combo, 175)
             fixed_control(self.effort_combo, 104)

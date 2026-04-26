@@ -186,7 +186,7 @@ def list_builtin_commands():
         "/daliweb            export current/selected structure and upload to DALI web form",
         "/vast               export current/selected structure and upload to NCBI VAST",
         "/pdbefold           export current/selected structure and upload to PDBeFold / SSM",
-        "/usalign            export two or more structures and upload to US-align",
+        "/usalign            align open structures in ChimeraX and run local US-align if available",
         "/daliurl <url>       store a DALI result URL for this session",
         "/dalisummary <text>  store a short DALI hit summary note",
         "/dalistatus          show the latest DALI export/result state",

@@ -278,7 +278,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Sequence",
             display_name="Blast",
             icon="blast-logo.png",
-            description="Open sequence-analysis site chooser for the current protein sequence",
+            description="Run ChimeraX native Blast Protein for the current chain",
         ),
         provider(
             "ai-analysis-profile",
@@ -302,7 +302,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Sequence",
             display_name="Consurf",
             icon="consurf-logo.png",
-            description="Open the ConSurf Colab workflow for the current sequence",
+            description="Run local ConSurf-lite conservation view for the current structure",
         ),
         provider(
             "ai-analysis-alphafold",
@@ -310,7 +310,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Modeling",
             display_name="AlphaFold",
             icon="alphafold-logo.png",
-            description="Open AlphaFold Server for the current protein sequence(s)",
+            description="Run ChimeraX native AlphaFold match/search for the current chain",
         ),
         provider(
             "ai-analysis-afcomplex",
@@ -422,7 +422,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Structure",
             display_name="US-align",
             icon="usalign-logo.svg",
-            description="Export two or more structures and open US-align / TM-score alignment",
+            description="Align open structures in ChimeraX and run local US-align if available",
         ),
         provider(
             "ai-nucleotide-dock",

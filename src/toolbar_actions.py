@@ -1717,6 +1717,12 @@ def launch_caver_server(session, *, executor=None):
 
 
 def launch_usalign(session, *, executor=None):
+    entries = _atomic_model_entries(session, selected_preferred=True)
+    if len(entries) < 2:
+        entries = _atomic_model_entries(session, selected_preferred=False)
+    if len(entries) >= 2:
+        return launch_native_structure_alignment(session, entries=entries, executor=executor)
+
     files, out_dir = _export_model_files(
         session,
         fmt="pdb",
@@ -1736,6 +1742,95 @@ def launch_usalign(session, *, executor=None):
         f"Opened US-align. Exported {len(upload_files)} structures under {out_dir}; paths were copied to clipboard. "
         f"Automatic upload failed: {helper_error}"
     )
+
+
+def launch_native_structure_alignment(session, *, entries=None, executor=None):
+    entries = entries or _atomic_model_entries(session, selected_preferred=True)
+    if len(entries) < 2:
+        return "Native structural alignment needs at least two open/selected atomic structures."
+    reference = entries[0]
+    moving = entries[1:]
+    commands = []
+    failures = []
+    for entry in moving:
+        command = f"matchmaker {entry['spec']} to {reference['spec']}"
+        try:
+            _run_chimerax(session, command, executor=executor)
+            commands.append(command)
+        except Exception as err:
+            fallback = f"align {entry['spec']} to {reference['spec']}"
+            try:
+                _run_chimerax(session, fallback, executor=executor)
+                commands.append(fallback)
+            except Exception as fallback_err:
+                detail = str(fallback_err or err) or fallback_err.__class__.__name__
+                failures.append(f"{entry['spec']}: {detail}")
+
+    files, out_dir = _export_model_entries(
+        session,
+        entries[: min(len(entries), 6)],
+        fmt="pdb",
+        prefix="chimerax_native_usalign",
+        executor=executor,
+    )
+    usalign_report = _run_local_usalign_pairs(files, out_dir) if len(files) >= 2 else None
+    lines = [
+        "Native structure alignment prepared inside ChimeraX.",
+        f"- reference: {reference['spec']} {reference['name']}",
+        f"- aligned: {', '.join(entry['spec'] for entry in moving)}",
+    ]
+    if commands:
+        lines.append("Executed ChimeraX commands:")
+        lines.extend(f"- {command}" for command in commands)
+    if failures:
+        lines.append("Alignment warnings:")
+        lines.extend(f"- {item}" for item in failures)
+    if usalign_report:
+        lines.append(usalign_report)
+    else:
+        lines.append("- US-align CLI not found; used ChimeraX matchmaker/align only.")
+    return "\n".join(lines)
+
+
+def _run_local_usalign_pairs(files, out_dir):
+    executable = None
+    for name in ("USalign", "usalign", "TMalign", "tmalign"):
+        executable = shutil.which(name)
+        if executable:
+            break
+    if not executable:
+        return None
+    report_dir = Path(out_dir) / "usalign_reports"
+    report_dir.mkdir(exist_ok=True)
+    reference = files[0]
+    summaries = []
+    for index, moving in enumerate(files[1:], start=2):
+        command = [executable, str(moving), str(reference)]
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
+        report = (result.stdout or "") + ("\nSTDERR:\n" + result.stderr if result.stderr else "")
+        report_path = report_dir / f"usalign_{index:02d}.txt"
+        report_path.write_text(report, encoding="utf-8")
+        if result.returncode != 0:
+            summaries.append(f"{moving.name}: US-align exited {result.returncode}; report {report_path}")
+            continue
+        summary = _summarize_usalign_output(report)
+        summaries.append(f"{moving.name}: {summary}; report {report_path}")
+    if not summaries:
+        return None
+    return "\n".join(["Local US-align report:", *[f"- {item}" for item in summaries]])
+
+
+def _summarize_usalign_output(text):
+    lines = []
+    for raw in str(text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if "TM-score=" in line or line.startswith("Aligned length=") or line.startswith("RMSD="):
+            lines.append(" ".join(line.split()))
+        if len(lines) >= 3:
+            break
+    return " | ".join(lines) if lines else "completed"
 
 
 def launch_foldseek_foldmason(session, *, count=5, database="pdb100", executor=None):
@@ -1954,14 +2049,20 @@ def run_toolbar_action(session, name):
         return
 
     if action == "ai-analysis-blast":
-        chosen_sites = _choose_sequence_analysis_sites(session)
-        if not chosen_sites:
-            _report_toolbar_result(session, "Blast: canceled")
-            return
-        _run_toolbar_task(session, "Blast", lambda: _launch_sequence_analysis_tabs(session, chosen_sites))
+        def blast_task(executor):
+            from .builtin_actions import _run_blast_tool
+
+            return _run_blast_tool(session, "", executor=executor)
+
+        _run_toolbar_chimerax_task(session, "Blast", blast_task)
         return
     elif action == "ai-analysis-alphafold":
-        _run_toolbar_task(session, "AlphaFold", lambda: _launch_alphafold_server(session))
+        def alphafold_task(executor):
+            from .builtin_actions import _run_alphafold_tool
+
+            return _run_alphafold_tool(session, "", executor=executor)
+
+        _run_toolbar_chimerax_task(session, "AlphaFold", alphafold_task)
         return
     elif action == "ai-analysis-similar":
         _run_toolbar_chimerax_task(
@@ -2022,7 +2123,12 @@ def run_toolbar_action(session, name):
         _run_toolbar_chimerax_task(session, "US-align", lambda executor: launch_usalign(session, executor=executor))
         return
     elif action == "ai-analysis-conserve":
-        _run_toolbar_task(session, "Consurf", lambda: _launch_consurf_page(session))
+        def consurf_task(executor):
+            from .conservation import apply_conservation_view
+
+            return apply_conservation_view(session, executor=executor)
+
+        _run_toolbar_chimerax_task(session, "Consurf", consurf_task)
         return
     elif action in {"ai-analysis-boltz", "ai-nucleotide-boltz"}:
         _run_toolbar_task(session, "Boltz", lambda: launch_boltz_latest_predict(session))

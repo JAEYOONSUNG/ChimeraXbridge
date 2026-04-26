@@ -14,9 +14,9 @@ BACKEND_SPECS = {
         "fast_reasoning_env": "CODEX_BRIDGE_OPENAI_FAST_REASONING",
         "precise_model_env": "CODEX_BRIDGE_OPENAI_PRECISE_MODEL",
         "precise_reasoning_env": "CODEX_BRIDGE_OPENAI_PRECISE_REASONING",
-        "fast_model_default": "gpt-5.4-mini",
+        "fast_model_default": "gpt-5.5",
         "fast_reasoning_default": "low",
-        "precise_model_default": "gpt-5.4",
+        "precise_model_default": "gpt-5.5",
         "precise_reasoning_default": "medium",
         "supports_schema": True,
         "supports_tools": True,
@@ -35,9 +35,9 @@ BACKEND_SPECS = {
         "fast_reasoning_env": "CODEX_BRIDGE_CODEX_FAST_REASONING",
         "precise_model_env": "CODEX_BRIDGE_CODEX_PRECISE_MODEL",
         "precise_reasoning_env": "CODEX_BRIDGE_CODEX_PRECISE_REASONING",
-        "fast_model_default": "gpt-5.4-mini",
+        "fast_model_default": "gpt-5.5",
         "fast_reasoning_default": "low",
-        "precise_model_default": "gpt-5.4",
+        "precise_model_default": "gpt-5.5",
         "precise_reasoning_default": "medium",
         "supports_schema": True,
         "supports_tools": False,
@@ -55,9 +55,9 @@ BACKEND_SPECS = {
         "fast_reasoning_env": "CODEX_BRIDGE_CLAUDE_FAST_REASONING",
         "precise_model_env": "CODEX_BRIDGE_CLAUDE_PRECISE_MODEL",
         "precise_reasoning_env": "CODEX_BRIDGE_CLAUDE_PRECISE_REASONING",
-        "fast_model_default": "sonnet",
+        "fast_model_default": "claude-opus-4-7",
         "fast_reasoning_default": "low",
-        "precise_model_default": "sonnet",
+        "precise_model_default": "claude-opus-4-7",
         "precise_reasoning_default": "medium",
         "supports_schema": True,
         "supports_tools": False,
@@ -74,9 +74,9 @@ BACKEND_SPECS = {
         "fast_reasoning_env": "CODEX_BRIDGE_GEMINI_FAST_REASONING",
         "precise_model_env": "CODEX_BRIDGE_GEMINI_PRECISE_MODEL",
         "precise_reasoning_env": "CODEX_BRIDGE_GEMINI_PRECISE_REASONING",
-        "fast_model_default": "gemini-2.5-flash",
+        "fast_model_default": "gemini-3.1-pro-preview",
         "fast_reasoning_default": None,
-        "precise_model_default": "gemini-2.5-pro",
+        "precise_model_default": "gemini-3.1-pro-preview",
         "precise_reasoning_default": None,
         "supports_schema": False,
         "supports_tools": False,
@@ -99,8 +99,67 @@ def _cached_codex_models():
     return [m.get("slug") for m in data.get("models", []) if m.get("slug")]
 
 
+def _dedupe_models(*model_lists):
+    seen = set()
+    models = []
+    for model_list in model_lists:
+        for model in model_list or []:
+            value = str(model or "").strip()
+            if not value or value in seen:
+                continue
+            seen.add(value)
+            models.append(value)
+    return models
+
+
+def _split_model_list(value):
+    if not value:
+        return []
+    for separator in (",", ";", "\n", "\t"):
+        value = str(value).replace(separator, " ")
+    return [part.strip() for part in value.split(" ") if part.strip()]
+
+
+def _catalog_model_paths():
+    explicit = os.environ.get("CODEX_BRIDGE_MODEL_CATALOG")
+    if explicit:
+        yield Path(explicit).expanduser()
+    yield Path.home() / ".config" / "chimerax_codex_bridge" / "models.json"
+    yield Path.home() / ".chimerax_codex_models.json"
+
+
+def _models_from_catalog(backend_id):
+    for path in _catalog_model_paths():
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(data, dict):
+            if isinstance(data.get("models"), dict):
+                values = data["models"].get(backend_id) or data["models"].get(backend_id.upper())
+            else:
+                values = data.get(backend_id) or data.get(backend_id.upper())
+            if isinstance(values, str):
+                return _split_model_list(values)
+            if isinstance(values, list):
+                return [str(item).strip() for item in values if str(item).strip()]
+    return []
+
+
+def _configured_models_for_backend(backend_id):
+    env_key = f"CODEX_BRIDGE_{backend_id.upper()}_MODELS"
+    return _dedupe_models(
+        _split_model_list(os.environ.get(env_key)),
+        _models_from_catalog(backend_id),
+    )
+
+
 def _pick_available_codex_model(preferred):
     available = _cached_codex_models()
+    if preferred and preferred[0] == "gpt-5.5":
+        return preferred[0]
     if not available:
         return preferred[0]
     for candidate in preferred:
@@ -431,38 +490,54 @@ def backend_status_lines(session):
 
 
 def suggested_models_for_backend(backend_id):
+    configured = _configured_models_for_backend(backend_id)
     if backend_id == "openai":
-        return [
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-        ]
+        return _dedupe_models(
+            configured,
+            [
+                "gpt-5.5",
+                "gpt-5.4",
+                "gpt-5.4-mini",
+                "gpt-5.4-nano",
+            ],
+        )
 
     if backend_id == "codex":
         models = _cached_codex_models()
-        if models:
-            return models
-        return [
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.3-codex",
-            "gpt-5.3-codex-spark",
-            "gpt-5.2-codex",
-        ]
+        return _dedupe_models(
+            configured,
+            models,
+            [
+                "gpt-5.5",
+                "gpt-5.4",
+                "gpt-5.4-mini",
+                "gpt-5.3-codex",
+                "gpt-5.3-codex-spark",
+                "gpt-5.2-codex",
+            ],
+        )
 
     if backend_id == "claude":
-        return [
-            "sonnet",
-            "opus",
-            "claude-sonnet-4-6",
-        ]
+        return _dedupe_models(
+            configured,
+            [
+                "opus",
+                "claude-opus-4-7",
+                "sonnet",
+                "claude-sonnet-4-6",
+                "haiku",
+            ],
+        )
 
     if backend_id == "gemini":
-        return [
-            "gemini-2.5-flash",
-            "gemini-2.5-pro",
-            "gemini-3.1-pro-preview",
-        ]
+        return _dedupe_models(
+            configured,
+            [
+                "gemini-2.5-flash",
+                "gemini-2.5-pro",
+                "gemini-3.1-pro-preview",
+            ],
+        )
 
     return []
 

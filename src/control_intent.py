@@ -191,6 +191,8 @@ def _find_model(text, backend_id):
         return "default"
 
     candidates = suggested_models_for_backend(backend_id)
+    if any(token in lowered for token in ("latest model", "newest model", "최신 모델", "최신모델")) and candidates:
+        return candidates[0]
     for candidate in candidates:
         if candidate.lower() in lowered:
             return candidate
@@ -206,7 +208,10 @@ def _find_model(text, backend_id):
     elif backend_id == "claude":
         alias_map = {
             "sonnet": "sonnet",
-            "opus": "opus",
+            "opus 4.7": "claude-opus-4-7",
+            "opus4.7": "claude-opus-4-7",
+            "opus-4-7": "claude-opus-4-7",
+            "opus": "claude-opus-4-7",
         }
     elif backend_id == "gemini":
         alias_map = {

@@ -63,7 +63,7 @@ def _run_command_thread_safe(session, command):
 
 class ActionPadWidget(QWidget):
 
-    BUTTON_HEIGHT = 32
+    BUTTON_HEIGHT = 30
 
     def __init__(self, session, *, open_ai_callback=None, launch_ai_callback=None, parent=None):
         super().__init__(parent)
@@ -94,7 +94,7 @@ class ActionPadWidget(QWidget):
             " border-radius: 6px;"
             " padding: 2px 8px;"
             " min-height: 24px;"
-            " max-height: 32px;"
+            " max-height: 30px;"
             " font-weight: 400;"
             "}"
             "QPushButton:hover { background: #2b333a; border-color: #52616f; }"
@@ -153,6 +153,7 @@ class ActionPadWidget(QWidget):
             self.ai_analyze_button,
         ):
             button.setFixedHeight(self.BUTTON_HEIGHT)
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         self.status_label = QLabel("Ready.", self)
         self.status_label.setFont(fixed_font)
@@ -592,7 +593,7 @@ class CodexActionPad(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_action_pad.html"
-    UI_LAYOUT_VERSION = 9
+    UI_LAYOUT_VERSION = 10
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):

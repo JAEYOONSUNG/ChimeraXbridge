@@ -75,12 +75,13 @@ def _relax_dock_content_constraints(dock_widgets):
         for widget in tuple(dict.fromkeys(widgets)):
             protected_control = isinstance(widget, (QAbstractButton, QComboBox))
             try:
-                widget.setMinimumSize(0, 0)
                 if protected_control:
+                    # Keep explicit button/combo heights; only prevent collapse.
                     widget.setMinimumHeight(24)
                 else:
+                    widget.setMinimumSize(0, 0)
                     widget.setMinimumHeight(0)
-                widget.setMaximumHeight(16777215)
+                    widget.setMaximumHeight(16777215)
             except Exception:
                 pass
 

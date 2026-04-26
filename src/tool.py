@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 46
+    UI_LAYOUT_VERSION = 47
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1324,7 +1324,7 @@ class CodexAssistant(ToolInstance):
             layout_mode = "narrow"
         elif width < 580:
             layout_mode = "stacked"
-        elif width < 900:
+        elif width < 720:
             layout_mode = "compact"
         else:
             layout_mode = "wide"
@@ -1464,9 +1464,9 @@ class CodexAssistant(ToolInstance):
             grid.setColumnStretch(0, 1)
         elif layout_mode == "compact":
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            flexible_control(self.backend_combo, 135)
-            flexible_control(self.model_combo, 155)
-            fixed_control(self.effort_combo, 104)
+            flexible_control(self.backend_combo, 112)
+            flexible_control(self.model_combo, 130)
+            fixed_control(self.effort_combo, 92)
             fixed_control(self.mode_combo, 95)
             fixed_control(self.speed_combo, 90)
             fixed_control(self.backend_setup_button, 86)
@@ -1483,6 +1483,7 @@ class CodexAssistant(ToolInstance):
                 (self.backend_combo, 1),
                 self.model_label,
                 (self.model_combo, 2),
+                self.backend_setup_button,
             )
             add_row(
                 1,
@@ -1495,7 +1496,6 @@ class CodexAssistant(ToolInstance):
             )
             add_row(
                 2,
-                self.backend_setup_button,
                 self.quick_menu_button,
                 self.analysis_menu_button,
             )
@@ -2548,7 +2548,7 @@ class CodexAssistant(ToolInstance):
 
             self.effort_combo.clear()
             default_effort = self._active_default_effort_display(self._mode)
-            self.effort_combo.addItem(f"default ({default_effort})", "__default__")
+            self.effort_combo.addItem(default_effort, "__default__")
             override_effort = get_effort_override(self.session, backend_id)
             efforts = list(suggested_efforts_for_backend(backend_id))
             for effort in efforts:

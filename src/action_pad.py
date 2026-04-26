@@ -64,6 +64,8 @@ def _run_command_thread_safe(session, command):
 class ActionPadWidget(QWidget):
 
     BUTTON_HEIGHT = 28
+    PANEL_MARGIN = 8
+    PANEL_GAP = 6
 
     def __init__(self, session, *, open_ai_callback=None, launch_ai_callback=None, parent=None):
         super().__init__(parent)
@@ -76,8 +78,8 @@ class ActionPadWidget(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        layout.setContentsMargins(self.PANEL_MARGIN, self.PANEL_MARGIN, self.PANEL_MARGIN, self.PANEL_MARGIN)
+        layout.setSpacing(self.PANEL_GAP)
         self.setLayout(layout)
         self.setObjectName("ActionPadRoot")
         self.setMinimumWidth(0)
@@ -110,8 +112,9 @@ class ActionPadWidget(QWidget):
         layout.addWidget(header)
 
         toolbar = QGridLayout()
-        toolbar.setHorizontalSpacing(5)
-        toolbar.setVerticalSpacing(3)
+        toolbar.setContentsMargins(0, 0, 0, 0)
+        toolbar.setHorizontalSpacing(self.PANEL_GAP)
+        toolbar.setVerticalSpacing(self.PANEL_GAP)
         self.refresh_button = QPushButton("Refresh", self)
         self.refresh_button.clicked.connect(self.refresh)
         toolbar.addWidget(self.refresh_button, 0, 0)
@@ -161,11 +164,12 @@ class ActionPadWidget(QWidget):
         self.status_label = QLabel("Ready.", self)
         self.status_label.setFont(fixed_font)
         self.status_label.setObjectName("ActionPadStatus")
+        self.status_label.setFixedHeight(16)
         layout.addWidget(self.status_label)
 
         targets_layout = QVBoxLayout()
-        targets_layout.setContentsMargins(6, 6, 6, 6)
-        targets_layout.setSpacing(6)
+        targets_layout.setContentsMargins(0, 0, 0, 0)
+        targets_layout.setSpacing(self.PANEL_GAP)
         layout.addLayout(targets_layout, 1)
 
         self.tree = QTreeWidget(self)
@@ -222,7 +226,8 @@ class ActionPadWidget(QWidget):
         targets_layout.addWidget(current_header)
 
         current_actions = QHBoxLayout()
-        current_actions.setSpacing(6)
+        current_actions.setContentsMargins(0, 0, 0, 0)
+        current_actions.setSpacing(self.PANEL_GAP)
         self.current_focus_button = QPushButton("Focus", self)
         self.current_focus_button.clicked.connect(self._focus_current_item)
         current_actions.addWidget(self.current_focus_button)
@@ -247,6 +252,11 @@ class ActionPadWidget(QWidget):
         current_actions.addWidget(self.current_color_button)
         current_actions.addStretch(1)
         targets_layout.addLayout(current_actions)
+        for button in (self.current_focus_button, self.current_clear_button):
+            button.setMinimumHeight(self.BUTTON_HEIGHT)
+            button.setMaximumHeight(self.BUTTON_HEIGHT)
+            button.setFixedHeight(self.BUTTON_HEIGHT)
+            button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         self.pick_mode_label = QLabel("Mouse: default", self)
         self.pick_mode_label.setFont(fixed_font)
@@ -596,7 +606,7 @@ class CodexActionPad(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_action_pad.html"
-    UI_LAYOUT_VERSION = 11
+    UI_LAYOUT_VERSION = 12
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):

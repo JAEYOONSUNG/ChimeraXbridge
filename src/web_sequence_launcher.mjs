@@ -366,6 +366,22 @@ async function openPisa(page, files) {
   await uploadLikelyFiles(page, files || []);
 }
 
+async function openCaver(page, files) {
+  await page.goto('https://loschmidt.chemi.muni.cz/caverweb/', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+  await dismissCommonBanners(page);
+  try {
+    await page.getByText(/^Upload PDB file$/i).click({ timeout: 5000 });
+  } catch {
+    try {
+      await page.locator('label').filter({ hasText: /Upload PDB file/i }).first().click({ timeout: 3000 });
+    } catch {
+      // CAVER may already expose the upload input.
+    }
+  }
+  await uploadLikelyFiles(page, files || []);
+}
+
 async function openUSalign(page, files) {
   await page.goto('https://aideepmed.com/US-align/', { waitUntil: 'domcontentloaded' });
   await uploadLikelyFiles(page, files || []);
@@ -521,6 +537,9 @@ for (const site of payload.sites || []) {
   } else if (site === 'pisa') {
     await openPisa(page, payload.structureFiles || []);
     opened.push('PDBePISA');
+  } else if (site === 'caver') {
+    await openCaver(page, payload.structureFiles || []);
+    opened.push('CAVER Web');
   } else if (site === 'usalign') {
     await openUSalign(page, payload.structureFiles || []);
     opened.push('US-align');

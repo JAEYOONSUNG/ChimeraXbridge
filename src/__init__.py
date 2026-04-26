@@ -225,178 +225,288 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
     if bundle_info is None:
         return
 
+    def provider(name, tab, section=None, **kwargs):
+        data = {"tab": tab}
+        if section is not None:
+            data["section"] = section
+        data.update(kwargs)
+        return name, data
+
     providers = [
-        (
-            "ai-nucleotide-dock",
-            {
-                "tab": "Nucleotides",
-                "section": "AI Tools",
-                "display_name": "NucDock",
-                "icon": "hdock-logo.png",
-                "description": "Paste DNA/RNA sequence and open HDOCK with the current receptor structure",
-            },
+        provider("ai-tab", "AI", after="Right Mouse", help="help:user/tools/codex_assistant.html"),
+        provider("ai-layout-quick", "AI", "Quick"),
+        provider("ai-layout-sequence", "AI", "Sequence", after="Quick"),
+        provider("ai-layout-modeling", "AI", "Modeling", after="Sequence"),
+        provider("ai-layout-sites", "AI", "Sites", after="Modeling"),
+        provider("ai-layout-structure", "AI", "Structure", after="Sites"),
+        provider(
+            "ai-quick-analyze",
+            "AI",
+            "Quick",
+            display_name="Analyze",
+            icon="ai-analyze.svg",
+            description="Run AI analysis on the current selection",
         ),
-        (
-            "ai-nucleotide-afcomplex",
-            {
-                "tab": "Nucleotides",
-                "section": "AI Tools",
-                "display_name": "AF Complex",
-                "icon": "alphafold-logo.png",
-                "description": "Paste DNA/RNA sequence and open AlphaFold Server with current protein chains",
-            },
+        provider(
+            "ai-quick-view",
+            "AI",
+            "Quick",
+            display_name="View",
+            icon="ai-view.svg",
+            description="Apply the next AI-guided structure view",
         ),
-        (
-            "ai-nucleotide-boltz",
-            {
-                "tab": "Nucleotides",
-                "section": "AI Tools",
-                "display_name": "Boltz",
-                "icon": "boltz-logo.svg",
-                "description": "Run official latest Boltz CLI on current protein/DNA/RNA chains",
-            },
+        provider(
+            "ai-quick-site",
+            "AI",
+            "Quick",
+            display_name="Site",
+            icon="ai-site.svg",
+            description="Focus the most likely site or interface",
         ),
-        (
-            "ai-analysis-nucdock",
-            {
-                "tab": "AI",
-                "section": "Analysis",
-                "display_name": "NucDock",
-                "icon": "hdock-logo.png",
-                "description": "Paste DNA/RNA sequence and dock it against the current receptor with HDOCK",
-            },
+        provider(
+            "ai-quick-figure",
+            "AI",
+            "Quick",
+            display_name="Figure",
+            icon="ai-figure.svg",
+            description="Cycle figure-ready views",
         ),
-        (
-            "ai-analysis-afcomplex",
-            {
-                "tab": "AI",
-                "section": "Analysis",
-                "display_name": "AF Complex",
-                "icon": "alphafold-logo.png",
-                "description": "Paste DNA/RNA sequence and open AlphaFold Server with current protein chains",
-            },
+        provider(
+            "ai-analysis-blast",
+            "AI",
+            "Sequence",
+            display_name="Blast",
+            icon="blast-logo.png",
+            description="Open sequence-analysis site chooser for the current protein sequence",
         ),
-        (
-            "ai-analysis-boltz",
-            {
-                "tab": "AI",
-                "section": "Analysis",
-                "display_name": "Boltz",
-                "icon": "boltz-logo.svg",
-                "description": "Run official latest Boltz CLI on current chains, or open native Boltz panel",
-            },
+        provider(
+            "ai-analysis-profile",
+            "AI",
+            "Sequence",
+            display_name="Profile",
+            icon="uniprot-logo.png",
+            description="Open UniProt BLAST with the current protein sequence",
         ),
-        (
+        provider(
             "ai-analysis-hhpred",
-            {
-                "tab": "AI",
-                "section": "Analysis",
-                "display_name": "HHpred",
-                "icon": "hhpred-logo.svg",
-                "description": "Open HHpred / HHblits with the current protein sequence",
-            },
+            "AI",
+            "Sequence",
+            display_name="HHpred",
+            icon="hhpred-logo.svg",
+            description="Open HHpred / HHblits with the current protein sequence",
         ),
-        (
+        provider(
+            "ai-analysis-conserve",
+            "AI",
+            "Sequence",
+            display_name="Consurf",
+            icon="consurf-logo.png",
+            description="Open the ConSurf Colab workflow for the current sequence",
+        ),
+        provider(
+            "ai-analysis-alphafold",
+            "AI",
+            "Modeling",
+            display_name="AlphaFold",
+            icon="alphafold-logo.png",
+            description="Open AlphaFold Server for the current protein sequence(s)",
+        ),
+        provider(
+            "ai-analysis-afcomplex",
+            "AI",
+            "Modeling",
+            display_name="AF Complex",
+            icon="alphafold-logo.png",
+            description="Paste DNA/RNA sequence and open AlphaFold Server with current protein chains",
+        ),
+        provider(
+            "ai-analysis-boltz",
+            "AI",
+            "Modeling",
+            display_name="Boltz",
+            icon="boltz-logo.svg",
+            description="Run official latest Boltz CLI on current chains, or open native Boltz panel",
+        ),
+        provider(
+            "ai-analysis-nucdock",
+            "AI",
+            "Modeling",
+            display_name="NucDock",
+            icon="hdock-logo.png",
+            description="Paste DNA/RNA sequence and dock it against the current receptor with HDOCK",
+        ),
+        provider(
             "ai-analysis-catalytic",
-            {
-                "tab": "AI",
-                "section": "Analysis",
-                "display_name": "Catalytic",
-                "icon": "ai-catalytic.svg",
-                "description": "Rank and highlight catalytic residue candidates",
-            },
+            "AI",
+            "Sites",
+            display_name="Catalytic",
+            icon="ai-catalytic.svg",
+            description="Rank and highlight catalytic residue candidates",
         ),
-        (
-            "ai-analysis-membrane",
-            {
-                "tab": "AI",
-                "section": "Analysis",
-                "display_name": "Membrane",
-                "icon": "ai-membrane.svg",
-                "description": "Create a virtual graphite membrane slab and run MLP hydrophobic analysis",
-            },
-        ),
-        (
-            "ai-analysis-pisa",
-            {
-                "tab": "AI",
-                "section": "Analysis",
-                "display_name": "PISA",
-                "icon": "pisa-logo.svg",
-                "description": "Measure and highlight chain-chain interface buried surface area",
-            },
-        ),
-        (
-            "ai-analysis-dali",
-            {
-                "tab": "AI",
-                "section": "Structure",
-                "display_name": "DALI",
-                "icon": "dali-logo.svg",
-                "description": "Export current/selected structure and open the DALI structure-comparison server",
-            },
-        ),
-        (
-            "ai-analysis-vast",
-            {
-                "tab": "AI",
-                "section": "Structure",
-                "display_name": "VAST",
-                "icon": "vast-logo.svg",
-                "description": "Export current/selected structure and open NCBI VAST",
-            },
-        ),
-        (
-            "ai-analysis-pdbefold",
-            {
-                "tab": "AI",
-                "section": "Structure",
-                "display_name": "PDBeFold",
-                "icon": "pdbefold-logo.png",
-                "description": "Export current/selected structure and open PDBeFold / SSM",
-            },
-        ),
-        (
-            "ai-analysis-usalign",
-            {
-                "tab": "AI",
-                "section": "Structure",
-                "display_name": "US-align",
-                "icon": "usalign-logo.svg",
-                "description": "Export two or more structures and open US-align / TM-score alignment",
-            },
-        ),
-        (
+        provider(
             "ai-analysis-folddisco",
-            {
-                "tab": "Nucleotides",
-                "section": "AI Tools",
-                "display_name": "FoldDisco",
-                "icon": "folddisco-logo.png",
-                "description": "Search a selected structural motif with FoldDisco",
-            },
+            "AI",
+            "Sites",
+            display_name="FoldDisco",
+            icon="folddisco-logo.png",
+            description="Search a selected structural motif with FoldDisco",
         ),
-        (
+        provider(
+            "ai-analysis-caver",
+            "AI",
+            "Sites",
+            display_name="CAVER",
+            icon="caverweb-logo.svg",
+            description="Export current/selected structure and open CAVER Web tunnel/channel analysis",
+        ),
+        provider(
+            "ai-analysis-membrane",
+            "AI",
+            "Sites",
+            display_name="Membrane",
+            icon="ai-membrane.svg",
+            description="Create a virtual graphite membrane slab and run MLP hydrophobic analysis",
+        ),
+        provider(
+            "ai-analysis-pisa",
+            "AI",
+            "Sites",
+            display_name="PISA",
+            icon="pisa-logo.svg",
+            description="Measure and highlight chain-chain interface buried surface area",
+        ),
+        provider(
+            "ai-analysis-similar",
+            "AI",
+            "Structure",
+            display_name="Similar",
+            icon="foldseek-logo.png",
+            description="Run Foldseek Similar Structures and align top hits",
+        ),
+        provider(
             "ai-analysis-foldmason",
-            {
-                "tab": "Nucleotides",
-                "section": "AI Tools",
-                "display_name": "FoldMason",
-                "icon": "foldmason-logo.png",
-                "description": "Export open structures and launch FoldMason multiple structure alignment",
-            },
+            "AI",
+            "Structure",
+            display_name="FoldMason",
+            icon="foldmason-logo.png",
+            description="Export open structures and launch FoldMason multiple structure alignment",
         ),
-        (
+        provider(
+            "ai-analysis-dali",
+            "AI",
+            "Structure",
+            display_name="DALI",
+            icon="dali-logo.svg",
+            description="Export current/selected structure and open the DALI structure-comparison server",
+        ),
+        provider(
+            "ai-analysis-vast",
+            "AI",
+            "Structure",
+            display_name="VAST",
+            icon="vast-logo.svg",
+            description="Export current/selected structure and open NCBI VAST",
+        ),
+        provider(
+            "ai-analysis-pdbefold",
+            "AI",
+            "Structure",
+            display_name="PDBeFold",
+            icon="pdbefold-logo.png",
+            description="Export current/selected structure and open PDBeFold / SSM",
+        ),
+        provider(
+            "ai-analysis-usalign",
+            "AI",
+            "Structure",
+            display_name="US-align",
+            icon="usalign-logo.svg",
+            description="Export two or more structures and open US-align / TM-score alignment",
+        ),
+        provider(
+            "ai-nucleotide-dock",
+            "Nucleotides",
+            "AI Tools",
+            display_name="NucDock",
+            icon="hdock-logo.png",
+            description="Paste DNA/RNA sequence and open HDOCK with the current receptor structure",
+        ),
+        provider(
+            "ai-nucleotide-afcomplex",
+            "Nucleotides",
+            "AI Tools",
+            display_name="AF Complex",
+            icon="alphafold-logo.png",
+            description="Paste DNA/RNA sequence and open AlphaFold Server with current protein chains",
+        ),
+        provider(
+            "ai-nucleotide-boltz",
+            "Nucleotides",
+            "AI Tools",
+            display_name="Boltz",
+            icon="boltz-logo.svg",
+            description="Run official latest Boltz CLI on current protein/DNA/RNA chains",
+        ),
+        provider(
+            "ai-nucleotide-folddisco",
+            "Nucleotides",
+            "AI Tools",
+            display_name="FoldDisco",
+            icon="folddisco-logo.png",
+            description="Search a selected structural motif with FoldDisco",
+        ),
+        provider(
+            "ai-nucleotide-foldmason",
+            "Nucleotides",
+            "AI Tools",
+            display_name="FoldMason",
+            icon="foldmason-logo.png",
+            description="Export open structures and launch FoldMason multiple structure alignment",
+        ),
+        provider(
             "ai-display-controls",
-            {
-                "tab": "Molecule Display",
-                "section": "Adjust",
-                "display_name": "Display Ctrl",
-                "icon": "display-controls.svg",
-                "description": "Open sliders for selected transparency and cartoon helix/sheet thickness",
-            },
+            "Molecule Display",
+            "Adjust",
+            display_name="Display Ctrl",
+            icon="display-controls.svg",
+            description="Open sliders for selected transparency and cartoon helix/sheet thickness",
         ),
     ]
+
+    def reset_codex_toolbar_entries():
+        toolbar_data = getattr(toolbar, "_toolbar", None)
+        if not isinstance(toolbar_data, dict):
+            return
+        ai_sections = toolbar_data.get("AI")
+        stale_ai_sections = {"Quick", "Analysis", "Sequence", "Modeling", "Sites", "Structure"}
+        if isinstance(ai_sections, dict):
+            for section in stale_ai_sections:
+                ai_sections.pop(section, None)
+            layout = ai_sections.get("__layout__")
+            if isinstance(layout, dict):
+                for section in stale_ai_sections:
+                    layout.pop(section, None)
+                for children in layout.values():
+                    if hasattr(children, "difference_update"):
+                        children.difference_update(stale_ai_sections)
+        for tab_sections in toolbar_data.values():
+            if not isinstance(tab_sections, dict):
+                continue
+            for section_dict in tab_sections.values():
+                if not isinstance(section_dict, dict):
+                    continue
+                for display_name, entry in list(section_dict.items()):
+                    if display_name == "__layout__":
+                        continue
+                    try:
+                        provider_name, provider_bundle = entry[0], entry[1]
+                    except Exception:
+                        continue
+                    bundle_name = getattr(provider_bundle, "name", "")
+                    if bundle_name == "ChimeraX-CodexBridge" or str(provider_name).startswith("ai-"):
+                        section_dict.pop(display_name, None)
+
+    reset_codex_toolbar_entries()
     for name, kwargs in providers:
         try:
             toolbar.add_provider(bundle_info, name, **kwargs)

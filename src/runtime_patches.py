@@ -24,6 +24,7 @@ _AI_TOOLBAR_BUTTON_TITLES = {
     "Catalytic",
     "Membrane",
     "PISA",
+    "CAVER",
     "DALI",
     "VAST",
     "PDBeFold",
@@ -31,7 +32,7 @@ _AI_TOOLBAR_BUTTON_TITLES = {
     "Display Ctrl",
 }
 
-_AI_TOOLBAR_SECTION_TITLES = {"Quick", "Analysis", "Structure", "AI Tools", "Adjust"}
+_AI_TOOLBAR_SECTION_TITLES = {"Quick", "Sequence", "Modeling", "Sites", "Structure", "AI Tools", "Adjust"}
 
 _LOG_MONO_CSS = """
 /* codex-bridge-log-font */

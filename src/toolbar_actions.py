@@ -17,6 +17,7 @@ VAST_URL = "https://www.ncbi.nlm.nih.gov/Structure/VAST/vastsearch.html"
 PDBEFOLD_URL = "https://www.ebi.ac.uk/msd-srv/ssm/"
 USALIGN_URL = "https://aideepmed.com/US-align/"
 PISA_URL = "https://www.ebi.ac.uk/pdbe/prot_int/"
+CAVER_URL = "https://loschmidt.chemi.muni.cz/caverweb/"
 
 
 def _show_ai_prompt(session, prompt):
@@ -1704,6 +1705,17 @@ def launch_pisa_server(session, *, executor=None):
     )
 
 
+def launch_caver_server(session, *, executor=None):
+    return _launch_structure_upload_site(
+        session,
+        label="CAVER Web",
+        site_key="caver",
+        url=CAVER_URL,
+        fmt="pdb",
+        executor=executor,
+    )
+
+
 def launch_usalign(session, *, executor=None):
     files, out_dir = _export_model_files(
         session,
@@ -1988,6 +2000,9 @@ def run_toolbar_action(session, name):
 
         _run_toolbar_chimerax_task(session, "PISA", pisa_task)
         return
+    elif action == "ai-analysis-caver":
+        _run_toolbar_chimerax_task(session, "CAVER", lambda executor: launch_caver_server(session, executor=executor))
+        return
     elif action == "ai-analysis-dali":
         _run_toolbar_chimerax_task(session, "DALI", lambda executor: launch_dali_server(session, executor=executor))
         return
@@ -2010,14 +2025,14 @@ def run_toolbar_action(session, name):
     elif action in {"ai-analysis-boltz", "ai-nucleotide-boltz"}:
         _run_toolbar_task(session, "Boltz", lambda: launch_boltz_latest_predict(session))
         return
-    elif action == "ai-analysis-foldmason":
+    elif action in {"ai-analysis-foldmason", "ai-nucleotide-foldmason"}:
         _run_toolbar_chimerax_task(
             session,
             "FoldMason",
             lambda executor: launch_foldmason(session, executor=executor),
         )
         return
-    elif action == "ai-analysis-folddisco":
+    elif action in {"ai-analysis-folddisco", "ai-nucleotide-folddisco"}:
         _run_toolbar_chimerax_task(
             session,
             "FoldDisco",

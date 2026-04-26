@@ -63,6 +63,8 @@ def _run_command_thread_safe(session, command):
 
 class ActionPadWidget(QWidget):
 
+    BUTTON_HEIGHT = 32
+
     def __init__(self, session, *, open_ai_callback=None, launch_ai_callback=None, parent=None):
         super().__init__(parent)
         self.session = session
@@ -89,9 +91,10 @@ class ActionPadWidget(QWidget):
             " background: #22282e;"
             " color: #eef2f5;"
             " border: 1px solid #36424d;"
-            " border-radius: 7px;"
-            " padding: 5px 10px;"
+            " border-radius: 6px;"
+            " padding: 2px 8px;"
             " min-height: 24px;"
+            " max-height: 32px;"
             " font-weight: 650;"
             "}"
             "QPushButton:hover { background: #2b333a; border-color: #52616f; }"
@@ -106,8 +109,8 @@ class ActionPadWidget(QWidget):
         layout.addWidget(header)
 
         toolbar = QGridLayout()
-        toolbar.setHorizontalSpacing(6)
-        toolbar.setVerticalSpacing(6)
+        toolbar.setHorizontalSpacing(5)
+        toolbar.setVerticalSpacing(4)
         self.refresh_button = QPushButton("Refresh", self)
         self.refresh_button.clicked.connect(self.refresh)
         toolbar.addWidget(self.refresh_button, 0, 0)
@@ -140,6 +143,16 @@ class ActionPadWidget(QWidget):
         for column in range(3):
             toolbar.setColumnStretch(column, 1)
         layout.addLayout(toolbar)
+        for button in (
+            self.refresh_button,
+            self.open_ai_button,
+            self.pick_residue_button,
+            self.pick_chain_button,
+            self.pick_menu_button,
+            self.pick_default_button,
+            self.ai_analyze_button,
+        ):
+            button.setFixedHeight(self.BUTTON_HEIGHT)
 
         self.status_label = QLabel("Ready.", self)
         self.status_label.setFont(fixed_font)

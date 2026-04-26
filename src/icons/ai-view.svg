@@ -1,6 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <path d="M8 32 C14 21, 22 16, 32 16 C42 16, 50 21, 56 32 C50 43, 42 48, 32 48 C22 48, 14 43, 8 32 Z" fill="#F8FAFC" stroke="#111827" stroke-width="4" stroke-linejoin="round"/>
-  <circle cx="32" cy="32" r="8" fill="#0F766E" stroke="#111827" stroke-width="3"/>
-  <circle cx="32" cy="32" r="3" fill="#93C5FD"/>
-  <path d="M22 36 C25 28, 30 26, 35 29 C38 31, 41 30, 43 26" stroke="#22C55E" stroke-width="3.5" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="View">
+  <defs>
+    <linearGradient id="eye" x1="8" y1="16" x2="56" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#9fb0c4"/>
+    </linearGradient>
+    <radialGradient id="iris" cx="0" cy="0" r="1" gradientTransform="translate(32 32) rotate(90) scale(11)">
+      <stop offset="0" stop-color="#a7f3d0"/>
+      <stop offset=".58" stop-color="#0ea5a4"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </radialGradient>
+  </defs>
+  <path d="M7.5 32c6.8-11.2 15-16.6 24.5-16.6S49.7 20.8 56.5 32C49.7 43.2 41.5 48.6 32 48.6S14.3 43.2 7.5 32Z" fill="url(#eye)" stroke="#111827" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="32" cy="32" r="10.5" fill="url(#iris)" stroke="#111827" stroke-width="3"/>
+  <circle cx="35" cy="28" r="3.2" fill="#e8fbff"/>
+  <path d="M18 39c7-5 15-6 27-3" fill="none" stroke="#22c55e" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>
 </svg>

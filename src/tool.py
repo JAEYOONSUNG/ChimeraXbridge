@@ -169,7 +169,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 41
+    UI_LAYOUT_VERSION = 42
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1287,7 +1287,14 @@ class CodexAssistant(ToolInstance):
 
     def _clear_grid_layout(self, grid):
         while grid.count():
-            grid.takeAt(0)
+            item = grid.takeAt(0)
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                try:
+                    if widget.property("codexDynamicTopControlRow"):
+                        widget.deleteLater()
+                except Exception:
+                    pass
         for column in range(10):
             try:
                 grid.setColumnStretch(column, 0)
@@ -1318,7 +1325,7 @@ class CodexAssistant(ToolInstance):
         self._set_sequence_buttons_compact(compact)
 
     def _set_top_controls_compact(self, layout_mode):
-        from Qt.QtWidgets import QSizePolicy
+        from Qt.QtWidgets import QHBoxLayout, QSizePolicy, QWidget
 
         grid = getattr(self, "top_control_row", None)
         if grid is None:
@@ -1361,6 +1368,23 @@ class CodexAssistant(ToolInstance):
             widget.setMaximumWidth(width)
             widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
+        def fixed_label(widget, width):
+            widget.setMinimumWidth(width)
+            widget.setMaximumWidth(width)
+            widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+        def top_row(*widgets):
+            row = QWidget(grid.parentWidget())
+            row.setProperty("codexDynamicTopControlRow", True)
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(7)
+            row.setLayout(row_layout)
+            for widget in widgets:
+                row_layout.addWidget(widget)
+            row_layout.addStretch(1)
+            return row
+
         if layout_mode == "narrow":
             grid.setAlignment(Qt.AlignmentFlag.AlignTop)
             expand_control(self.backend_combo, 180)
@@ -1391,75 +1415,76 @@ class CodexAssistant(ToolInstance):
             grid.setColumnStretch(1, 1)
             grid.setColumnMinimumWidth(0, 88)
         elif layout_mode == "compact":
-            grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            expand_control(self.backend_combo, 220)
-            expand_control(self.model_combo, 220)
-            expand_control(self.effort_combo, 150)
-            expand_control(self.mode_combo, 120)
-            expand_control(self.speed_combo, 120)
-            expand_control(self.backend_setup_button, 120)
-            expand_control(self.quick_menu_button, 125)
-            expand_control(self.analysis_menu_button, 125)
+            grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            fixed_control(self.backend_combo, 420)
+            fixed_control(self.model_combo, 385)
+            fixed_control(self.effort_combo, 150)
+            fixed_control(self.mode_combo, 120)
+            fixed_control(self.speed_combo, 105)
+            fixed_control(self.backend_setup_button, 120)
+            fixed_control(self.quick_menu_button, 125)
+            fixed_control(self.analysis_menu_button, 125)
             for label in labels:
-                label.setMinimumWidth(82)
-                label.setMaximumWidth(82)
-            grid.addWidget(self.engine_label, 0, 0, 1, 1, label_alignment)
-            grid.addWidget(self.backend_combo, 0, 1, 1, 4)
-            grid.addWidget(self.backend_setup_button, 0, 5)
-            grid.addWidget(self.model_label, 1, 0, 1, 1, label_alignment)
-            grid.addWidget(self.model_combo, 1, 1, 1, 5)
-            grid.addWidget(self.effort_label, 2, 0, 1, 1, label_alignment)
-            grid.addWidget(self.effort_combo, 2, 1)
-            grid.addWidget(self.mode_label, 2, 2, 1, 1, label_alignment)
-            grid.addWidget(self.mode_combo, 2, 3)
-            grid.addWidget(self.speed_label, 2, 4, 1, 1, label_alignment)
-            grid.addWidget(self.speed_combo, 2, 5)
-            grid.addWidget(self.quick_menu_button, 3, 1, 1, 2)
-            grid.addWidget(self.analysis_menu_button, 3, 3, 1, 3)
+                fixed_label(label, 82)
+            fixed_label(self.mode_label, 58)
+            fixed_label(self.speed_label, 58)
+            grid.addWidget(top_row(self.engine_label, self.backend_combo, self.backend_setup_button), 0, 0)
+            grid.addWidget(top_row(self.model_label, self.model_combo), 1, 0)
+            grid.addWidget(
+                top_row(
+                    self.effort_label,
+                    self.effort_combo,
+                    self.mode_label,
+                    self.mode_combo,
+                    self.speed_label,
+                    self.speed_combo,
+                    self.quick_menu_button,
+                    self.analysis_menu_button,
+                ),
+                2,
+                0,
+            )
             grid.setColumnStretch(0, 0)
-            grid.setColumnStretch(1, 2)
-            grid.setColumnStretch(2, 0)
-            grid.setColumnStretch(3, 2)
-            grid.setColumnStretch(4, 0)
-            grid.setColumnStretch(5, 2)
-            grid.setColumnMinimumWidth(0, 82)
-            grid.setColumnMinimumWidth(2, 82)
-            grid.setColumnMinimumWidth(4, 70)
         else:
-            grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            expand_control(self.backend_combo, 220)
-            expand_control(self.model_combo, 260)
+            grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            fixed_control(self.backend_combo, 420)
+            fixed_control(self.model_combo, 385)
             fixed_control(self.effort_combo, 160)
             fixed_control(self.mode_combo, 130)
-            fixed_control(self.speed_combo, 130)
+            fixed_control(self.speed_combo, 110)
             fixed_control(self.backend_setup_button, 125)
             fixed_control(self.quick_menu_button, 135)
             fixed_control(self.analysis_menu_button, 135)
             for label in labels:
-                label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-                label.setMinimumWidth(0)
-                label.setMaximumWidth(16777215)
-            grid.addWidget(self.engine_label, 0, 0)
-            grid.addWidget(self.backend_combo, 0, 1, 1, 2)
-            grid.addWidget(self.backend_setup_button, 0, 3, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.mode_label, 0, 4)
-            grid.addWidget(self.mode_combo, 0, 5, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.speed_label, 0, 6)
-            grid.addWidget(self.speed_combo, 0, 7, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.model_label, 1, 0)
-            grid.addWidget(self.model_combo, 1, 1, 1, 3)
-            grid.addWidget(self.effort_label, 1, 4)
-            grid.addWidget(self.effort_combo, 1, 5, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.quick_menu_button, 1, 6, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.analysis_menu_button, 1, 7, 1, 1, fixed_control_alignment)
+                fixed_label(label, 74)
+            fixed_label(self.mode_label, 54)
+            fixed_label(self.speed_label, 54)
+            grid.addWidget(
+                top_row(
+                    self.engine_label,
+                    self.backend_combo,
+                    self.backend_setup_button,
+                    self.mode_label,
+                    self.mode_combo,
+                    self.speed_label,
+                    self.speed_combo,
+                ),
+                0,
+                0,
+            )
+            grid.addWidget(
+                top_row(
+                    self.model_label,
+                    self.model_combo,
+                    self.effort_label,
+                    self.effort_combo,
+                    self.quick_menu_button,
+                    self.analysis_menu_button,
+                ),
+                1,
+                0,
+            )
             grid.setColumnStretch(0, 0)
-            grid.setColumnStretch(1, 2)
-            grid.setColumnStretch(2, 2)
-            grid.setColumnStretch(3, 1)
-            grid.setColumnStretch(4, 0)
-            grid.setColumnStretch(5, 0)
-            grid.setColumnStretch(6, 0)
-            grid.setColumnStretch(7, 0)
 
     def _set_action_buttons_compact(self, compact):
         grid = getattr(self, "bottom_control_row", None)

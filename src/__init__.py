@@ -297,7 +297,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
                 "tab": "AI",
                 "section": "Analysis",
                 "display_name": "Catalytic",
-                "icon": "ai-site.svg",
+                "icon": "ai-catalytic.svg",
                 "description": "Rank and highlight catalytic residue candidates",
             },
         ),

@@ -1,10 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <circle cx="32" cy="32" r="18" stroke="#111827" stroke-width="4"/>
-  <circle cx="32" cy="32" r="10" fill="#FEF3C7" stroke="#111827" stroke-width="3"/>
-  <circle cx="32" cy="32" r="4.5" fill="#EF4444" stroke="#111827" stroke-width="2"/>
-  <path d="M32 9 V18" stroke="#111827" stroke-width="4" stroke-linecap="round"/>
-  <path d="M32 46 V55" stroke="#111827" stroke-width="4" stroke-linecap="round"/>
-  <path d="M9 32 H18" stroke="#111827" stroke-width="4" stroke-linecap="round"/>
-  <path d="M46 32 H55" stroke="#111827" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="44" cy="20" r="3.2" fill="#22C55E" stroke="#111827" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Site">
+  <defs>
+    <linearGradient id="ring" x1="10" y1="9" x2="54" y2="55" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#eff6ff"/>
+      <stop offset="1" stop-color="#94a3b8"/>
+    </linearGradient>
+    <radialGradient id="hotspot" cx="0" cy="0" r="1" gradientTransform="translate(32 32) scale(15)">
+      <stop offset="0" stop-color="#fff7ed"/>
+      <stop offset=".45" stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#dc2626"/>
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="22" fill="url(#ring)" stroke="#111827" stroke-width="4"/>
+  <circle cx="32" cy="32" r="13" fill="none" stroke="#111827" stroke-width="2.8" opacity=".85"/>
+  <circle cx="32" cy="32" r="7" fill="url(#hotspot)" stroke="#111827" stroke-width="2.4"/>
+  <path d="M32 5v11M32 48v11M5 32h11M48 32h11" stroke="#111827" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="46" cy="19" r="4.2" fill="#22c55e" stroke="#111827" stroke-width="2"/>
 </svg>

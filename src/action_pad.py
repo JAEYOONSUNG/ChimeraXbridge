@@ -14,7 +14,7 @@ from Qt.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Qt.QtGui import QFontDatabase
+from Qt.QtGui import QColor, QFontDatabase
 from Qt.QtCore import Qt
 
 from chimerax.core.tools import ToolInstance, get_singleton
@@ -74,16 +74,35 @@ class ActionPadWidget(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
         self.setLayout(layout)
+        self.setObjectName("ActionPadRoot")
         self.setMinimumWidth(0)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
+        self.setStyleSheet(
+            "QWidget#ActionPadRoot { background: #171a1d; color: #e6eaee; }"
+            "QLabel { color: #dce1e6; background: transparent; border: none; }"
+            "QLabel#ActionPadHeader { color: #f0f3f6; font-size: 13px; font-weight: 700; }"
+            "QLabel#ActionPadStatus { color: #adb6bf; font-size: 11px; }"
+            "QPushButton {"
+            " background: #22282e;"
+            " color: #eef2f5;"
+            " border: 1px solid #36424d;"
+            " border-radius: 7px;"
+            " padding: 5px 10px;"
+            " min-height: 24px;"
+            " font-weight: 650;"
+            "}"
+            "QPushButton:hover { background: #2b333a; border-color: #52616f; }"
+            "QPushButton:pressed { background: #11161a; }"
+            "QPushButton:disabled { color: #68717a; background: #191d21; border-color: #252b31; }"
+        )
 
         fixed_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
 
-        header = QLabel("PyMOL-style Action Pad")
-        header.setStyleSheet("QLabel { color: #d8dde3; font-weight: 700; }")
+        header = QLabel("Object actions")
+        header.setObjectName("ActionPadHeader")
         layout.addWidget(header)
 
         toolbar = QGridLayout()
@@ -118,11 +137,13 @@ class ActionPadWidget(QWidget):
             lambda: self._launch_ai_prompt("Analyze the current ChimeraX scene with evidence and confidence.", "analyze")
         )
         toolbar.addWidget(self.ai_analyze_button, 2, 0, 1, 3)
+        for column in range(3):
+            toolbar.setColumnStretch(column, 1)
         layout.addLayout(toolbar)
 
         self.status_label = QLabel("Ready.", self)
         self.status_label.setFont(fixed_font)
-        self.status_label.setStyleSheet("QLabel { color: #c7ccd2; }")
+        self.status_label.setObjectName("ActionPadStatus")
         layout.addWidget(self.status_label)
 
         targets_layout = QVBoxLayout()
@@ -133,6 +154,7 @@ class ActionPadWidget(QWidget):
         self.tree = QTreeWidget(self)
         self.tree.setFont(fixed_font)
         self.tree.setMinimumWidth(0)
+        self.tree.setMinimumHeight(150)
         self.tree.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.tree.setColumnCount(6)
         self.tree.setHeaderLabels(["Object", "A", "S", "H", "L", "C"])
@@ -169,7 +191,7 @@ class ActionPadWidget(QWidget):
         self.current_spec_label.setFont(fixed_font)
         self.current_spec_label.setStyleSheet(
             "QLabel {"
-            " background: #15181b;"
+            " background: #12161a;"
             " color: #d9dde2;"
             " border: 1px solid #343a40;"
             " border-radius: 6px;"
@@ -211,7 +233,7 @@ class ActionPadWidget(QWidget):
 
         self.pick_mode_label = QLabel("Mouse: default", self)
         self.pick_mode_label.setFont(fixed_font)
-        self.pick_mode_label.setStyleSheet("QLabel { color: #95f0b8; }")
+        self.pick_mode_label.setStyleSheet("QLabel { color: #95f0b8; background: transparent; border: none; }")
         targets_layout.addWidget(self.pick_mode_label)
 
     def install_handlers(self):
@@ -273,6 +295,11 @@ class ActionPadWidget(QWidget):
                 chain_spec = f"{model['spec']}/{chain['id']}"
                 self._add_spec_item(item, f"{chain_spec}  [{span}]", chain_spec, chain_spec, selected_token)
             item.setExpanded(True)
+        if model_count == 0:
+            placeholder = QTreeWidgetItem(["No atomic models loaded", "", "", "", "", ""])
+            placeholder.setFlags(placeholder.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+            placeholder.setForeground(0, QColor("#89929b"))
+            models_root.addChild(placeholder)
         self.tree.addTopLevelItem(models_root)
         models_root.setExpanded(True)
 
@@ -552,7 +579,7 @@ class CodexActionPad(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_action_pad.html"
-    UI_LAYOUT_VERSION = 8
+    UI_LAYOUT_VERSION = 9
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):
@@ -596,6 +623,27 @@ class CodexActionPad(ToolInstance):
     def delete(self):
         self.widget.cleanup()
         super().delete()
+
+    def displayed(self):
+        dock_widget = getattr(self.tool_window, "_dock_widget", None)
+        if dock_widget is not None:
+            return bool(dock_widget.isVisible())
+        ui_area = getattr(self.tool_window, "ui_area", None)
+        return bool(ui_area is not None and ui_area.isVisible())
+
+    def display(self, b):
+        dock_widget = getattr(self.tool_window, "_dock_widget", None)
+        if dock_widget is not None:
+            if b:
+                dock_widget.show()
+                dock_widget.raise_()
+            else:
+                dock_widget.hide()
+            return
+        try:
+            super().display(b)
+        except Exception:
+            pass
 
     def _open_ai(self):
         from .tool import CodexAssistant

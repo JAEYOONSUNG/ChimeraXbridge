@@ -1992,7 +1992,18 @@ class CodexAssistant(ToolInstance):
         self._queue_workspace_refresh()
 
     def _open_action_pad(self):
+        try:
+            from .action_pad import CodexActionPad
+
+            action_pad = CodexActionPad.get_singleton(self.session, create=False, display=False)
+            if action_pad is not None and action_pad.displayed():
+                action_pad.display(False)
+                self._append_system("action pad hidden")
+                return
+        except Exception:
+            pass
         self._show_action_pad_tab()
+        self._append_system("action pad opened")
 
     def _open_display_controls(self):
         from .display_controls import CodexDisplayControls

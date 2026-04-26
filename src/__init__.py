@@ -51,7 +51,7 @@ def _right_side_docks(session):
 def _relax_dock_content_constraints(dock_widgets):
     try:
         from Qt.QtCore import QSize
-        from Qt.QtWidgets import QAbstractScrollArea, QLayout, QSizePolicy, QWidget
+        from Qt.QtWidgets import QAbstractButton, QAbstractScrollArea, QComboBox, QLayout, QSizePolicy, QWidget
     except Exception:
         return
 
@@ -73,14 +73,18 @@ def _relax_dock_content_constraints(dock_widgets):
                 pass
 
         for widget in tuple(dict.fromkeys(widgets)):
+            protected_control = isinstance(widget, (QAbstractButton, QComboBox))
             try:
                 widget.setMinimumSize(0, 0)
-                widget.setMinimumHeight(0)
+                if protected_control:
+                    widget.setMinimumHeight(24)
+                else:
+                    widget.setMinimumHeight(0)
                 widget.setMaximumHeight(16777215)
             except Exception:
                 pass
 
-            if aggressive:
+            if aggressive and not protected_control:
                 try:
                     policy = widget.sizePolicy()
                     policy.setVerticalPolicy(QSizePolicy.Policy.Ignored)

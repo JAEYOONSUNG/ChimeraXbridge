@@ -3,7 +3,7 @@ from urllib.request import Request, urlopen
 
 
 _LOG_FONT_PATCH_VERSION = 1
-_AI_TOOLBAR_STYLE_VERSION = 1
+_AI_TOOLBAR_STYLE_VERSION = 2
 
 _AI_TOOLBAR_BUTTON_TITLES = {
     "Analyze",
@@ -32,7 +32,7 @@ _AI_TOOLBAR_BUTTON_TITLES = {
     "Display Ctrl",
 }
 
-_AI_TOOLBAR_SECTION_TITLES = {"Quick", "Sequence", "Modeling", "Sites", "Structure", "AI Tools", "Adjust"}
+_AI_TOOLBAR_SECTION_TITLES = {"Quick", "Sequence", "Modeling", "Sites", "Channels", "Structure", "AI Tools", "Adjust"}
 
 _LOG_MONO_CSS = """
 /* codex-bridge-log-font */

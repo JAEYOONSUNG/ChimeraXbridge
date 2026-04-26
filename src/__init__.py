@@ -238,7 +238,8 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
         provider("ai-layout-sequence", "AI", "Sequence", after="Quick"),
         provider("ai-layout-modeling", "AI", "Modeling", after="Sequence"),
         provider("ai-layout-sites", "AI", "Sites", after="Modeling"),
-        provider("ai-layout-structure", "AI", "Structure", after="Sites"),
+        provider("ai-layout-channels", "AI", "Channels", after="Sites"),
+        provider("ai-layout-structure", "AI", "Structure", after="Channels"),
         provider(
             "ai-quick-analyze",
             "AI",
@@ -354,7 +355,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
         provider(
             "ai-analysis-caver",
             "AI",
-            "Sites",
+            "Channels",
             display_name="CAVER",
             icon="caverweb-logo.svg",
             description="Export current/selected structure and open CAVER Web tunnel/channel analysis",
@@ -362,7 +363,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
         provider(
             "ai-analysis-membrane",
             "AI",
-            "Sites",
+            "Channels",
             display_name="Membrane",
             icon="ai-membrane.svg",
             description="Create a virtual graphite membrane slab and run MLP hydrophobic analysis",
@@ -478,7 +479,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
         if not isinstance(toolbar_data, dict):
             return
         ai_sections = toolbar_data.get("AI")
-        stale_ai_sections = {"Quick", "Analysis", "Sequence", "Modeling", "Sites", "Structure"}
+        stale_ai_sections = {"Quick", "Analysis", "Sequence", "Modeling", "Sites", "Channels", "Structure"}
         if isinstance(ai_sections, dict):
             for section in stale_ai_sections:
                 ai_sections.pop(section, None)

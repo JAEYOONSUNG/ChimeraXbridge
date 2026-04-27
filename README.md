@@ -1,4 +1,4 @@
-# ChimeraX Codex Bridge
+# ChimeraX AI agent Bridge
 
 Local ChimeraX bundle that can call installed AI CLIs such as `codex`,
 `claude`, and `gemini`, while sending a compact summary of the current

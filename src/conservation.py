@@ -8,12 +8,16 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 
-def format_conservation_report(session, model_hint=None, query_text=None):
+def format_conservation_report(session, model_hint=None, query_text=None, display_limit=10):
     profile = estimate_conservation_profile(session, model_hint=model_hint, query_text=query_text)
     session._codex_bridge_last_conservation_profile = None if profile.get("error") else profile
     if profile.get("error"):
         return f"- {profile['error']}"
 
+    try:
+        cap = max(1, min(50, int(display_limit)))
+    except Exception:
+        cap = 10
     lines = [
         "- ConSurf-lite local conservation analysis",
         f"  - target: {profile['target_chain_spec']} ({profile['target_model_name']})",
@@ -28,7 +32,7 @@ def format_conservation_report(session, model_hint=None, query_text=None):
     top_conserved = profile.get("top_conserved", [])
     if top_conserved:
         lines.append("  - top conserved residues:")
-        for item in top_conserved[:10]:
+        for item in top_conserved[:cap]:
             lines.append(
                 f"    - {item['residue_spec']} {item['aa']} grade {item['grade']} "
                 f"(identity {item['identity_fraction']:.2f}, consensus {item['consensus_aa']})"
@@ -39,7 +43,7 @@ def format_conservation_report(session, model_hint=None, query_text=None):
     variable = profile.get("top_variable", [])
     if variable:
         lines.append("  - most variable residues:")
-        for item in variable[:10]:
+        for item in variable[:cap]:
             lines.append(
                 f"    - {item['residue_spec']} {item['aa']} grade {item['grade']} "
                 f"(identity {item['identity_fraction']:.2f}, consensus {item['consensus_aa']})"
@@ -50,7 +54,7 @@ def format_conservation_report(session, model_hint=None, query_text=None):
     overlaps = profile.get("feature_overlaps", [])
     if overlaps:
         lines.append("  - conserved residue overlaps with motifs/features:")
-        for item in overlaps[:10]:
+        for item in overlaps[:cap]:
             lines.append(
                 f"    - {item['residue_spec']} overlaps {item['label']} ({item['kind']})"
             )
@@ -60,7 +64,8 @@ def format_conservation_report(session, model_hint=None, query_text=None):
     return "\n".join(lines)
 
 
-def apply_conservation_view(session, model_hint=None, query_text=None, executor=None):
+def apply_conservation_view(session, model_hint=None, query_text=None, executor=None, *, top_n=18):
+    """top_n: how many top conserved + top variable residues to highlight (default 18 each)."""
     from .builtin_actions import _clear_selection, _publication_base_commands, _run, _selection_stick_style_commands
 
     profile = estimate_conservation_profile(session, model_hint=model_hint, query_text=query_text)
@@ -70,8 +75,12 @@ def apply_conservation_view(session, model_hint=None, query_text=None, executor=
 
     target_model_spec = profile["target_model_spec"]
     target_chain_spec = profile["target_chain_spec"]
-    high_specs = [item["residue_spec"] for item in profile.get("top_conserved", [])[:18]]
-    variable_specs = [item["residue_spec"] for item in profile.get("top_variable", [])[:18]]
+    try:
+        n = max(1, min(50, int(top_n)))
+    except Exception:
+        n = 18
+    high_specs = [item["residue_spec"] for item in profile.get("top_conserved", [])[:n]]
+    variable_specs = [item["residue_spec"] for item in profile.get("top_variable", [])[:n]]
 
     commands = [*_publication_base_commands(target_model_spec), f"view {target_chain_spec}"]
     executed = []

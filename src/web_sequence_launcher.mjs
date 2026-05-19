@@ -339,6 +339,22 @@ async function openHHpred(page, fasta) {
   ]);
 }
 
+async function openSignalP(page, fasta, organism, mode) {
+  await page.goto('https://services.healthtech.dtu.dk/services/SignalP-6.0/', {
+    waitUntil: 'domcontentloaded',
+  });
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+  await dismissCommonBanners(page);
+  await fillLikelySequenceField(page, fasta, [
+    'textarea[name*="seq" i]',
+    'textarea[id*="seq" i]',
+    'textarea[placeholder*="sequence" i]',
+    'textarea',
+  ]);
+  await selectLikelyOption(page, organism || 'other').catch(() => false);
+  await selectLikelyOption(page, mode || 'fast').catch(() => false);
+}
+
 async function openFoldMason(page, files) {
   await page.goto('https://search.foldseek.com/foldmason', { waitUntil: 'domcontentloaded' });
   await uploadLikelyFiles(page, files || []);
@@ -522,6 +538,9 @@ for (const site of payload.sites || []) {
   } else if (site === 'hhpred') {
     await openHHpred(page, payload.fasta);
     opened.push('HHpred / HHblits');
+  } else if (site === 'signalp') {
+    await openSignalP(page, payload.fasta, payload.signalpOrganism || 'other', payload.signalpMode || 'fast');
+    opened.push('SignalP 6.0');
   } else if (site === 'foldmason') {
     await openFoldMason(page, payload.structureFiles || []);
     opened.push('FoldMason');

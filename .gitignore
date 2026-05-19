@@ -18,3 +18,12 @@ build/
 *.tmp
 *.bak
 
+# Local ChimeraX runtime probes and launchers. The .cxc files generated during
+# development contain absolute machine-local paths and should not be published.
+.codex_runtime_verify.json
+scripts/*.cxc
+scripts/test_*.py
+scripts/apply_connected_stick_anchor.py
+scripts/sync_reload_verify_chimerax.sh
+scripts/verify_codex_runtime.py
+whole_clustering.csv

@@ -31,18 +31,33 @@ def _append_command_history(session, cmd_text):
         del history[:-40]
 
 
+def _safe_batch_depth(session):
+    """Return the batch depth as a non-negative int, repairing the session
+    attr if a saved/clobbered value isn't a valid integer."""
+    try:
+        depth = int(getattr(session, "_codex_bridge_command_batch_depth", 0) or 0)
+    except (TypeError, ValueError):
+        depth = 0
+    if depth < 0:
+        depth = 0
+    session._codex_bridge_command_batch_depth = depth
+    return depth
+
+
 @contextmanager
 def command_batch(session, label):
     ensure_session_preferences(session)
-    outermost = session._codex_bridge_command_batch_depth == 0
-    session._codex_bridge_command_batch_depth += 1
+    depth = _safe_batch_depth(session)
+    outermost = depth == 0
+    session._codex_bridge_command_batch_depth = depth + 1
     if outermost:
         session._codex_bridge_command_batch_commands = []
         session._codex_bridge_command_batch_label = str(label or "").strip() or "AI action"
     try:
         yield
     finally:
-        session._codex_bridge_command_batch_depth = max(0, session._codex_bridge_command_batch_depth - 1)
+        depth_now = _safe_batch_depth(session)
+        session._codex_bridge_command_batch_depth = max(0, depth_now - 1)
         if session._codex_bridge_command_batch_depth == 0:
             commands = list(getattr(session, "_codex_bridge_command_batch_commands", []) or [])
             batch_label = getattr(session, "_codex_bridge_command_batch_label", None) or "AI action"

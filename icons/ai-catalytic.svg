@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="cyCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a4047"/>
+      <stop offset="0.5" stop-color="#23272c"/>
+      <stop offset="1" stop-color="#13161a"/>
+    </linearGradient>
+    <linearGradient id="cyHelix" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1c5b37"/>
+      <stop offset="0.4" stop-color="#3aa86a"/>
+      <stop offset="0.55" stop-color="#7adcaf"/>
+      <stop offset="0.7" stop-color="#bff0d3"/>
+      <stop offset="1" stop-color="#1c5b37"/>
+    </linearGradient>
+    <linearGradient id="cyHelix2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0e4225"/>
+      <stop offset="0.4" stop-color="#2d8a55"/>
+      <stop offset="0.55" stop-color="#5cc78c"/>
+      <stop offset="1" stop-color="#0e4225"/>
+    </linearGradient>
+    <radialGradient id="cyCleft" cx="0.5" cy="0.45" r="0.7">
+      <stop offset="0" stop-color="#000000"/>
+      <stop offset="0.6" stop-color="#0d1318"/>
+      <stop offset="1" stop-color="#1f2c33"/>
+    </radialGradient>
+    <radialGradient id="cyCleftGlow" cx="0.5" cy="0.5" r="0.7">
+      <stop offset="0" stop-color="#fff4d6" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#fbcf80" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#a36719" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cyAtomO" cx="0.32" cy="0.28" r="0.85">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.4" stop-color="#ff8a87"/>
+      <stop offset="1" stop-color="#7a1d1b"/>
+    </radialGradient>
+    <radialGradient id="cyAtomN" cx="0.32" cy="0.28" r="0.85">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.4" stop-color="#7aa6e6"/>
+      <stop offset="1" stop-color="#1d3a6a"/>
+    </radialGradient>
+    <radialGradient id="cySubstrate" cx="0.32" cy="0.28" r="0.85">
+      <stop offset="0" stop-color="#fff4d6"/>
+      <stop offset="0.4" stop-color="#fbcf80"/>
+      <stop offset="1" stop-color="#7a4612"/>
+    </radialGradient>
+    <filter id="cyDrop" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1.2" stdDeviation="1" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+
+  <rect x="5" y="5" width="54" height="54" rx="10" fill="url(#cyCard)" stroke="#0a0c0f" stroke-width="2"/>
+  <rect x="5.6" y="5.6" width="52.8" height="52.8" rx="9.5" fill="none" stroke="#7a8088" stroke-width="0.5" opacity="0.45"/>
+  <rect x="5.6" y="5.6" width="52.8" height="3" rx="9" fill="#ffffff" opacity="0.05"/>
+
+  <g filter="url(#cyDrop)">
+    <rect x="9" y="13" width="9" height="38" rx="4.5" fill="url(#cyHelix2)" stroke="#0a0c0f" stroke-width="1.2"/>
+    <rect x="10.5" y="14.5" width="2.5" height="35" rx="1.2" fill="#ffffff" opacity="0.35"/>
+  </g>
+  <g filter="url(#cyDrop)">
+    <rect x="46" y="13" width="9" height="38" rx="4.5" fill="url(#cyHelix2)" stroke="#0a0c0f" stroke-width="1.2"/>
+    <rect x="47.5" y="14.5" width="2.5" height="35" rx="1.2" fill="#ffffff" opacity="0.35"/>
+  </g>
+  <g filter="url(#cyDrop)">
+    <rect x="20" y="9" width="9" height="22" rx="4.5" fill="url(#cyHelix)" stroke="#0a0c0f" stroke-width="1.2"/>
+    <rect x="21.5" y="10.5" width="2.5" height="19" rx="1.2" fill="#ffffff" opacity="0.4"/>
+  </g>
+  <g filter="url(#cyDrop)">
+    <rect x="35" y="9" width="9" height="22" rx="4.5" fill="url(#cyHelix)" stroke="#0a0c0f" stroke-width="1.2"/>
+    <rect x="36.5" y="10.5" width="2.5" height="19" rx="1.2" fill="#ffffff" opacity="0.4"/>
+  </g>
+
+  <ellipse cx="32" cy="42" rx="17" ry="9" fill="url(#cyCleftGlow)"/>
+  <path d="M19 38 C24 32, 30 32, 32 36 C34 32, 40 32, 45 38 C44 46, 38 50, 32 48 C26 50, 20 46, 19 38 Z" fill="url(#cyCleft)" stroke="#0a0c0f" stroke-width="1.2"/>
+  <path d="M22 36 C28 34, 36 34, 42 36" stroke="#000000" stroke-width="1" fill="none" opacity="0.5"/>
+
+  <line x1="22" y1="32" x2="25" y2="38" stroke="#bcc4cc" stroke-width="1.4" stroke-linecap="round"/>
+  <line x1="25" y1="38" x2="28" y2="42" stroke="#bcc4cc" stroke-width="1.4" stroke-linecap="round"/>
+  <circle cx="28" cy="42" r="2" fill="url(#cyAtomO)" stroke="#0a0c0f" stroke-width="0.8"/>
+  <circle cx="27.4" cy="41.4" r="0.6" fill="#ffffff" opacity="0.85"/>
+
+  <line x1="32" y1="30" x2="32" y2="38" stroke="#bcc4cc" stroke-width="1.4" stroke-linecap="round"/>
+  <line x1="32" y1="38" x2="32" y2="42" stroke="#bcc4cc" stroke-width="1.4" stroke-linecap="round"/>
+  <circle cx="32" cy="42" r="2" fill="url(#cyAtomN)" stroke="#0a0c0f" stroke-width="0.8"/>
+  <circle cx="31.4" cy="41.4" r="0.6" fill="#ffffff" opacity="0.85"/>
+
+  <line x1="42" y1="32" x2="39" y2="38" stroke="#bcc4cc" stroke-width="1.4" stroke-linecap="round"/>
+  <line x1="39" y1="38" x2="36" y2="42" stroke="#bcc4cc" stroke-width="1.4" stroke-linecap="round"/>
+  <circle cx="36" cy="42" r="2" fill="url(#cyAtomO)" stroke="#0a0c0f" stroke-width="0.8"/>
+  <circle cx="35.4" cy="41.4" r="0.6" fill="#ffffff" opacity="0.85"/>
+
+  <line x1="30" y1="46" x2="34" y2="46" stroke="#0a0c0f" stroke-width="1.2"/>
+  <circle cx="30" cy="46" r="1.8" fill="url(#cySubstrate)" stroke="#0a0c0f" stroke-width="0.8"/>
+  <circle cx="34" cy="46" r="1.8" fill="url(#cySubstrate)" stroke="#0a0c0f" stroke-width="0.8"/>
+</svg>

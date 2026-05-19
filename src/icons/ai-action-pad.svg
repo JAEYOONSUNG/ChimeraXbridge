@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Action Pad">
+  <defs>
+    <linearGradient id="padCase" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1d2329"/>
+      <stop offset="0.55" stop-color="#11161a"/>
+      <stop offset="1" stop-color="#070a0d"/>
+    </linearGradient>
+    <linearGradient id="padGold" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#f0d18f"/>
+      <stop offset="1" stop-color="#a07f3b"/>
+    </linearGradient>
+    <linearGradient id="padBar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5e6772"/>
+      <stop offset="0.6" stop-color="#9aa3ad"/>
+      <stop offset="1" stop-color="#5e6772"/>
+    </linearGradient>
+  </defs>
+  <!-- slab -->
+  <rect x="6" y="6" width="52" height="52" rx="10" fill="url(#padCase)" stroke="#2a3138" stroke-width="1.2"/>
+  <!-- top header bar (the "pad title") with gold separator -->
+  <rect x="12" y="14" width="40" height="2.2" rx="1.1" fill="url(#padGold)"/>
+  <!-- three command rows -->
+  <g>
+    <circle cx="15.6" cy="25" r="1.6" fill="url(#padGold)"/>
+    <rect x="20" y="23.4" width="32" height="3.2" rx="1.6" fill="url(#padBar)" opacity="0.92"/>
+  </g>
+  <g>
+    <circle cx="15.6" cy="34" r="1.6" fill="#a8b1bb" opacity="0.7"/>
+    <rect x="20" y="32.4" width="28" height="3.2" rx="1.6" fill="url(#padBar)" opacity="0.78"/>
+  </g>
+  <g>
+    <circle cx="15.6" cy="43" r="1.6" fill="#a8b1bb" opacity="0.7"/>
+    <rect x="20" y="41.4" width="24" height="3.2" rx="1.6" fill="url(#padBar)" opacity="0.78"/>
+  </g>
+  <!-- elegant "play / execute" chevron in the corner -->
+  <path d="M44 49 L52 52.5 L44 56 Z" fill="url(#padGold)" opacity="0.95"/>
+  <!-- subtle top edge highlight -->
+  <path d="M10 12 Q32 8 54 12" stroke="#3b434c" stroke-width="0.8" fill="none" opacity="0.45"/>
+</svg>

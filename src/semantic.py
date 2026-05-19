@@ -13,7 +13,25 @@ CATALYTIC_LIKE_RESNAMES = {
     "HIS", "HID", "HIE", "HIP", "HSD", "HSE", "HSP",
     "ASP", "GLU", "CYS", "SER", "THR", "TYR", "LYS", "ARG", "ASN", "GLN",
 }
+CRYSTALLOGRAPHIC_ADDITIVE_RESNAMES = {
+    "ACE", "ACT", "ACN", "BME", "BOG", "BR", "CAC", "CDL", "CIT", "CL",
+    "DMS", "DTT", "EDO", "EOH", "FMT", "GOL", "HEP", "IMD", "IPA", "MES",
+    "MPD", "MSE", "NA", "NO3", "PEG", "PE4", "PE5", "PE8", "PG4", "PO4",
+    "SO4", "TAR", "TLA", "TRS",
+}
+CRYSTALLOGRAPHIC_ADDITIVE_PREFIXES = ("PEG",)
 CATALYTIC_LIKE_ONE_LETTER = set("HDECSTYKRQN")
+POCKET_HYDROPHOBIC_RESNAMES = {"ALA", "VAL", "LEU", "ILE", "MET", "PHE", "TRP", "PRO", "TYR"}
+POCKET_AROMATIC_RESNAMES = {"PHE", "TRP", "TYR", "HIS", "HID", "HIE", "HIP", "HSD", "HSE", "HSP"}
+POCKET_POLAR_RESNAMES = {
+    "SER", "THR", "ASN", "GLN", "TYR", "TRP",
+    "HIS", "HID", "HIE", "HIP", "HSD", "HSE", "HSP",
+    "ASP", "GLU", "LYS", "ARG", "CYS",
+}
+POCKET_CHARGED_RESNAMES = {
+    "ASP", "GLU", "LYS", "ARG",
+    "HIS", "HID", "HIE", "HIP", "HSD", "HSE", "HSP",
+}
 ONE_TO_THREE_RESNAME = {
     "A": "ALA",
     "C": "CYS",
@@ -55,10 +73,13 @@ DEFAULT_MOTIF_PATTERNS = (
     ("PD-(D/E)xK nuclease", r"P[DE][DE].K", "nuclease", "PD-(D/E)xK nuclease-like catalytic core", 1),
     ("HNH nuclease", r"HNH", "nuclease", "HNH nuclease catalytic signature", 1),
     ("Walker A P-loop", r"[AG].{4}GK[ST]", "nucleotide-binding", "P-loop NTP-binding phosphate-loop motif", 1),
+    ("Walker A P-loop GxxxxGK[ST]", r"G....GK[ST]", "nucleotide-binding", "strict Walker A phosphate-loop nucleotide-binding motif", 1),
     ("Walker B", r"[LIVMFYW]{4}DE", "nucleotide-binding", "Walker B Mg2+/ATPase acidic motif", 1),
+    ("Walker B hydrophobic-D[DE]", r"[ILVMF]{4}D[DE]", "nucleotide-binding", "Walker B hydrophobic acidic Mg2+-coordination motif", 1),
     ("DEAD-box helicase", r"DEAD", "helicase", "DEAD-box helicase motif II", 1),
     ("DEAH-box helicase", r"DEAH", "helicase", "DEAH-box helicase motif II", 1),
     ("Rossmann GxGxxG", r"G.G..G", "nucleotide-binding", "Rossmann-like dinucleotide-binding glycine motif", 2),
+    ("EF-hand DxDxDG", r"D.D.DG", "metal/catalytic", "EF-hand-like calcium-binding acidic loop", 2),
     ("DxDxT/N metal-binding", r"D.D[STN]", "metal/catalytic", "acidic metal-binding phosphohydrolase-like motif", 2),
     ("DxD metal-binding", r"D.D", "metal/catalytic", "acidic metal-binding glycosyltransferase-like motif", 2),
     ("CxxCH heme-c", r"C..CH", "cofactor-binding", "c-type cytochrome heme attachment motif", 2),
@@ -80,6 +101,9 @@ DEFAULT_DOMAIN_MAX_CHUNKS = 6
 UNIPROT_FEATURE_TYPE_ALIASES = {
     "domain": "Domain",
     "region": "Region",
+    "propeptide": "Propeptide",
+    "prodomain": "Propeptide",
+    "activation peptide": "Propeptide",
     "motif": "Motif",
     "repeat": "Repeat",
     "zinc finger": "Zinc finger",
@@ -99,8 +123,9 @@ UNIPROT_FEATURE_PRIORITY = {
     "Zinc finger": 4,
     "DNA binding": 5,
     "Nucleotide-binding": 6,
-    "Domain": 7,
-    "Region": 8,
+    "Propeptide": 7,
+    "Domain": 8,
+    "Region": 9,
     "Repeat": 9,
     "Coiled coil": 10,
     "Site": 11,
@@ -287,10 +312,20 @@ def format_models_report(session):
     return "\n".join(_model_lines(semantics))
 
 
-def format_annotation_report(session, model_hint=None):
+def format_annotation_report(session, model_hint=None, display_limit=None):
     from chimerax.atomic import AtomicStructure
     from chimerax.atomic.structure import uniprot_ids
 
+    if display_limit is None:
+        ligand_cap = metal_cap = 4
+        catalytic_cap = motif_cap = 6
+        feature_cap = 8
+    else:
+        try:
+            n = max(1, min(50, int(display_limit)))
+        except Exception:
+            n = 8
+        ligand_cap = metal_cap = catalytic_cap = motif_cap = feature_cap = n
     selected_spec = resolve_model_spec(session, model_hint) if model_hint else None
     lines = []
     for model in session.models.list(type=AtomicStructure):
@@ -319,21 +354,21 @@ def format_annotation_report(session, model_hint=None):
 
         if ligand_sites:
             lines.append("  - ligand annotations:")
-            for site in ligand_sites[:4]:
+            for site in ligand_sites[:ligand_cap]:
                 lines.append(f"    - {site['ligand_label']} on chain {site['ligand_chain']} (score {site['score']})")
         else:
             lines.append("  - ligand annotations: none detected")
 
         if metal_sites:
             lines.append("  - metal annotations:")
-            for site in metal_sites[:4]:
+            for site in metal_sites[:metal_cap]:
                 lines.append(f"    - {site['metal_label']} on chain {site['metal_chain']} (score {site['score']})")
         else:
             lines.append("  - metal annotations: none detected")
 
         if catalytic:
             lines.append("  - top catalytic candidates:")
-            for candidate in catalytic[:6]:
+            for candidate in catalytic[:catalytic_cap]:
                 lines.append(
                     f"    - {candidate['residue_spec']} {candidate['name']} "
                     f"score {candidate['score']} [{candidate.get('consensus', 'candidate')}]"
@@ -342,7 +377,7 @@ def format_annotation_report(session, model_hint=None):
             lines.append("  - top catalytic candidates: none detected")
         if motifs:
             lines.append("  - motif hits:")
-            for motif in motifs[:6]:
+            for motif in motifs[:motif_cap]:
                 lines.append(
                     f"    - {motif['chain_id']}:{motif['start_number']}-{motif['end_number']} "
                     f"{motif['pattern_name']} [{motif['matched_sequence']}]"
@@ -351,7 +386,7 @@ def format_annotation_report(session, model_hint=None):
             lines.append("  - motif hits: none detected")
         if feature_entries:
             lines.append("  - UniProt features:")
-            for feature in feature_entries[:8]:
+            for feature in feature_entries[:feature_cap]:
                 lines.append(
                     f"    - chain {feature['chain_id']} {feature['start']}-{feature['end']}: "
                     f"{feature['feature_type']} [{feature['label']}]"
@@ -459,35 +494,48 @@ def format_research_brief(session, model_hint=None):
     return "\n".join(sections)
 
 
-def format_ligand_report(session, model_hint=None, shell_cutoff=4.5):
+def format_ligand_report(session, model_hint=None, shell_cutoff=4.5,
+                         nearby_show=10, catalytic_show=8):
     sites = get_ligand_sites(session, model_hint=model_hint, shell_cutoff=shell_cutoff)
     if not sites:
         if model_hint:
             return f"- No ligand-bearing atomic model matched: {model_hint}"
         return "- No ligand residues detected."
 
+    try:
+        n_cap = max(1, min(50, int(nearby_show)))
+    except Exception:
+        n_cap = 10
+    try:
+        c_cap = max(1, min(50, int(catalytic_show)))
+    except Exception:
+        c_cap = 8
     lines = []
     for site in sites:
         lines.append(f"- {site['model_spec']} {site['model_name']}")
         lines.append(f"  - ligand: {site['ligand_label']} (score {site['score']})")
         if site["nearby"]:
-            lines.append("    - nearby residues: " + ", ".join(_format_residue_hit(hit) for hit in site["nearby"][:10]))
+            lines.append("    - nearby residues: " + ", ".join(_format_residue_hit(hit) for hit in site["nearby"][:n_cap]))
         else:
             lines.append("    - nearby residues: none within %.1f A" % shell_cutoff)
         if site["catalytic_like"]:
-            lines.append("    - catalytic-like nearby: " + ", ".join(_format_residue_hit(hit) for hit in site["catalytic_like"][:8]))
+            lines.append("    - catalytic-like nearby: " + ", ".join(_format_residue_hit(hit) for hit in site["catalytic_like"][:c_cap]))
         else:
             lines.append("    - catalytic-like nearby: none within %.1f A" % shell_cutoff)
     return "\n".join(lines)
 
 
-def format_motif_report(session, model_hint=None, motif_text=None):
+def format_motif_report(session, model_hint=None, motif_text=None, display_limit=32):
     hits = get_motif_hits(session, model_hint=model_hint, motif_text=motif_text)
     if not hits:
         if model_hint:
             return f"- No motif-like sequence patterns detected for: {model_hint}"
         return "- No motif-like sequence patterns detected."
 
+    try:
+        cap = max(1, min(200, int(display_limit)))
+    except Exception:
+        cap = 32
     lines = []
     category_counts = Counter(hit.get("category", "motif") for hit in hits)
     lines.append(
@@ -496,7 +544,7 @@ def format_motif_report(session, model_hint=None, motif_text=None):
     )
     current_model = None
     display_hits = sorted(hits, key=lambda item: (item.get("priority", 99), item["model_spec"], item["chain_id"], item["start_number"], item["pattern_name"]))
-    for hit in display_hits[:32]:
+    for hit in display_hits[:cap]:
         if current_model != hit["model_spec"]:
             current_model = hit["model_spec"]
             lines.append(f"- {hit['model_spec']} {hit['model_name']}")
@@ -506,12 +554,12 @@ def format_motif_report(session, model_hint=None, motif_text=None):
             f"{hit['pattern_name']} [{hit['matched_sequence']}] "
             f"({hit.get('category', 'motif')}, priority {hit.get('priority', '?')}){detail} -> {hit['selection_name']}"
         )
-    if len(hits) > 32:
-        lines.append(f"  - ... {len(hits) - 32} lower-priority motif hits omitted")
+    if len(hits) > cap:
+        lines.append(f"  - ... {len(hits) - cap} lower-priority motif hits omitted")
     return "\n".join(lines)
 
 
-def format_uniprot_feature_report(session, model_hint=None, overlap_only=False, selection_fallback=False):
+def format_uniprot_feature_report(session, model_hint=None, overlap_only=False, selection_fallback=False, display_limit=32):
     entries = get_uniprot_feature_entries(
         session,
         model_hint=model_hint,
@@ -528,10 +576,14 @@ def format_uniprot_feature_report(session, model_hint=None, overlap_only=False, 
             return f"- No UniProt feature annotations fetched for: {model_hint}"
         return "- No UniProt feature annotations fetched or mapped."
 
+    try:
+        cap = max(1, min(200, int(display_limit)))
+    except Exception:
+        cap = 32
     lines = []
     current_model = None
     current_chain = None
-    for entry in entries[:32]:
+    for entry in entries[:cap]:
         if current_model != entry["model_spec"]:
             current_model = entry["model_spec"]
             current_chain = None
@@ -856,50 +908,62 @@ def get_selection_overlap_payload(session, model_hint=None):
     }
 
 
-def format_selection_overlap_report(session, model_hint=None):
+def format_selection_overlap_report(session, model_hint=None, display_limit=None):
     payload = get_selection_overlap_payload(session, model_hint=model_hint)
     if payload is None:
         return "- No current ChimeraX selection."
+
+    if display_limit is None:
+        ranges_cap = 10
+        cat_cap = mot_cap = dom_cap = feat_cap = 6
+        lig_cap = met_cap = iface_cap = 4
+    else:
+        try:
+            n = max(1, min(50, int(display_limit)))
+        except Exception:
+            n = 6
+        ranges_cap = max(n, 10)
+        cat_cap = mot_cap = dom_cap = feat_cap = lig_cap = met_cap = iface_cap = n
 
     selection = payload["selection"]
     lines = [
         "- Selected models: " + (", ".join(selection["models"]) if selection["models"] else "(none)"),
     ]
     if selection["ranges"]:
-        lines.append("- Selected ranges: " + ", ".join(selection["ranges"][:10]))
+        lines.append("- Selected ranges: " + ", ".join(selection["ranges"][:ranges_cap]))
 
     if payload["catalytic_hits"]:
         lines.append("- Selected region overlaps catalytic candidates:")
-        for entry in payload["catalytic_hits"][:6]:
+        for entry in payload["catalytic_hits"][:cat_cap]:
             lines.append(f"  - {entry['residue_spec']} score {entry['score']} [{entry.get('consensus', 'candidate')}]")
     if payload["motif_matches"]:
         lines.append("- Selected region overlaps motif hits:")
-        for entry in payload["motif_matches"][:6]:
+        for entry in payload["motif_matches"][:mot_cap]:
             lines.append(f"  - {entry['chain_id']}:{entry['start_number']}-{entry['end_number']} {entry['pattern_name']} [{entry['matched_sequence']}]")
     if payload["domain_matches"]:
         lines.append("- Selected region overlaps domain-like chunks:")
-        for entry in payload["domain_matches"][:6]:
+        for entry in payload["domain_matches"][:dom_cap]:
             label = entry.get("display_label")
             suffix = f" [{label}]" if label else ""
             lines.append(f"  - {entry['spec']}{suffix}")
     if payload["ligand_matches"]:
         lines.append("- Selected region overlaps ligand-pocket neighborhoods:")
-        for entry in payload["ligand_matches"][:4]:
+        for entry in payload["ligand_matches"][:lig_cap]:
             lines.append(f"  - {entry['ligand_label']} on chain {entry['ligand_chain']}")
     if payload["metal_matches"]:
         lines.append("- Selected region overlaps metal-centered sites:")
-        for entry in payload["metal_matches"][:4]:
+        for entry in payload["metal_matches"][:met_cap]:
             lines.append(f"  - {entry['metal_label']} on chain {entry['metal_chain']}")
     if payload["feature_matches"]:
         lines.append("- Selected region overlaps UniProt features:")
-        for entry in payload["feature_matches"][:6]:
+        for entry in payload["feature_matches"][:feat_cap]:
             lines.append(
                 f"  - chain {entry['chain_id']} {entry['start']}-{entry['end']}: "
                 f"{entry['feature_type']} [{entry['label']}]"
             )
     if payload["interface_matches"]:
         lines.append("- Selected region overlaps chain-chain interfaces:")
-        for entry in payload["interface_matches"][:4]:
+        for entry in payload["interface_matches"][:iface_cap]:
             lines.append(
                 f"  - interface {entry['chain_a']}-{entry['chain_b']} "
                 f"(min {entry['min_distance']:.2f} A)"
@@ -910,36 +974,46 @@ def format_selection_overlap_report(session, model_hint=None):
     return "\n".join(lines)
 
 
-def format_selection_focus_report(session, model_hint=None):
+def format_selection_focus_report(session, model_hint=None, display_limit=None):
     payload = get_selection_overlap_payload(session, model_hint=model_hint)
     if payload is None:
         return "- No current ChimeraX selection."
 
-    lines = ["Selection-focused analysis", *format_selection_overlap_report(session, model_hint=model_hint).splitlines()]
+    if display_limit is None:
+        cat_cap = 8
+        mot_cap = feat_cap = 6
+        iface_cap = 4
+    else:
+        try:
+            n = max(1, min(50, int(display_limit)))
+        except Exception:
+            n = 6
+        cat_cap = mot_cap = feat_cap = iface_cap = n
+    lines = ["Selection-focused analysis", *format_selection_overlap_report(session, model_hint=model_hint, display_limit=display_limit).splitlines()]
     if payload["catalytic_hits"]:
         lines.append("- Selected catalytic ranking")
-        for entry in payload["catalytic_hits"][:8]:
+        for entry in payload["catalytic_hits"][:cat_cap]:
             lines.append(
                 f"  - {entry['residue_spec']} {entry['name']} score {entry['score']} "
                 f"[{entry.get('consensus', 'candidate')}]"
             )
     if payload["motif_matches"]:
         lines.append("- Selected motif ranking")
-        for entry in payload["motif_matches"][:6]:
+        for entry in payload["motif_matches"][:mot_cap]:
             lines.append(
                 f"  - {entry['chain_id']}:{entry['start_number']}-{entry['end_number']} "
                 f"{entry['pattern_name']} [{entry['matched_sequence']}]"
             )
     if payload["feature_matches"]:
         lines.append("- Selected UniProt feature overlap")
-        for entry in payload["feature_matches"][:6]:
+        for entry in payload["feature_matches"][:feat_cap]:
             lines.append(
                 f"  - {entry['chain_id']}:{entry['start']}-{entry['end']} "
                 f"{entry['feature_type']} [{entry['label']}]"
             )
     if payload["interface_matches"]:
         lines.append("- Selected interface ranking")
-        for entry in payload["interface_matches"][:4]:
+        for entry in payload["interface_matches"][:iface_cap]:
             lines.append(
                 f"  - {entry['chain_a']}-{entry['chain_b']} "
                 f"{entry['contacts_a']}+{entry['contacts_b']} residues"
@@ -947,7 +1021,7 @@ def format_selection_focus_report(session, model_hint=None):
     return "\n".join(lines)
 
 
-def format_caption_draft(session, model_hint=None, style="paper"):
+def format_caption_draft(session, model_hint=None, style="paper", sentence_limit=None):
     semantics = get_session_semantics(session)
     selected_spec = resolve_model_spec(session, model_hint) if model_hint else None
     models = [model for model in semantics["models"] if model.get("atomic") and (not selected_spec or model["spec"] == selected_spec)]
@@ -1035,21 +1109,35 @@ def format_caption_draft(session, model_hint=None, style="paper"):
             if summary_parts:
                 sentences.append("DALI comparison supports a structurally related fold context: " + "; ".join(summary_parts) + ".")
 
-    if style == "short":
-        return "\n".join(f"- {sentence}" for sentence in sentences[:3])
-    if style in {"selection", "domain", "pocket", "interface", "nature", "panels"}:
-        return "\n".join(f"- {sentence}" for sentence in sentences[:5])
-    return "\n".join(f"- {sentence}" for sentence in sentences[:6])
+    if sentence_limit is not None:
+        try:
+            cap = max(1, min(20, int(sentence_limit)))
+        except Exception:
+            cap = None
+    else:
+        cap = None
+    if cap is None:
+        if style == "short":
+            cap = 3
+        elif style in {"selection", "domain", "pocket", "interface", "nature", "panels"}:
+            cap = 5
+        else:
+            cap = 6
+    return "\n".join(f"- {sentence}" for sentence in sentences[:cap])
 
 
-def format_legend_report(session, model_hint=None, style="text"):
+def format_legend_report(session, model_hint=None, style="text", display_limit=8):
     domains = [entry for entry in get_domain_selections(session, model_hint=model_hint) if entry["kind"] == "domain"]
     roles = get_role_selections(session, model_hint=model_hint)
+    try:
+        cap = max(1, min(50, int(display_limit)))
+    except Exception:
+        cap = 8
     rows = []
 
     if domains:
         seen = set()
-        for entry in domains[:8]:
+        for entry in domains[:cap]:
             label = entry.get("display_label") or f"domain {entry['display_index']}"
             key = (entry["selection_name"], label)
             if key in seen:
@@ -1362,6 +1450,8 @@ def get_ligand_sites(session, model_hint=None, shell_cutoff=4.5):
 
     selected_spec = resolve_model_spec(session, model_hint) if model_hint else None
     sites = []
+    saw_ligand = False
+    saw_filtered_ligand = False
 
     for model in session.models.list(type=AtomicStructure):
         spec = f"#{getattr(model, 'id_string', '?')}"
@@ -1380,15 +1470,15 @@ def get_ligand_sites(session, model_hint=None, shell_cutoff=4.5):
         if len(protein_atoms) == 0:
             continue
 
-        for ligand_residue in ligand_residues[:8]:
+        for ligand_residue in ligand_residues:
+            saw_ligand = True
+            if _is_crystallographic_additive(ligand_residue):
+                saw_filtered_ligand = True
+                continue
             l_atoms = ligand_residue.atoms.filter(ligand_residue.atoms.element_names != "H")
             if len(l_atoms) == 0:
                 continue
-            l_center = l_atoms.scene_coords.mean(axis=0)
-            distances = np.linalg.norm(protein_atoms.scene_coords - l_center, axis=1)
-            nearby_atoms = protein_atoms.filter(distances <= shell_cutoff)
-            nearby_distances = distances[distances <= shell_cutoff]
-            residue_hits = _residue_distance_hits_with_distances(nearby_atoms, nearby_distances)
+            residue_hits = _residue_contact_hits(protein_atoms, l_atoms, shell_cutoff)
             catalytic = [hit for hit in residue_hits if hit["name"] in CATALYTIC_LIKE_RESNAMES]
             score = _site_score(len(catalytic), len(residue_hits), 0 if not residue_hits else residue_hits[0]["min_distance"])
             sites.append(
@@ -1404,18 +1494,28 @@ def get_ligand_sites(session, model_hint=None, shell_cutoff=4.5):
                 }
             )
     sites.sort(key=lambda s: s["score"], reverse=True)
+    if sites:
+        session._codex_bridge_ligand_filter_message = ""
+    elif saw_ligand and saw_filtered_ligand:
+        session._codex_bridge_ligand_filter_message = "No biological ligand found."
+    else:
+        session._codex_bridge_ligand_filter_message = "No ligand bound; cavity prediction needs Pocket detection — try the dedicated pocket finder."
     return sites
 
 
-def format_catalytic_report(session, model_hint=None):
+def format_catalytic_report(session, model_hint=None, display_limit=15):
     candidates = score_catalytic_residues(session, model_hint=model_hint)
     session._codex_bridge_last_catalytic_candidates = candidates[:12]
     if not candidates:
         if model_hint:
             return f"- No catalytic-like candidates found for: {model_hint}"
         return "- No catalytic-like residue candidates detected."
+    try:
+        cap = max(1, min(50, int(display_limit)))
+    except Exception:
+        cap = 15
     lines = ["- Catalytic residue triage"]
-    for candidate in candidates[:15]:
+    for candidate in candidates[:cap]:
         reason_text = ", ".join(candidate["reasons"][:4])
         lines.append(
             f"  - {candidate['residue_spec']} {candidate['name']} "
@@ -1425,13 +1525,17 @@ def format_catalytic_report(session, model_hint=None):
     return "\n".join(lines)
 
 
-def format_catalytic_workflow_report(session, model_hint=None):
+def format_catalytic_workflow_report(session, model_hint=None, display_limit=10):
     candidates = score_catalytic_residues(session, model_hint=model_hint)
     session._codex_bridge_last_catalytic_candidates = candidates[:12]
+    try:
+        cap = max(1, min(50, int(display_limit)))
+    except Exception:
+        cap = 10
     lines = ["Catalytic residue workflow"]
     if candidates:
         lines.append("- Ranked candidates")
-        for candidate in candidates[:10]:
+        for candidate in candidates[:cap]:
             reasons = ", ".join(candidate["reasons"][:5])
             lines.append(
                 f"  - {candidate['residue_spec']} {candidate['name']} "
@@ -1555,9 +1659,13 @@ def best_catalytic_candidates(session, model_hint=None, limit=12):
     return score_catalytic_residues(session, model_hint=model_hint)[:limit]
 
 
-def format_sequence_report(session, model_hint=None):
+def format_sequence_report(session, model_hint=None, gaps_show=6):
     semantics = get_session_semantics(session)
     selected_spec = resolve_model_spec(session, model_hint) if model_hint else None
+    try:
+        cap = max(1, min(50, int(gaps_show)))
+    except Exception:
+        cap = 6
 
     lines = []
     for model in semantics["models"]:
@@ -1574,7 +1682,7 @@ def format_sequence_report(session, model_hint=None):
             if chain["sequence_preview"]:
                 lines.append(f"    - sequence: {chain['sequence_preview']}")
             if chain["missing_gaps"]:
-                gap_text = ", ".join(f"{g[0]}-{g[1]} ({g[2]})" for g in chain["missing_gaps"][:6])
+                gap_text = ", ".join(f"{g[0]}-{g[1]} ({g[2]})" for g in chain["missing_gaps"][:cap])
                 lines.append(f"    - missing gaps: {gap_text}")
     if not lines:
         if model_hint:
@@ -1583,11 +1691,15 @@ def format_sequence_report(session, model_hint=None):
     return "\n".join(lines)
 
 
-def format_domains_report(session, model_hint=None):
+def format_domains_report(session, model_hint=None, chunks_show=10):
     semantics = get_session_semantics(session)
     selected_spec, selected_chains = _resolve_domain_target(session, model_hint)
     domain_entries = get_domain_selections(session, model_hint=model_hint)
     settings = get_domain_split_settings(session)
+    try:
+        cap = max(1, min(50, int(chunks_show)))
+    except Exception:
+        cap = 10
     domains_by_chain = {}
     for entry in domain_entries:
         if entry["kind"] != "domain":
@@ -1611,7 +1723,7 @@ def format_domains_report(session, model_hint=None):
             lines.append(f"  - chain {chain['id']} [{chain['polymer_type']}]")
             filtered_chunks = domains_by_chain.get((model["spec"], chain["id"]), [])
             if filtered_chunks:
-                for matching_entry in filtered_chunks[:10]:
+                for matching_entry in filtered_chunks[:cap]:
                     lines.append(
                         f"    - chunk {matching_entry['display_index']}: {matching_entry['start']}-{matching_entry['end']} "
                         f"({matching_entry['length']} residues; {matching_entry['reason']})"
@@ -1706,13 +1818,22 @@ def format_analyze_report(session, model_hint=None):
     return "\n".join(lines)
 
 
-def format_metal_report(session, model_hint=None, direct_cutoff=3.0, shell_cutoff=5.0):
+def format_metal_report(session, model_hint=None, direct_cutoff=3.0, shell_cutoff=5.0,
+                        direct_show=8, catalytic_show=10):
     sites = get_metal_sites(session, model_hint=model_hint, direct_cutoff=direct_cutoff, shell_cutoff=shell_cutoff)
     if not sites:
         if model_hint:
             return f"- No metal-containing atomic model matched: {model_hint}"
         return "- No metal ions detected in open atomic models."
 
+    try:
+        d_cap = max(1, min(50, int(direct_show)))
+    except Exception:
+        d_cap = 8
+    try:
+        c_cap = max(1, min(50, int(catalytic_show)))
+    except Exception:
+        c_cap = 10
     lines = []
     current_model = None
     for site in sites:
@@ -1722,11 +1843,11 @@ def format_metal_report(session, model_hint=None, direct_cutoff=3.0, shell_cutof
             lines.extend(_uniprot_lines(site["uniprot"]))
         lines.append(f"  - metal site: {site['metal_label']} (score {site['score']})")
         if site["direct"]:
-            lines.append("    - direct coordinators: " + ", ".join(_format_residue_hit(hit) for hit in site["direct"][:8]))
+            lines.append("    - direct coordinators: " + ", ".join(_format_residue_hit(hit) for hit in site["direct"][:d_cap]))
         else:
             lines.append("    - direct coordinators: none within %.1f A" % direct_cutoff)
         if site["catalytic_like"]:
-            lines.append("    - catalytic-like nearby: " + ", ".join(_format_residue_hit(hit) for hit in site["catalytic_like"][:10]))
+            lines.append("    - catalytic-like nearby: " + ", ".join(_format_residue_hit(hit) for hit in site["catalytic_like"][:c_cap]))
         else:
             lines.append("    - catalytic-like nearby: none within %.1f A" % shell_cutoff)
     return "\n".join(lines)
@@ -1745,7 +1866,8 @@ def get_metal_sites(session, model_hint=None, direct_cutoff=3.0, shell_cutoff=5.
         atoms = model.atoms
         if len(atoms) == 0:
             continue
-        metal_mask = (atoms.structure_categories == "ions") & np.isin(atoms.element_names, list(METAL_ELEMENTS))
+        element_names = np.asarray([str(name).upper() for name in atoms.element_names])
+        metal_mask = (atoms.structure_categories == "ions") & np.isin(element_names, list(METAL_ELEMENTS))
         metal_atoms = atoms.filter(metal_mask)
         if len(metal_atoms) == 0:
             continue
@@ -1904,6 +2026,33 @@ def _collect_residue_names(model, category):
     return counts.most_common(8)
 
 
+def _compress_residue_numbers(numbers):
+    """
+    Turn a list of integers (possibly unsorted, possibly with gaps) into a
+    ChimeraX residue-spec fragment. Contiguous runs become "a-b"; isolated
+    numbers stay alone; multiple groups are joined with commas.
+
+    Examples:
+      [60]              -> "60"
+      [60, 146]         -> "60,146"          (NOT "60-146")
+      [60, 61, 62]      -> "60-62"
+      [60, 61, 80, 81]  -> "60-61,80-81"
+    """
+    sorted_nums = sorted({int(n) for n in numbers})
+    if not sorted_nums:
+        return ""
+    parts = []
+    start = end = sorted_nums[0]
+    for n in sorted_nums[1:]:
+        if n == end + 1:
+            end = n
+        else:
+            parts.append(f"{start}-{end}" if start != end else f"{start}")
+            start = end = n
+    parts.append(f"{start}-{end}" if start != end else f"{start}")
+    return ",".join(parts)
+
+
 def _selected_ranges(selected_residues):
     ranges = []
     for structure, chain_id, residues in selected_residues.by_chain:
@@ -1911,10 +2060,10 @@ def _selected_ranges(selected_residues):
         if len(numbers) == 0:
             continue
         chain_label = "?" if not str(chain_id).strip() else str(chain_id)
-        if len(numbers) == 1:
-            ranges.append(f"#{structure.id_string}/{chain_label}:{int(numbers[0])}")
-        else:
-            ranges.append(f"#{structure.id_string}/{chain_label}:{int(numbers.min())}-{int(numbers.max())}")
+        spec_tail = _compress_residue_numbers(numbers)
+        if not spec_tail:
+            continue
+        ranges.append(f"#{structure.id_string}/{chain_label}:{spec_tail}")
     return ranges
 
 
@@ -2092,6 +2241,54 @@ def _residue_distance_hits_with_distances(nearby_atoms, distances):
             hit["atom_names"].add(atom.name)
     hits = list(residue_map.values())
     hits.sort(key=lambda h: h["min_distance"])
+    return hits
+
+
+def _is_crystallographic_additive(residue):
+    name = str(getattr(residue, "name", "") or "").strip().upper()
+    return (
+        name in CRYSTALLOGRAPHIC_ADDITIVE_RESNAMES
+        or any(name.startswith(prefix) for prefix in CRYSTALLOGRAPHIC_ADDITIVE_PREFIXES)
+    )
+
+
+def _residue_contact_hits(protein_atoms, ligand_atoms, shell_cutoff):
+    residue_map = {}
+    protein_coords = np.asarray(protein_atoms.scene_coords, dtype=float)
+    ligand_coords = np.asarray(ligand_atoms.scene_coords, dtype=float)
+    if len(protein_coords) == 0 or len(ligand_coords) == 0:
+        return []
+    distances = np.linalg.norm(protein_coords[:, None, :] - ligand_coords[None, :, :], axis=2)
+    close_mask = distances <= float(shell_cutoff)
+    for atom_index, atom in enumerate(protein_atoms):
+        ligand_contact_mask = close_mask[atom_index]
+        if not ligand_contact_mask.any():
+            continue
+        residue = atom.residue
+        key = (str(residue.chain_id), int(residue.number), str(residue.name))
+        atom_min_distance = float(distances[atom_index, ligand_contact_mask].min())
+        contact_count = int(ligand_contact_mask.sum())
+        ligand_atom_names = {
+            ligand_atoms[i].name for i in np.flatnonzero(ligand_contact_mask)
+        }
+        if key not in residue_map:
+            residue_map[key] = {
+                "chain_id": str(residue.chain_id).strip() or "?",
+                "number": int(residue.number),
+                "name": str(residue.name),
+                "min_distance": atom_min_distance,
+                "atom_names": {atom.name},
+                "ligand_atom_names": set(ligand_atom_names),
+                "contact_count": contact_count,
+            }
+        else:
+            hit = residue_map[key]
+            hit["min_distance"] = min(hit["min_distance"], atom_min_distance)
+            hit["atom_names"].add(atom.name)
+            hit["ligand_atom_names"].update(ligand_atom_names)
+            hit["contact_count"] += contact_count
+    hits = list(residue_map.values())
+    hits.sort(key=lambda h: (-int(h.get("contact_count", 0)), h["min_distance"]))
     return hits
 
 
@@ -2303,8 +2500,14 @@ def _chain_id_from_atom_spec(spec):
 
 
 def get_domain_split_settings(session):
-    min_length = int(getattr(session, "_codex_bridge_domain_min_length", DEFAULT_DOMAIN_MIN_LENGTH) or DEFAULT_DOMAIN_MIN_LENGTH)
-    max_chunks = int(getattr(session, "_codex_bridge_domain_max_chunks", DEFAULT_DOMAIN_MAX_CHUNKS) or DEFAULT_DOMAIN_MAX_CHUNKS)
+    try:
+        min_length = int(getattr(session, "_codex_bridge_domain_min_length", DEFAULT_DOMAIN_MIN_LENGTH) or DEFAULT_DOMAIN_MIN_LENGTH)
+    except (TypeError, ValueError):
+        min_length = DEFAULT_DOMAIN_MIN_LENGTH
+    try:
+        max_chunks = int(getattr(session, "_codex_bridge_domain_max_chunks", DEFAULT_DOMAIN_MAX_CHUNKS) or DEFAULT_DOMAIN_MAX_CHUNKS)
+    except (TypeError, ValueError):
+        max_chunks = DEFAULT_DOMAIN_MAX_CHUNKS
     return {
         "min_length": min_length,
         "max_chunks_per_chain": max_chunks,
@@ -2415,26 +2618,37 @@ def _subdivide_meaningful_chunks(chunks, min_length=35, max_chunks=6):
     while len(refined) < max_chunks:
         candidates = []
         for index, chunk in enumerate(refined):
+            start = int(chunk["start"])
+            end = int(chunk["end"])
             length = int(chunk["end"]) - int(chunk["start"]) + 1
-            if length >= max(min_length * 2, min_length + 20):
-                candidates.append((length, index, chunk))
+            safe_points = []
+            for point in chunk.get("split_points", []) or []:
+                try:
+                    split_point = int(point)
+                except Exception:
+                    continue
+                if (split_point - start + 1) >= min_length and (end - split_point) >= min_length:
+                    safe_points.append(split_point)
+            if length >= max(min_length * 2, min_length + 20) and safe_points:
+                candidates.append((length, index, chunk, safe_points))
         if not candidates:
             break
-        _, index, chunk = max(candidates, key=lambda item: item[0])
+        _, index, chunk, safe_points = max(candidates, key=lambda item: item[0])
         start = int(chunk["start"])
         end = int(chunk["end"])
-        split_point = (start + end) // 2
+        midpoint = (start + end) // 2
+        split_point = min(safe_points, key=lambda point: abs(point - midpoint))
         left = {
             **chunk,
             "start": start,
             "end": split_point,
-            "reason": f"{chunk['reason']}; refined split",
+            "reason": f"{chunk['reason']}; linker split",
         }
         right = {
             **chunk,
             "start": split_point + 1,
             "end": end,
-            "reason": f"{chunk['reason']}; refined split",
+            "reason": f"{chunk['reason']}; linker split",
         }
         if (left["end"] - left["start"] + 1) < min_length or (right["end"] - right["start"] + 1) < min_length:
             break
@@ -3263,3 +3477,792 @@ def _safe_int(value, default=0):
         return int(value)
     except Exception:
         return default
+
+
+def find_apo_binding_pocket(session, model_hint=None):
+    """Predict an apo pocket from catalytic-triad anchoring or residue depth."""
+    from chimerax.atomic import AtomicStructure, Residue
+
+    selected_spec = resolve_model_spec(session, model_hint) if model_hint else None
+
+    def _is_protein_residue(residue):
+        polymer_type = getattr(residue, "polymer_type", None)
+        return polymer_type is None or polymer_type in (Residue.PT_AMINO, Residue.PT_PROTEIN)
+
+    def _heavy_atoms(residue):
+        atoms = []
+        for atom in getattr(residue, "atoms", []):
+            element = str(getattr(getattr(atom, "element", None), "name", "")).upper()
+            if element != "H":
+                atoms.append(atom)
+        return atoms
+
+    def _centroid(atoms):
+        if not atoms:
+            return None
+        return np.array([atom.scene_coord for atom in atoms], dtype=float).mean(axis=0)
+
+    def _residue_record(model_spec, residue):
+        heavy = _heavy_atoms(residue)
+        if not heavy:
+            return None
+        backbone_names = {"N", "CA", "C", "O", "OXT"}
+        backbone = [atom for atom in heavy if str(getattr(atom, "name", "")).upper() in backbone_names]
+        sidechain = [atom for atom in heavy if str(getattr(atom, "name", "")).upper() not in backbone_names]
+        side_centroid = _centroid(sidechain or heavy)
+        backbone_centroid = _centroid(backbone or heavy)
+        if side_centroid is None or backbone_centroid is None:
+            return None
+        chain_id = str(getattr(residue, "chain_id", "")).strip() or "?"
+        number = _safe_int(getattr(residue, "number", None), None)
+        if number is None:
+            return None
+        return {
+            "residue": residue,
+            "spec": f"{model_spec}/{chain_id}:{number}",
+            "chain_id": chain_id,
+            "number": number,
+            "side_centroid": side_centroid,
+            "backbone_centroid": backbone_centroid,
+            "depth": 0.0,
+            "backbone_depth": 0.0,
+        }
+
+    for model in session.models.list(type=AtomicStructure):
+        model_spec = f"#{getattr(model, 'id_string', '?')}"
+        if selected_spec and model_spec != selected_spec:
+            continue
+
+        records = []
+        heavy_coords = []
+        for residue in getattr(model, "residues", []):
+            if not _is_protein_residue(residue):
+                continue
+            record = _residue_record(model_spec, residue)
+            if record is None:
+                continue
+            records.append(record)
+            heavy_coords.extend(atom.scene_coord for atom in _heavy_atoms(residue))
+        if len(records) < 6 or not heavy_coords:
+            continue
+
+        sphere_center = np.array(heavy_coords, dtype=float).mean(axis=0)
+        radius = max(float(np.linalg.norm(coord - sphere_center)) for coord in heavy_coords)
+        if radius <= 0:
+            continue
+        for record in records:
+            record["depth"] = radius - float(np.linalg.norm(record["side_centroid"] - sphere_center))
+            record["backbone_depth"] = radius - float(np.linalg.norm(record["backbone_centroid"] - sphere_center))
+
+        triads = [triad for triad in find_catalytic_triads(session, model_hint=model_spec) if triad.get("model_spec") == model_spec]
+        if triads:
+            triad_specs = set(triads[0].get("specs") or [])
+            triad_records = [record for record in records if record["spec"] in triad_specs]
+            if triad_records:
+                triad_center = np.array([record["side_centroid"] for record in triad_records], dtype=float).mean(axis=0)
+                pocket = [
+                    (float(np.linalg.norm(record["side_centroid"] - triad_center)), record)
+                    for record in records
+                    if float(np.linalg.norm(record["side_centroid"] - triad_center)) <= 8.0
+                ]
+                pocket.sort(key=lambda pair: (pair[0], -pair[1]["depth"]))
+                specs = [record["spec"] for _distance, record in pocket[:28]]
+                if specs:
+                    return specs, "triad-anchored"
+
+        top_count = max(1, int(np.ceil(len(records) * 0.10)))
+        deepest = sorted(records, key=lambda record: record["depth"], reverse=True)[:top_count]
+        clusters = []
+        used = set()
+        for seed in deepest:
+            if seed["spec"] in used:
+                continue
+            cluster = [
+                record for record in deepest
+                if record["spec"] not in used
+                and float(np.linalg.norm(record["side_centroid"] - seed["side_centroid"])) <= 10.0
+            ]
+            if not cluster:
+                continue
+            used.update(record["spec"] for record in cluster)
+            clusters.append(cluster)
+        if not clusters:
+            continue
+        clusters.sort(key=lambda cluster: (-len(cluster), -sum(record["depth"] for record in cluster) / len(cluster)))
+        inward = [
+            record for record in clusters[0]
+            if record["depth"] > record["backbone_depth"]
+        ]
+        inward.sort(key=lambda record: record["depth"], reverse=True)
+        specs = [record["spec"] for record in inward[:28]]
+        if specs:
+            return specs, "geometric"
+
+    return [], "no apo-pocket heuristic matched"
+
+
+_KVFINDER_METAL_RESNAMES = {"ZN", "MG", "CA", "FE", "MN", "CU", "NI", "CO", "MO", "K", "NA", "CD"}
+_KVFINDER_BACKBONE_NAMES = {"N", "CA", "C", "O", "OXT", "H"}
+
+
+def _kvfinder_pocket_motif_tags(session, model, lining_residue_objs, lining_specs):
+    """Annotate a KVFinder pocket with motif/structural evidence.
+
+    Returns list of tag strings ordered by specificity:
+    - "ligand: <name>" if a non-additive HET ligand sits inside the pocket lining
+    - "metal: <ion>" if a metal ion is coordinated by lining residues (≤ 3.0 Å)
+    - "catalytic triad" if a known triad is fully contained
+    - "Walker A (P-loop)" / "Walker B" / "GxGxxG (Rossmann)" / "DFG kinase" / "HRD kinase"
+    - "Zn-finger CXXC" if Cys₂ pair within lining
+    """
+    import re as _re
+
+    tags = []
+    lining_set = set(lining_specs)
+    if not lining_residue_objs:
+        return tags
+
+    try:
+        from chimerax.atomic import AtomicStructure
+    except Exception:
+        AtomicStructure = None
+
+    spec_to_residue = {}
+    chain_residue_indexes = {}
+    for residue in lining_residue_objs:
+        try:
+            chain_id = str(getattr(residue, "chain_id", "")).strip() or "?"
+            number = _safe_int(getattr(residue, "number", None), None)
+            if number is None:
+                continue
+            spec = f"#{getattr(model, 'id_string', '?')}/{chain_id}:{number}"
+            spec_to_residue[spec] = residue
+            chain_residue_indexes.setdefault(chain_id, []).append((number, residue))
+        except Exception:
+            continue
+    for chain_id in chain_residue_indexes:
+        chain_residue_indexes[chain_id].sort(key=lambda pair: pair[0])
+
+    # Ligand inside pocket
+    try:
+        atoms = model.atoms
+        ligand_mask = atoms.structure_categories == "ligand"
+        ligand_atoms = atoms.filter(ligand_mask)
+        if len(ligand_atoms) > 0:
+            ligand_residues = ligand_atoms.residues.unique()
+            lining_atom_coords = []
+            for residue in lining_residue_objs:
+                for atom in getattr(residue, "atoms", []):
+                    element = str(getattr(getattr(atom, "element", None), "name", "")).upper()
+                    if element != "H":
+                        lining_atom_coords.append(atom.scene_coord)
+            if lining_atom_coords:
+                lining_arr = np.asarray(lining_atom_coords, dtype=float)
+                for ligand_residue in ligand_residues:
+                    if _is_crystallographic_additive(ligand_residue):
+                        continue
+                    name = str(getattr(ligand_residue, "name", "")).upper().strip()
+                    if not name:
+                        continue
+                    coords = []
+                    for atom in ligand_residue.atoms:
+                        element = str(getattr(getattr(atom, "element", None), "name", "")).upper()
+                        if element != "H":
+                            coords.append(atom.scene_coord)
+                    if not coords:
+                        continue
+                    ligand_arr = np.asarray(coords, dtype=float)
+                    dmin = np.min(np.linalg.norm(lining_arr[:, None, :] - ligand_arr[None, :, :], axis=2))
+                    if dmin <= 4.5:
+                        if name in _KVFINDER_METAL_RESNAMES:
+                            tags.append(f"metal: {name}")
+                        else:
+                            tags.append(f"ligand: {_residue_label(ligand_residue)}")
+                        break
+    except Exception:
+        pass
+
+    # Metal coordination by lining (separately, even if no HET ligand inside)
+    try:
+        atoms = model.atoms
+        metal_atoms = []
+        for atom in atoms:
+            res_name = str(getattr(getattr(atom, "residue", None), "name", "")).upper()
+            if res_name in _KVFINDER_METAL_RESNAMES:
+                metal_atoms.append(atom)
+        if metal_atoms:
+            lining_coord_atoms = []
+            for residue in lining_residue_objs:
+                if str(getattr(residue, "name", "")).upper() not in {"HIS", "CYS", "ASP", "GLU", "MET", "TYR", "SER", "THR", "ASN", "GLN", "LYS"}:
+                    continue
+                for atom in getattr(residue, "atoms", []):
+                    name = str(getattr(atom, "name", "")).upper()
+                    if name in _KVFINDER_BACKBONE_NAMES:
+                        continue
+                    element = str(getattr(getattr(atom, "element", None), "name", "")).upper()
+                    if element in ("N", "O", "S"):
+                        lining_coord_atoms.append(atom)
+            for metal in metal_atoms:
+                metal_pos = metal.scene_coord
+                close = sum(
+                    1 for atom in lining_coord_atoms
+                    if float(np.linalg.norm(atom.scene_coord - metal_pos)) <= 3.0
+                )
+                if close >= 2:
+                    res_name = str(metal.residue.name).upper()
+                    tag = f"metal: {res_name}"
+                    if tag not in tags:
+                        tags.append(tag)
+                    break
+    except Exception:
+        pass
+
+    # Catalytic triad inside pocket
+    try:
+        triads = find_catalytic_triads(session, model_hint=f"#{model.id_string}")
+    except Exception:
+        triads = []
+    for triad in triads:
+        triad_specs = set(triad.get("specs") or [])
+        if triad_specs and triad_specs.issubset(lining_set):
+            tags.append(f"catalytic triad ({triad.get('label', 'triad')})")
+            break
+
+    # Sequence motif scan within lining residues (per chain, contiguous stretches)
+    motif_definitions = (
+        ("Walker A (P-loop)", _re.compile(r"G.{4}GK[ST]")),
+        ("Walker B", _re.compile(r"[ILVMF]{4}D[DE]")),
+        ("Rossmann GxGxxG", _re.compile(r"G.G..G")),
+        ("DFG kinase", _re.compile(r"DFG")),
+        ("HRD kinase", _re.compile(r"HRD")),
+        ("EF-hand DxDxDG", _re.compile(r"D.D.DG")),
+        ("CXXCH heme", _re.compile(r"C..CH")),
+        ("Zn-finger CXXC", _re.compile(r"C..C")),
+        ("DxD metal", _re.compile(r"D.D")),
+    )
+    matched_motifs = set()
+    for chain_id, indexed in chain_residue_indexes.items():
+        if not indexed:
+            continue
+        numbers = [pair[0] for pair in indexed]
+        residues = [pair[1] for pair in indexed]
+        idx = 0
+        while idx < len(indexed):
+            run_end = idx + 1
+            while run_end < len(indexed) and numbers[run_end] - numbers[run_end - 1] == 1:
+                run_end += 1
+            if run_end - idx >= 3:
+                seq = "".join(_three_to_one(str(getattr(r, "name", "")).upper()) for r in residues[idx:run_end])
+                for label, pattern in motif_definitions:
+                    if label in matched_motifs:
+                        continue
+                    if pattern.search(seq):
+                        tags.append(label)
+                        matched_motifs.add(label)
+            idx = run_end
+
+    return tags
+
+
+def _three_to_one(name):
+    return _THREE_TO_ONE_LOOKUP.get(name, "X")
+
+
+def _bounded_score(value, low, high):
+    try:
+        val = float(value)
+    except Exception:
+        return 0.0
+    if high <= low:
+        return 0.0
+    return max(0.0, min(1.0, (val - low) / (high - low)))
+
+
+def _balance_score(value, target, width):
+    try:
+        val = float(value)
+    except Exception:
+        return 0.0
+    if width <= 0:
+        return 0.0
+    return max(0.0, min(1.0, 1.0 - abs(val - target) / width))
+
+
+def _score_kvfinder_pocket(session, model, pocket):
+    """Score a KVFinder cavity using geometry plus local chemical/evidence terms.
+
+    The intent is not to replace full ML pocket predictors; it stabilizes the
+    in-app ranking by combining the signals that are available inside ChimeraX:
+    cavity size/depth, lining residue composition, and structural evidence.
+    """
+    residues = []
+    seen = set()
+    for residue in pocket.get("lining_residues", []) or []:
+        rid = id(residue)
+        if rid in seen:
+            continue
+        seen.add(rid)
+        residues.append(residue)
+    residue_count = len(residues)
+    names = [str(getattr(residue, "name", "")).upper() for residue in residues]
+    denom = max(1, residue_count)
+    hydrophobic_fraction = sum(1 for name in names if name in POCKET_HYDROPHOBIC_RESNAMES) / denom
+    aromatic_fraction = sum(1 for name in names if name in POCKET_AROMATIC_RESNAMES) / denom
+    polar_fraction = sum(1 for name in names if name in POCKET_POLAR_RESNAMES) / denom
+    charged_fraction = sum(1 for name in names if name in POCKET_CHARGED_RESNAMES) / denom
+    catalytic_like_fraction = sum(1 for name in names if name in CATALYTIC_LIKE_RESNAMES) / denom
+
+    volume = float(pocket.get("volume", 0.0) or 0.0)
+    max_depth = float(pocket.get("max_depth", 0.0) or 0.0)
+    avg_depth = float(pocket.get("avg_depth", 0.0) or 0.0)
+    geometry_score = (
+        0.42 * _bounded_score(volume, 60.0, 650.0)
+        + 0.34 * _bounded_score(max_depth, 1.5, 8.0)
+        + 0.14 * _bounded_score(avg_depth, 0.8, 4.5)
+        + 0.10 * _bounded_score(residue_count, 6.0, 28.0)
+    )
+    chemistry_score = (
+        0.34 * _balance_score(hydrophobic_fraction, 0.42, 0.38)
+        + 0.24 * _balance_score(polar_fraction, 0.42, 0.42)
+        + 0.18 * min(1.0, aromatic_fraction / 0.18)
+        + 0.14 * min(1.0, catalytic_like_fraction / 0.28)
+        + 0.10 * _balance_score(charged_fraction, 0.20, 0.22)
+    )
+
+    tags = [str(tag) for tag in pocket.get("tags", []) or []]
+    tag_text = " ".join(tags).lower()
+    tag_score = 0.0
+    if "ligand:" in tag_text:
+        tag_score += 0.42
+    if "metal:" in tag_text:
+        tag_score += 0.28
+    if "catalytic" in tag_text:
+        tag_score += 0.22
+    if any(token in tag_text for token in ("walker", "rossmann", "heme", "zinc", "metal", "dfg", "hrd", "ef-hand", "dxd")):
+        tag_score += 0.14
+    tag_score = min(1.0, tag_score)
+
+    catalytic_overlap = 0
+    try:
+        model_spec = f"#{getattr(model, 'id_string', '?')}"
+        catalytic_specs = {
+            item.get("residue_spec")
+            for item in best_catalytic_candidates(session, model_hint=model_spec, limit=20)
+            if item.get("residue_spec")
+        }
+        catalytic_overlap = len(set(pocket.get("lining_specs", []) or []) & catalytic_specs)
+    except Exception:
+        catalytic_overlap = 0
+    overlap_score = min(1.0, catalytic_overlap / 4.0)
+    evidence_score = min(1.0, 0.70 * tag_score + 0.30 * overlap_score)
+
+    rank_score = min(1.0, 0.52 * geometry_score + 0.28 * chemistry_score + 0.20 * evidence_score)
+    return {
+        "rank_score": round(rank_score, 3),
+        "geometry_score": round(geometry_score, 3),
+        "chemistry_score": round(chemistry_score, 3),
+        "evidence_score": round(evidence_score, 3),
+        "hydrophobic_fraction": round(hydrophobic_fraction, 3),
+        "aromatic_fraction": round(aromatic_fraction, 3),
+        "polar_fraction": round(polar_fraction, 3),
+        "charged_fraction": round(charged_fraction, 3),
+        "catalytic_like_fraction": round(catalytic_like_fraction, 3),
+        "catalytic_overlap": catalytic_overlap,
+    }
+
+
+_THREE_TO_ONE_LOOKUP = {
+    "ALA": "A", "CYS": "C", "ASP": "D", "GLU": "E", "PHE": "F",
+    "GLY": "G", "HIS": "H", "ILE": "I", "LYS": "K", "LEU": "L",
+    "MET": "M", "ASN": "N", "PRO": "P", "GLN": "Q", "ARG": "R",
+    "SER": "S", "THR": "T", "VAL": "V", "TRP": "W", "TYR": "Y",
+}
+
+
+def find_kvfinder_pockets(
+    session,
+    *,
+    model_hint=None,
+    top_n=5,
+    lining_shell=3.5,
+    max_lining_shell=None,
+    min_lining_residues=0,
+    min_volume=30.0,
+    min_depth=1.0,
+    cleanup_models=True,
+    return_cavity_models=False,
+):
+    """Run bundled parKVFinder to detect cavities, return enriched pocket records.
+
+    Each record: {
+        'index': int,           # 1-based KVFinder cavity index
+        'model': Structure,     # parent atomic structure
+        'model_spec': '#1',
+        'volume', 'area', 'max_depth', 'avg_depth': float (Å³, Å², Å),
+        'rank_score': 0..1 geometry/chemistry/evidence composite,
+        'lining_shell': float,  # shell actually used to gather lining residues
+        'lining_specs': ['#1/A:42', ...],
+        'lining_residues': [Residue, ...],
+        'tags': ['catalytic triad ...', 'metal: ZN', ...],
+    }
+    Closes the cavity helium-atom models after extracting info unless
+    `cleanup_models=False` is given.
+    """
+    try:
+        from chimerax.kvfinder.cmd import cmd_kvfinder
+        from chimerax.atomic import AtomicStructure, all_atomic_structures
+    except Exception as err:
+        try:
+            session.logger.warning(f"KVFinder unavailable: {err}")
+        except Exception:
+            pass
+        return []
+
+    selected_spec = resolve_model_spec(session, model_hint) if model_hint else None
+    if selected_spec:
+        structures = [
+            model for model in session.models.list(type=AtomicStructure)
+            if f"#{getattr(model, 'id_string', '?')}" == selected_spec
+        ]
+    else:
+        structures = list(all_atomic_structures(session))
+    if not structures:
+        return []
+
+    try:
+        results = cmd_kvfinder(session, structures=structures, show_tool=False)
+    except Exception as err:
+        try:
+            session.logger.warning(f"KVFinder run failed: {err}")
+        except Exception:
+            pass
+        return []
+
+    pockets = []
+    helper_models_to_close = []
+    for structure, num_cavities, cavity_matrix, cavity_group in results:
+        if cavity_group is None or num_cavities == 0:
+            continue
+        helper_models_to_close.append(cavity_group)
+        model_spec = f"#{getattr(structure, 'id_string', '?')}"
+        protein_atoms = [
+            atom for atom in structure.atoms
+            if atom.structure_category == "main"
+            and str(getattr(getattr(atom, "element", None), "name", "")).upper() != "H"
+        ]
+        if not protein_atoms:
+            continue
+        protein_coords = np.asarray([atom.scene_coord for atom in protein_atoms], dtype=float)
+
+        for cavity_model in cavity_group.child_models():
+            try:
+                volume = float(getattr(cavity_model, "kvfinder_volume", 0.0))
+                area = float(getattr(cavity_model, "kvfinder_area", 0.0))
+                max_depth = float(getattr(cavity_model, "kvfinder_max_depth", 0.0))
+                avg_depth = float(getattr(cavity_model, "kvfinder_average_depth", 0.0))
+            except Exception:
+                continue
+            if volume < min_volume or max_depth < min_depth:
+                continue
+            cavity_atoms = list(cavity_model.atoms)
+            if not cavity_atoms:
+                continue
+            cavity_coords = np.asarray([atom.scene_coord for atom in cavity_atoms], dtype=float)
+            try:
+                dist_matrix = np.linalg.norm(
+                    protein_coords[:, None, :] - cavity_coords[None, :, :], axis=2
+                )
+                min_per_protein = dist_matrix.min(axis=1)
+            except Exception:
+                continue
+            shells = [float(lining_shell)]
+            try:
+                relaxed_shell = float(max_lining_shell)
+            except Exception:
+                relaxed_shell = None
+            if relaxed_shell is not None and relaxed_shell > shells[0]:
+                shells.append(relaxed_shell)
+            lining_residues = []
+            lining_specs = []
+            used_shell = shells[0]
+            for shell in shells:
+                close_idx = np.where(min_per_protein <= shell)[0]
+                if len(close_idx) == 0:
+                    continue
+                seen_residue_ids = set()
+                trial_residues = []
+                for idx in close_idx:
+                    residue = protein_atoms[int(idx)].residue
+                    rid = id(residue)
+                    if rid in seen_residue_ids:
+                        continue
+                    seen_residue_ids.add(rid)
+                    trial_residues.append(residue)
+                trial_specs = []
+                seen_specs = set()
+                for residue in trial_residues:
+                    chain_id = str(getattr(residue, "chain_id", "")).strip() or "?"
+                    number = _safe_int(getattr(residue, "number", None), None)
+                    if number is None:
+                        continue
+                    spec = f"{model_spec}/{chain_id}:{number}"
+                    if spec in seen_specs:
+                        continue
+                    seen_specs.add(spec)
+                    trial_specs.append(spec)
+                if not trial_specs:
+                    continue
+                lining_residues = trial_residues
+                lining_specs = trial_specs
+                used_shell = shell
+                if len(lining_specs) >= int(min_lining_residues or 0):
+                    break
+            if not lining_specs:
+                continue
+            try:
+                index = int(str(cavity_model.name).split()[-1])
+            except Exception:
+                index = len(pockets) + 1
+            pocket = {
+                "index": index,
+                "model": structure,
+                "model_spec": model_spec,
+                "volume": volume,
+                "area": area,
+                "max_depth": max_depth,
+                "avg_depth": avg_depth,
+                "lining_shell": used_shell,
+                "lining_specs": lining_specs,
+                "lining_residues": lining_residues,
+                "tags": [],
+            }
+            if return_cavity_models:
+                pocket.update({
+                    "cavity_model": cavity_model,
+                    "cavity_model_spec": f"#{getattr(cavity_model, 'id_string', '?')}",
+                    "cavity_group": cavity_group,
+                })
+            pockets.append(pocket)
+
+    if cleanup_models and helper_models_to_close:
+        try:
+            session.models.close(helper_models_to_close)
+        except Exception:
+            pass
+
+    for pocket in pockets:
+        try:
+            pocket["tags"] = _kvfinder_pocket_motif_tags(
+                session,
+                pocket["model"],
+                pocket["lining_residues"],
+                pocket["lining_specs"],
+            )
+        except Exception:
+            pocket["tags"] = []
+        try:
+            pocket.update(_score_kvfinder_pocket(session, pocket["model"], pocket))
+        except Exception:
+            pocket.update({
+                "rank_score": 0.0,
+                "geometry_score": 0.0,
+                "chemistry_score": 0.0,
+                "evidence_score": 0.0,
+            })
+    pockets.sort(
+        key=lambda p: (
+            -float(p.get("rank_score", 0.0) or 0.0),
+            -float(p.get("evidence_score", 0.0) or 0.0),
+            -float(p.get("volume", 0.0) or 0.0),
+            -float(p.get("max_depth", 0.0) or 0.0),
+        )
+    )
+    selected_pockets = pockets[: max(1, int(top_n))]
+
+    if return_cavity_models and not cleanup_models:
+        selected_model_ids = {
+            id(pocket.get("cavity_model"))
+            for pocket in selected_pockets
+            if pocket.get("cavity_model") is not None
+        }
+        unselected_models = []
+        for cavity_group in helper_models_to_close:
+            try:
+                children = list(cavity_group.child_models())
+            except Exception:
+                children = []
+            for child in children:
+                if id(child) not in selected_model_ids:
+                    unselected_models.append(child)
+        if unselected_models:
+            try:
+                session.models.close(unselected_models)
+            except Exception:
+                pass
+
+    return selected_pockets
+
+
+CATALYTIC_TRIAD_PATTERNS = (
+    {
+        "label": "Ser-His-Asp (serine protease / α/β-hydrolase)",
+        "nucleophile": ("SER", ("OG",)),
+        "base": ("HIS", ("NE2", "ND1")),
+        "acid": (("ASP", ("OD1", "OD2")), ("GLU", ("OE1", "OE2"))),
+        "nuc_base_max": 4.0,
+        "base_acid_max": 4.0,
+    },
+    {
+        "label": "Cys-His-Asn (cysteine protease)",
+        "nucleophile": ("CYS", ("SG",)),
+        "base": ("HIS", ("NE2", "ND1")),
+        "acid": (("ASN", ("OD1", "ND2")), ("ASP", ("OD1", "OD2"))),
+        "nuc_base_max": 4.5,
+        "base_acid_max": 4.5,
+    },
+    {
+        "label": "Cys-His dyad (papain-like / caspase)",
+        "nucleophile": ("CYS", ("SG",)),
+        "base": ("HIS", ("NE2", "ND1")),
+        "acid": None,
+        "nuc_base_max": 4.5,
+        "base_acid_max": None,
+    },
+    {
+        "label": "Thr-N-terminal (Ntn-hydrolase / proteasome)",
+        "nucleophile": ("THR", ("OG1", "N")),
+        "base": ("LYS", ("NZ",)),
+        "acid": None,
+        "nuc_base_max": 4.5,
+        "base_acid_max": None,
+    },
+)
+
+
+def find_catalytic_triads(session, model_hint=None):
+    """Geometry-based catalytic triad / dyad search.
+
+    Inspects Ser-His-Asp/Glu, Cys-His-Asn, Cys-His, and Thr-Lys arrangements
+    where the side-chain functional atoms sit within hydrogen-bonding range.
+    Returns a list of triad dicts with model_spec, chain_id, residue specs,
+    label, and the measured distances.
+    """
+    from chimerax.atomic import AtomicStructure, Residue
+
+    selected_spec = resolve_model_spec(session, model_hint) if model_hint else None
+    triads = []
+
+    for model in session.models.list(type=AtomicStructure):
+        model_spec = f"#{getattr(model, 'id_string', '?')}"
+        if selected_spec and model_spec != selected_spec:
+            continue
+
+        residues_by_name = {}
+        for residue in model.residues:
+            polymer_type = getattr(residue, "polymer_type", None)
+            if polymer_type is not None and polymer_type not in (Residue.PT_AMINO, Residue.PT_PROTEIN):
+                continue
+            name = str(getattr(residue, "name", "")).upper()
+            if name not in {"SER", "HIS", "ASP", "GLU", "CYS", "ASN", "THR", "LYS"}:
+                continue
+            residues_by_name.setdefault(name, []).append(residue)
+
+        def _atoms_named(residue, names):
+            try:
+                atoms = residue.atoms
+                return [atom for atom in atoms if str(atom.name) in names]
+            except Exception:
+                return []
+
+        def _spec_for(residue):
+            chain_id = str(getattr(residue, "chain_id", "")).strip() or "?"
+            number = _safe_int(getattr(residue, "number", None), 0)
+            return f"{model_spec}/{chain_id}:{number}", chain_id, number
+
+        for pattern in CATALYTIC_TRIAD_PATTERNS:
+            nuc_name, nuc_atom_names = pattern["nucleophile"]
+            base_name, base_atom_names = pattern["base"]
+            nuc_residues = residues_by_name.get(nuc_name, [])
+            base_residues = residues_by_name.get(base_name, [])
+            if not nuc_residues or not base_residues:
+                continue
+            acid_options = pattern.get("acid")
+
+            for nuc in nuc_residues:
+                nuc_atoms = _atoms_named(nuc, nuc_atom_names)
+                if not nuc_atoms:
+                    continue
+                for base in base_residues:
+                    if base.chain_id != nuc.chain_id:
+                        continue
+                    base_atoms = _atoms_named(base, base_atom_names)
+                    if not base_atoms:
+                        continue
+                    nb_distances = [
+                        float(np.linalg.norm(a.scene_coord - b.scene_coord))
+                        for a in nuc_atoms
+                        for b in base_atoms
+                    ]
+                    nb_min = min(nb_distances) if nb_distances else float("inf")
+                    if nb_min > pattern["nuc_base_max"]:
+                        continue
+
+                    if acid_options is None:
+                        nuc_spec, nuc_chain, nuc_number = _spec_for(nuc)
+                        base_spec, _, base_number = _spec_for(base)
+                        triads.append({
+                            "label": pattern["label"],
+                            "model_spec": model_spec,
+                            "chain_id": nuc_chain,
+                            "residues": [
+                                {"name": nuc_name, "spec": nuc_spec, "number": nuc_number},
+                                {"name": base_name, "spec": base_spec, "number": base_number},
+                            ],
+                            "specs": [nuc_spec, base_spec],
+                            "nuc_base_distance": nb_min,
+                        })
+                        continue
+
+                    for acid_name, acid_atom_names in acid_options:
+                        for acid in residues_by_name.get(acid_name, []):
+                            if acid.chain_id != nuc.chain_id:
+                                continue
+                            if acid.number == nuc.number or acid.number == base.number:
+                                continue
+                            acid_atoms = _atoms_named(acid, acid_atom_names)
+                            if not acid_atoms:
+                                continue
+                            ba_distances = [
+                                float(np.linalg.norm(b.scene_coord - a.scene_coord))
+                                for b in base_atoms
+                                for a in acid_atoms
+                            ]
+                            ba_min = min(ba_distances) if ba_distances else float("inf")
+                            if ba_min > pattern["base_acid_max"]:
+                                continue
+                            nuc_spec, nuc_chain, nuc_number = _spec_for(nuc)
+                            base_spec, _, base_number = _spec_for(base)
+                            acid_spec, _, acid_number = _spec_for(acid)
+                            triads.append({
+                                "label": pattern["label"],
+                                "model_spec": model_spec,
+                                "chain_id": nuc_chain,
+                                "residues": [
+                                    {"name": nuc_name, "spec": nuc_spec, "number": nuc_number},
+                                    {"name": base_name, "spec": base_spec, "number": base_number},
+                                    {"name": acid_name, "spec": acid_spec, "number": acid_number},
+                                ],
+                                "specs": [nuc_spec, base_spec, acid_spec],
+                                "nuc_base_distance": nb_min,
+                                "base_acid_distance": ba_min,
+                            })
+
+    seen = set()
+    deduped = []
+    for triad in sorted(triads, key=lambda t: t.get("nuc_base_distance", 99) + t.get("base_acid_distance", 0)):
+        key = tuple(sorted(triad["specs"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(triad)
+    return deduped

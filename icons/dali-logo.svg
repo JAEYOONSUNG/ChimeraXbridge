@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="dlCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a4047"/>
+      <stop offset="1" stop-color="#171a1d"/>
+    </linearGradient>
+    <linearGradient id="dlChainA" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7aa6e6"/>
+      <stop offset="1" stop-color="#3a6db5"/>
+    </linearGradient>
+    <linearGradient id="dlChainB" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff8a87"/>
+      <stop offset="1" stop-color="#c54b48"/>
+    </linearGradient>
+    <filter id="dlShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0.6" stdDeviation="0.6" flood-color="#000" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+  <rect x="5" y="5" width="54" height="54" rx="10" fill="url(#dlCard)" stroke="#0a0c0f" stroke-width="2"/>
+  <rect x="5.6" y="5.6" width="52.8" height="52.8" rx="9.5" fill="none" stroke="#5a6068" stroke-width="0.5" opacity="0.55"/>
+  <line x1="14" y1="22" x2="14" y2="40" stroke="#bcc4cc" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.7"/>
+  <line x1="22" y1="20" x2="22" y2="42" stroke="#bcc4cc" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.7"/>
+  <line x1="32" y1="18" x2="32" y2="44" stroke="#bcc4cc" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.7"/>
+  <line x1="42" y1="20" x2="42" y2="42" stroke="#bcc4cc" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.7"/>
+  <line x1="50" y1="22" x2="50" y2="40" stroke="#bcc4cc" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.7"/>
+  <path d="M9 24 C16 14, 22 32, 32 22 C42 14, 48 32, 55 22" stroke="url(#dlChainA)" stroke-width="3.6" fill="none" stroke-linecap="round" filter="url(#dlShadow)"/>
+  <path d="M9 42 C16 32, 22 50, 32 40 C42 32, 48 50, 55 40" stroke="url(#dlChainB)" stroke-width="3.6" fill="none" stroke-linecap="round" filter="url(#dlShadow)"/>
+  <text x="32" y="58" font-family="Helvetica" font-size="8" font-weight="700" fill="#d2d8de" text-anchor="middle" letter-spacing="1.5">DALI</text>
+</svg>

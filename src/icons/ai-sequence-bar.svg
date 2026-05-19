@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sequence">
+  <defs>
+    <linearGradient id="seqcase" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1d2329"/>
+      <stop offset="0.55" stop-color="#11161a"/>
+      <stop offset="1" stop-color="#070a0d"/>
+    </linearGradient>
+    <linearGradient id="seqGold" x1="0" y1="32" x2="64" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#806132"/>
+      <stop offset="0.5" stop-color="#e6c478"/>
+      <stop offset="1" stop-color="#806132"/>
+    </linearGradient>
+    <linearGradient id="seqSilver" x1="0" y1="22" x2="0" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#dfe3ea"/>
+      <stop offset="1" stop-color="#7e858f"/>
+    </linearGradient>
+  </defs>
+  <!-- monolith -->
+  <rect x="6" y="6" width="52" height="52" rx="10" fill="url(#seqcase)" stroke="#2a3138" stroke-width="1.2"/>
+  <!-- horizontal "reading line" -->
+  <line x1="11" y1="32" x2="53" y2="32" stroke="url(#seqGold)" stroke-width="1.4" opacity="0.85"/>
+  <!-- residue cells: 5 elegant bars, varied heights for rhythm -->
+  <g>
+    <rect x="13.5" y="22" width="4.5" height="20" rx="1.2" fill="url(#seqSilver)" opacity="0.92"/>
+    <rect x="21"   y="18" width="4.5" height="28" rx="1.2" fill="url(#seqGold)"   opacity="0.95"/>
+    <rect x="28.5" y="24" width="4.5" height="16" rx="1.2" fill="url(#seqSilver)" opacity="0.92"/>
+    <rect x="36"   y="20" width="4.5" height="24" rx="1.2" fill="url(#seqGold)"   opacity="0.95"/>
+    <rect x="43.5" y="22" width="4.5" height="20" rx="1.2" fill="url(#seqSilver)" opacity="0.92"/>
+  </g>
+  <!-- subtle inner highlight at top edge for the glass feel -->
+  <path d="M10 12 Q32 8 54 12" stroke="#3b434c" stroke-width="0.8" fill="none" opacity="0.45"/>
+</svg>

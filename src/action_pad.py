@@ -15,11 +15,16 @@ from Qt.QtWidgets import (
     QWidget,
 )
 from Qt.QtGui import QColor, QFontDatabase
-from Qt.QtCore import Qt
+from Qt.QtCore import Qt, QTimer
 
 from chimerax.core.tools import ToolInstance, get_singleton
 
-from .display_color import apply_stick_context_colors, maybe_apply_stick_context_colors_for_command
+from .display_color import (
+    apply_stick_context_colors,
+    maybe_apply_stick_context_colors_for_command,
+    restore_charge_colors,
+    show_sticks_with_cartoon_anchor,
+)
 from .integration import command_batch
 from .pick_mode import bind_pick_mode
 
@@ -32,6 +37,13 @@ def _is_qt_main_thread():
         return app is not None and QThread.currentThread() == app.thread()
     except Exception:
         return False
+
+
+def _is_selection_only_command_text(command):
+    text = str(command or "").strip().lower()
+    if not text:
+        return False
+    return text == "select" or text.startswith("select ") or text.startswith("~select")
 
 
 def _run_command_thread_safe(session, command):
@@ -55,7 +67,10 @@ def _run_command_thread_safe(session, command):
             event.set()
 
     session.ui.thread_safe(runner)
-    event.wait()
+    if not event.wait(120):
+        raise TimeoutError(
+            f"action_pad UI bounce did not complete within 120s: {command!r}"
+        )
     if "error" in result_box:
         raise result_box["error"]
     return result_box.get("result")
@@ -143,7 +158,15 @@ class ActionPadWidget(QWidget):
         self.ai_analyze_button.clicked.connect(
             lambda: self._launch_ai_prompt("Analyze the current ChimeraX scene with evidence and confidence.", "analyze")
         )
-        toolbar.addWidget(self.ai_analyze_button, 2, 0, 1, 3)
+        toolbar.addWidget(self.ai_analyze_button, 2, 0, 1, 2)
+
+        self.conserve3d_button = QPushButton("3D Conserve", self)
+        self.conserve3d_button.setToolTip(
+            "Highlight sequence-unique residues across the structures currently open and aligned"
+        )
+        self.conserve3d_button.clicked.connect(self._open_3d_conserve)
+        toolbar.addWidget(self.conserve3d_button, 2, 2)
+
         for column in range(3):
             toolbar.setColumnStretch(column, 1)
         layout.addLayout(toolbar)
@@ -155,6 +178,7 @@ class ActionPadWidget(QWidget):
             self.pick_menu_button,
             self.pick_default_button,
             self.ai_analyze_button,
+            self.conserve3d_button,
         ):
             button.setMinimumHeight(self.BUTTON_HEIGHT)
             button.setMaximumHeight(self.BUTTON_HEIGHT)
@@ -267,8 +291,8 @@ class ActionPadWidget(QWidget):
         if self.handlers:
             return
         self.handlers = [
-            self.session.triggers.add_handler("selection changed", self._queue_refresh),
-            self.session.triggers.add_handler("command finished", self._queue_refresh),
+            self.session.triggers.add_handler("selection changed", self._queue_selection_refresh),
+            self.session.triggers.add_handler("command finished", self._queue_command_refresh),
         ]
         self.refresh()
 
@@ -333,11 +357,27 @@ class ActionPadWidget(QWidget):
         self._update_current_spec_label()
         self.status_label.setText(f"{model_count} model row(s), {selection_count} selection row(s).")
 
-    def _queue_refresh(self, *_args, **_kwargs):
+    def _queue_command_refresh(self, _trigger_name=None, command=None, *_args):
+        if _is_selection_only_command_text(command):
+            self._queue_selection_refresh()
+            return
+        self._queue_refresh(delay_ms=150)
+
+    def _queue_selection_refresh(self, *_args, **_kwargs):
+        self._queue_refresh(delay_ms=500, require_visible=True)
+
+    def _queue_refresh(self, *_args, delay_ms=150, require_visible=False, **_kwargs):
         if self._refresh_pending:
             return
         self._refresh_pending = True
-        self.session.ui.thread_safe(self.refresh)
+
+        def run_refresh():
+            self._refresh_pending = False
+            if require_visible and not self.isVisible():
+                return
+            self.refresh()
+
+        QTimer.singleShot(int(delay_ms), lambda: self.session.ui.thread_safe(run_refresh))
 
     def _selected_session_spec(self, semantics):
         selection = semantics.get("selection", {})
@@ -394,6 +434,36 @@ class ActionPadWidget(QWidget):
         menu.addAction("Focus", lambda: self._run_commands(f"Action focus:{label}", [f"select {spec}", "view sel"]))
         menu.addAction("AI Analyze", lambda: self._launch_ai_prompt(f"Analyze {spec} with evidence and confidence.", "analyze"))
         menu.addAction("AI Improve View", lambda: self._launch_ai_prompt(f"Improve the view for {spec} and apply the changes directly.", "agent"))
+        try:
+            from .chain_cleanup import is_chain_spec, target_model_spec
+
+            model_spec = target_model_spec(spec)
+            if model_spec and not is_chain_spec(spec):
+                menu.addSeparator()
+                menu.addAction("Move ID...", lambda ms=model_spec: self._move_model_id(ms))
+        except Exception:
+            pass
+        menu.addSeparator()
+        delete_menu = menu.addMenu("Delete")
+        delete_menu.addAction("Delete target atoms...", lambda: self._delete_target_atoms(spec, label))
+        try:
+            from .chain_cleanup import is_chain_spec, target_model_spec
+
+            model_spec = target_model_spec(spec)
+            if model_spec:
+                delete_menu.addAction(
+                    "Delete waters / solvent in model...",
+                    lambda checked=False, ms=model_spec: self._run_solvent_action("delete", ms),
+                )
+            delete_menu.addAction(
+                "Delete waters / solvent in all models...",
+                lambda checked=False: self._run_solvent_action("delete", None),
+            )
+            if is_chain_spec(spec):
+                delete_menu.addSeparator()
+                delete_menu.addAction("Keep only this chain in model...", lambda: self._keep_only_chain(spec, label))
+        except Exception:
+            pass
         return menu
 
     def _show_menu(self, spec, label):
@@ -402,6 +472,7 @@ class ActionPadWidget(QWidget):
         menu.addAction("Sticks", lambda: self._run_display_action(spec, label, "show", "sticks"))
         menu.addAction("Surface", lambda: self._run_commands(f"Show surface:{label}", self._show_commands(spec, "surface")))
         menu.addAction("All", lambda: self._run_display_action(spec, label, "show", "all"))
+        self._add_solvent_display_actions(menu, spec, "show")
         return menu
 
     def _hide_menu(self, spec, label):
@@ -410,7 +481,26 @@ class ActionPadWidget(QWidget):
         menu.addAction("Atoms", lambda: self._run_commands(f"Hide atoms:{label}", self._hide_commands(spec, "atoms")))
         menu.addAction("Surface", lambda: self._run_commands(f"Hide surface:{label}", self._hide_commands(spec, "surface")))
         menu.addAction("All", lambda: self._run_commands(f"Hide all:{label}", self._hide_commands(spec, "all")))
+        self._add_solvent_display_actions(menu, spec, "hide")
         return menu
+
+    def _add_solvent_display_actions(self, menu, spec, action):
+        try:
+            from .chain_cleanup import target_model_spec
+
+            model_spec = target_model_spec(spec)
+        except Exception:
+            model_spec = None
+        menu.addSeparator()
+        if model_spec:
+            menu.addAction(
+                f"Waters / solvent (model {model_spec})",
+                lambda checked=False, ms=model_spec, a=action: self._run_solvent_action(a, ms),
+            )
+        menu.addAction(
+            "Waters / solvent (all models)",
+            lambda checked=False, a=action: self._run_solvent_action(a, None),
+        )
 
     def _label_menu(self, spec, label):
         menu = QMenu(self.tree)
@@ -423,11 +513,11 @@ class ActionPadWidget(QWidget):
         menu = QMenu(self.tree)
         menu.addAction("By element", lambda: self._run_commands(f"Color by element:{label}", [f"color {spec} byelement"]))
         menu.addAction("Carbon from cartoon + hetero by element", lambda: self._apply_stick_colors(spec, f"Color context:{label}"))
-        menu.addAction("By chain", lambda: self._run_commands(f"Color by chain:{label}", [f"color {spec} bychain"]))
-        menu.addAction("By model", lambda: self._run_commands(f"Color by model:{label}", [f"color {spec} bymodel"]))
+        menu.addAction("By chain", lambda: self._color_and_restore(f"Color by chain:{label}", spec, "bychain"))
+        menu.addAction("By model", lambda: self._color_and_restore(f"Color by model:{label}", spec, "bymodel"))
         preset_menu = menu.addMenu("Preset")
         for color_name in ("yellow", "cyan", "magenta", "hotpink", "cornflowerblue", "orange", "gold"):
-            preset_menu.addAction(color_name, lambda checked=False, c=color_name: self._run_commands(f"Color {c}:{label}", [f"color {spec} {c}"]))
+            preset_menu.addAction(color_name, lambda checked=False, c=color_name: self._color_and_restore(f"Color {c}:{label}", spec, c))
         menu.addAction("Custom...", lambda: self._pick_custom_color(spec, label))
         menu.addAction("Rainbow", lambda: self._run_commands(f"Rainbow:{label}", [f"rainbow {spec}"]))
         return menu
@@ -443,9 +533,124 @@ class ActionPadWidget(QWidget):
         self.status_label.setText(batch_label)
         self.refresh()
 
+    def _confirm_destructive(self, title, message):
+        try:
+            from Qt.QtWidgets import QMessageBox
+
+            reply = QMessageBox.question(
+                self,
+                title,
+                message,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            return reply == QMessageBox.StandardButton.Yes
+        except Exception:
+            return True
+
+    def _delete_target_atoms(self, spec, label):
+        if not self._confirm_destructive(
+            "Delete atoms",
+            f"Delete atoms for {label}?\n\nThis removes them from the model, not just from the display.",
+        ):
+            return
+        try:
+            from .chain_cleanup import delete_atomspec
+
+            message = delete_atomspec(self.session, spec)
+        except Exception as err:
+            self.status_label.setText(str(err) if str(err) else err.__class__.__name__)
+            return
+        self.status_label.setText(message)
+        self.refresh()
+
+    def _move_model_id(self, model_spec):
+        try:
+            from Qt.QtWidgets import QInputDialog
+
+            current = str(model_spec or "").strip().lstrip("#")
+            text, ok = QInputDialog.getText(
+                self,
+                "Move model ID",
+                f"Move #{current} to ID:",
+                text=current,
+            )
+            if not ok:
+                return
+        except Exception as err:
+            self.status_label.setText(str(err) if str(err) else err.__class__.__name__)
+            return
+        try:
+            from .model_order import reorder_model_spec_to_id
+
+            message = reorder_model_spec_to_id(self.session, model_spec, text)
+        except Exception as err:
+            self.status_label.setText(str(err) if str(err) else err.__class__.__name__)
+            return
+        self.status_label.setText(message)
+        self.refresh()
+
+    def _keep_only_chain(self, spec, label):
+        if not self._confirm_destructive(
+            "Keep only this chain",
+            f"Keep {label} and delete every other chain in the same model?\n\nThis removes atoms from the model.",
+        ):
+            return
+        try:
+            from .chain_cleanup import keep_only_chain
+
+            message = keep_only_chain(self.session, spec)
+        except Exception as err:
+            self.status_label.setText(str(err) if str(err) else err.__class__.__name__)
+            return
+        self.status_label.setText(message)
+        self.refresh()
+
+    def _run_solvent_action(self, action, model_spec=None):
+        if action == "delete":
+            scope = model_spec or "all models"
+            if not self._confirm_destructive(
+                "Delete waters / solvent",
+                f"Delete waters / solvent in {scope}?\n\nThis removes atoms from the model, not just from the display.",
+            ):
+                return
+        try:
+            from .chain_cleanup import delete_solvent, hide_solvent, show_solvent
+
+            functions = {
+                "delete": delete_solvent,
+                "hide": hide_solvent,
+                "show": show_solvent,
+            }
+            message = functions[action](self.session, model_spec=model_spec)
+        except Exception as err:
+            self.status_label.setText(str(err) if str(err) else err.__class__.__name__)
+            return
+        self.status_label.setText(message)
+        self.refresh()
+
+    def _color_and_restore(self, batch_label, spec, color):
+        try:
+            with command_batch(self.session, batch_label):
+                _run_command_thread_safe(self.session, f"color {spec} {color}")
+                restore_charge_colors(self.session, spec)
+        except Exception as err:
+            self.status_label.setText(str(err) if str(err) else err.__class__.__name__)
+            return
+        self.status_label.setText(batch_label)
+        self.refresh()
+
     def _open_ai(self):
         if self._open_ai_callback is not None:
             self._open_ai_callback()
+
+    def _open_3d_conserve(self):
+        from chimerax.core.commands import run as _cx_run
+        try:
+            _cx_run(self.session, "ui tool show '3D Conserve'")
+            self.status_label.setText("3D Conserve panel opened.")
+        except Exception as exc:
+            self.status_label.setText(f"3D Conserve unavailable: {exc}")
 
     def _launch_ai_prompt(self, prompt, mode):
         if self._launch_ai_callback is not None:
@@ -575,7 +780,7 @@ class ActionPadWidget(QWidget):
 
     def _apply_stick_colors(self, spec, status_text):
         try:
-            apply_stick_context_colors(self.session, spec)
+            show_sticks_with_cartoon_anchor(self.session, spec)
         except Exception as err:
             self.status_label.setText(str(err) if str(err) else err.__class__.__name__)
             return
@@ -589,7 +794,7 @@ class ActionPadWidget(QWidget):
         color = QColorDialog.getColor(QColor("#ffd166"), self, "Choose ChimeraX Color")
         if not color.isValid():
             return
-        self._run_commands(f"Color custom:{label}", [f"color {spec} {color.name()}"])
+        self._color_and_restore(f"Color custom:{label}", spec, color.name())
 
     def _set_pick_mode(self, which):
         try:
@@ -606,7 +811,7 @@ class CodexActionPad(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_action_pad.html"
-    UI_LAYOUT_VERSION = 12
+    UI_LAYOUT_VERSION = 15
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):

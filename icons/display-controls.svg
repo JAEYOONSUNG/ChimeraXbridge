@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="dcCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a4047"/>
+      <stop offset="1" stop-color="#171a1d"/>
+    </linearGradient>
+    <linearGradient id="dcHandle" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6f8fa"/>
+      <stop offset="0.55" stop-color="#d2d8de"/>
+      <stop offset="1" stop-color="#90979e"/>
+    </linearGradient>
+    <linearGradient id="dcTrackR" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ef6562"/>
+      <stop offset="1" stop-color="#ff8a87"/>
+    </linearGradient>
+    <linearGradient id="dcTrackG" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3aa86a"/>
+      <stop offset="1" stop-color="#5cc78c"/>
+    </linearGradient>
+    <linearGradient id="dcTrackB" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3a6db5"/>
+      <stop offset="1" stop-color="#6ea6ea"/>
+    </linearGradient>
+    <filter id="dcShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0.6" stdDeviation="0.7" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+  <rect x="5" y="5" width="54" height="54" rx="10" fill="url(#dcCard)" stroke="#0a0c0f" stroke-width="2"/>
+  <rect x="5.6" y="5.6" width="52.8" height="52.8" rx="9.5" fill="none" stroke="#5a6068" stroke-width="0.5" opacity="0.55"/>
+
+  <rect x="11" y="17" width="42" height="4" rx="2" fill="#1a1d20"/>
+  <rect x="11" y="17" width="16" height="4" rx="2" fill="url(#dcTrackR)"/>
+  <circle cx="27" cy="19" r="4.2" fill="url(#dcHandle)" stroke="#0a0c0f" stroke-width="0.9" filter="url(#dcShadow)"/>
+
+  <rect x="11" y="30" width="42" height="4" rx="2" fill="#1a1d20"/>
+  <rect x="11" y="30" width="29" height="4" rx="2" fill="url(#dcTrackG)"/>
+  <circle cx="40" cy="32" r="4.2" fill="url(#dcHandle)" stroke="#0a0c0f" stroke-width="0.9" filter="url(#dcShadow)"/>
+
+  <rect x="11" y="43" width="42" height="4" rx="2" fill="#1a1d20"/>
+  <rect x="11" y="43" width="22" height="4" rx="2" fill="url(#dcTrackB)"/>
+  <circle cx="33" cy="45" r="4.2" fill="url(#dcHandle)" stroke="#0a0c0f" stroke-width="0.9" filter="url(#dcShadow)"/>
+</svg>

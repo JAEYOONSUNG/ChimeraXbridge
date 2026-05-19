@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- Alpha helix with peer-matching content extent (y=10..54, ~70% fill). -->
+
+  <!-- Back edges of each turn -->
+  <g stroke="#A16207" stroke-width="2.4" stroke-linecap="round" fill="none" opacity="0.85">
+    <path d="M 10 18 Q 32 26 54 18"/>
+    <path d="M 10 30 Q 32 38 54 30"/>
+    <path d="M 10 42 Q 32 50 54 42"/>
+  </g>
+
+  <!-- Front edges (yellow ribbon) -->
+  <g stroke="#FCD34D" stroke-width="6.5" stroke-linecap="round" fill="none">
+    <path d="M 10 18 Q 32 10 54 18"/>
+    <path d="M 10 30 Q 32 22 54 30"/>
+    <path d="M 10 42 Q 32 34 54 42"/>
+    <path d="M 10 54 Q 32 46 54 54"/>
+  </g>
+
+  <!-- Specular highlight on front arcs -->
+  <g stroke="#FFE8A8" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.85">
+    <path d="M 14 16 Q 32 12 50 16"/>
+    <path d="M 14 28 Q 32 24 50 28"/>
+    <path d="M 14 40 Q 32 36 50 40"/>
+    <path d="M 14 52 Q 32 48 50 52"/>
+  </g>
+
+  <!-- Backbone axis line -->
+  <line x1="29" y1="22" x2="33" y2="34" stroke="#0a0c0f" stroke-width="1.4" opacity="0.55" stroke-linecap="round"/>
+  <line x1="33" y1="34" x2="29" y2="46" stroke="#0a0c0f" stroke-width="1.4" opacity="0.55" stroke-linecap="round"/>
+</svg>

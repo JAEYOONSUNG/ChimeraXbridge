@@ -2,10 +2,11 @@ from datetime import datetime
 from pathlib import Path
 import re
 import shlex
+import shutil
 import tempfile
 import webbrowser
 
-from .display_color import maybe_apply_stick_context_colors_for_command
+from .display_color import maybe_apply_stick_context_colors_for_command, restore_charge_colors
 from .nl_intent import normalized_prompt_for_matching
 
 ANALYSIS_HANDLER_NAMES = ("_workflow_intent_fastpath", "_membrane_fastpath", "_pisa_fastpath", "_analysis_fastpath", "_annotation_fastpath", "_motif_fastpath", "_catalytic_fastpath", "_metal_fastpath", "_ligand_fastpath")
@@ -98,6 +99,232 @@ def try_visual_fastpath(session, prompt, progress=None, executor=None):
     return _try_handlers(session, prompt, progress, executor, VISUAL_HANDLER_NAMES)
 
 
+def run_analysis_visual_companion(session, prompt, progress=None, executor=None):
+    """Apply the 3D companion view expected for analysis-style requests.
+
+    The AI panel's analyze route often asks report-format functions to identify
+    candidates. For structure work, a candidate list is not enough; the primary
+    candidate should also become visible in the current 3D scene unless the user
+    explicitly asked for text only.
+    """
+    lowered = str(prompt or "").lower()
+    if any(
+        token in lowered
+        for token in ("text only", "설명만", "말로만", "요약만", "command 없이", "시각화 없이", "no visualization")
+    ):
+        return None
+
+    def emit(message):
+        _emit(progress, message)
+
+    selected = any(word in lowered for word in ("selected", "selection", "현재 선택", "선택"))
+    if selected:
+        emit("Local visual companion: selection-focused view")
+        if any(word in lowered for word in ("interface", "접촉", "인터페이스")):
+            return _run_figure(session, "selection-interface", executor=executor)
+        if any(word in lowered for word in ("motif", "모티프", "패턴")):
+            return _run_figure(session, "selection-motif", executor=executor)
+        if any(word in lowered for word in ("pocket", "ligand", "metal", "active site", "active-site", "활성부위", "촉매", "리간드", "금속")):
+            return _run_figure(session, "selection-pocket", executor=executor)
+        return _run_figure(session, "selection", executor=executor)
+
+    if any(word in lowered for word in ("conservation", "consurf", "conserved", "보존", "보존성", "보존도")):
+        from .conservation import apply_conservation_view
+
+        emit("Local visual companion: conservation view")
+        return apply_conservation_view(session, model_hint=prompt, query_text=prompt, executor=executor)
+
+    if any(
+        word in lowered
+        for word in ("membrane", "bilayer", "transmembrane", "lipid", "막", "멤브레인", "지질막", "막단백")
+    ):
+        from .membrane import run_membrane_view
+
+        emit("Local visual companion: membrane slab")
+        return run_membrane_view(session, executor=executor)
+
+    if any(
+        word in lowered
+        for word in ("pisa", "pdbe-pisa", "buried surface", "buried area", "bsa", "접촉면", "계면", "매몰 면적")
+    ):
+        from .pisa import run_pisa_view
+
+        emit("Local visual companion: PISA-like interface view")
+        return run_pisa_view(session, "view", executor=executor)
+
+    if any(word in lowered for word in ("interface", "oligomer", "contact surface", "인터페이스", "접촉", "올리고머")):
+        emit("Local visual companion: interface view")
+        return _run_interface_view(session, executor=executor)
+
+    if any(word in lowered for word in ("domain", "domains", "chunk", "architecture", "도메인", "구조 구획")):
+        emit("Local visual companion: domain view")
+        return _run_domains_view(session, None, executor=executor)
+
+    if any(word in lowered for word in ("role", "roles", "scaffold", "assembly role", "복합체 역할", "스캐폴드")):
+        emit("Local visual companion: role view")
+        return _run_roles_view(session, None, executor=executor)
+
+    if any(word in lowered for word in ("motif", "모티프", "패턴", "sequence motif", "서열 모티프")):
+        emit("Local visual companion: motif view")
+        model_hint, motif_text = _parse_motif_args(prompt)
+        return _run_motif_view(session, motif_text=motif_text, model_hint=model_hint, executor=executor)
+
+    if any(word in lowered for word in ("catalytic", "active residue", "active site", "active-site", "촉매", "활성부위", "활성 잔기")):
+        emit("Local visual companion: catalytic-candidate view")
+        return _run_catalytic_view(session, None, executor=executor, preserve_existing=True)
+
+    if any(word in lowered for word in ("ligand", "substrate", "pocket", "binding site", "리간드", "포켓", "결합부위")):
+        emit("Local visual companion: KVFinder pocket overlay")
+        pocket_overlay = _run_kvfinder_pocket_overlay(session, executor=executor)
+        if pocket_overlay:
+            return pocket_overlay
+        emit("Local visual companion: ligand/pocket residue overlay")
+        overlay = _run_site_overlay(session, "ligand", executor=executor)
+        if overlay:
+            return "\n".join(["Ligand/pocket companion overlay applied.", overlay])
+        return _run_figure(session, "pocket", executor=executor)
+
+    if any(word in lowered for word in ("metal", "zn", "mg", "mn", "fe", "cofactor", "금속")):
+        explicit_place_words = any(
+            word in lowered
+            for word in (
+                "place", "put", "insert", "add", "optimize", "optimise", "refine",
+                "삽입", "넣", "박아", "주입", "배치", "추가", "최적화",
+            )
+        )
+        review_words = any(
+            word in lowered
+            for word in ("position", "candidate", "predict", "preview", "review", "위치", "후보", "예측", "검토")
+        )
+        if explicit_place_words or review_words:
+            from .metal_placement import run_metal_placement_pipeline
+
+            emit(
+                "Local visual companion: predicted metal marker"
+                if explicit_place_words else "Local visual companion: predicted metal candidate preview"
+            )
+            return run_metal_placement_pipeline(
+                session,
+                model_hint=prompt,
+                top_n=1 if explicit_place_words else 5,
+                show_all=False if explicit_place_words else True,
+                clear_existing=True,
+                use_kvfinder=True,
+                place=explicit_place_words,
+                preview=not explicit_place_words,
+                executor=executor,
+            )
+        emit("Local visual companion: existing metal-site overlay")
+        overlay = _run_site_overlay(session, "metal", executor=executor)
+        return "\n".join(["Metal-site companion overlay applied.", overlay]) if overlay else None
+
+    return None
+
+
+def _run_kvfinder_pocket_overlay(session, executor=None, *, top_n=3):
+    from .semantic import find_kvfinder_pockets
+    from .named_selection import add_group, list_groups, remove_group
+
+    def slug(text):
+        value = re.sub(r"[^A-Za-z0-9]+", "_", str(text or "")).strip("_").lower()
+        return value or "geometry"
+
+    prior_models = list(getattr(session, "_codex_analysis_pocket_models", []) or [])
+    if prior_models:
+        unique_models = []
+        seen = set()
+        for model in prior_models:
+            if model is None or id(model) in seen:
+                continue
+            seen.add(id(model))
+            unique_models.append(model)
+        try:
+            session.models.close(unique_models)
+        except Exception:
+            pass
+    session._codex_analysis_pocket_models = []
+
+    try:
+        for group_name in list_groups(session):
+            if group_name.startswith("analysis_pocket_"):
+                remove_group(session, group_name)
+    except Exception:
+        pass
+
+    try:
+        pockets = find_kvfinder_pockets(
+            session,
+            top_n=max(1, min(10, int(top_n))),
+            lining_shell=5.0,
+            max_lining_shell=7.0,
+            min_lining_residues=12,
+            min_volume=60.0,
+            min_depth=0.8,
+            cleanup_models=False,
+            return_cavity_models=True,
+        )
+    except Exception as err:
+        try:
+            session.logger.warning(f"KVFinder pocket companion failed: {err}")
+        except Exception:
+            pass
+        return None
+    if not pockets:
+        return None
+
+    color = "#5b8fb9"
+    lines = [
+        f"KVFinder pocket companion overlay applied: top pocket shown, {len(pockets)} candidate(s) registered.",
+        "Protein display/color/labels were left unchanged.",
+    ]
+    managed = []
+    for rank, pocket in enumerate(pockets, start=1):
+        specs = list(pocket.get("lining_specs") or [])
+        if not specs:
+            continue
+        tags = list(pocket.get("tags") or [])
+        token = slug(tags[0].split(":", 1)[-1].strip().split()[0]) if tags else "geometry"
+        group_name = f"analysis_pocket_{rank:02d}_{token}"
+        try:
+            add_group(session, group_name, " ".join(specs[:96]), color=color)
+        except Exception:
+            pass
+        cavity_model = pocket.get("cavity_model")
+        cavity_group = pocket.get("cavity_group")
+        cavity_spec = str(pocket.get("cavity_model_spec") or "").strip()
+        lines.append(
+            f"- #{rank} score={float(pocket.get('rank_score', 0.0) or 0.0):.2f} "
+            f"volume={float(pocket.get('volume', 0.0) or 0.0):.0f} A^3 "
+            f"depth={float(pocket.get('max_depth', 0.0) or 0.0):.1f} A "
+            f"lining={len(specs)} group={group_name} tags={', '.join(tags) if tags else 'geometry-only'}"
+        )
+        if rank != 1:
+            try:
+                if cavity_model is not None:
+                    session.models.close([cavity_model])
+            except Exception:
+                pass
+            continue
+        if not cavity_spec:
+            continue
+        managed.append(cavity_group if cavity_group is not None else cavity_model)
+        for command in (
+            f"show {cavity_spec} atoms",
+            f"style {cavity_spec} sphere",
+            f"color {cavity_spec} {color} target a",
+            f"transparency {cavity_spec} 45 target a",
+            f"surface {cavity_spec}",
+            f"color {cavity_spec} {color} target s",
+            f"transparency {cavity_spec} 65 target s",
+        ):
+            try:
+                _run(session, command, executor=executor)
+            except Exception:
+                pass
+    session._codex_analysis_pocket_models = [model for model in managed if model is not None]
+    return "\n".join(lines)
+
+
 def run_partial_local_flow(session, prompt, *, mode="combined", progress=None, executor=None):
     handler_names = {
         "combined": COMBINED_HANDLER_NAMES,
@@ -160,58 +387,79 @@ def _try_handlers(session, prompt, progress, executor, handler_names):
 def list_builtin_commands():
     return [
         "/models              list open models and quick aliases",
-        "/selected [analyze]  summarize current selection and structural overlaps",
+        "/selected [analyze] [top=N]   selection overlap summary; top=N (1-50, default 4-6 per section) caps each block",
         "/groups              list the latest manual-edit group selections",
         "/workspace [domains|roles|sites|features|clear]  create editable models visible in Models panel",
-        "/legend [save [file]|save-table [file]]  summarize or save current domain/role/site color meanings",
-        "/caption [short|paper|nature|panels|selection|domain|pocket|interface]  draft a figure caption from current structure state",
+        "/legend [save [file]|save-table [file]] [top=N]   color meanings; top=N (1-50, default 8) caps domain rows",
+        "/caption [style] [sentences=N]   figure caption draft; sentences=N (1-20, default 3-6 by style) overrides cap",
         "/panels              suggest a multi-panel figure layout",
         "/package [prefix]    export captions, legend, panel plan, and key snapshots",
         "/blast [query] [database]  run ChimeraX Blast Protein using chain, sequence, or UniProt query",
         "/hhpred             open HHpred / HHblits with the current protein sequence",
+        "/signalp [run|web|apply <path>|prodomain|clear] [model=#N] [organism=other|eukarya]   signal peptide/prodomain view",
         "/alphafoldtool [query]  open AlphaFold model search/fetch workflow from this plugin",
-        "/similar [foldseek|sequences|traces|ligands|cluster|open] [query]  launch Similar Structures workflows",
+        "/similar [open|seq|traces|ligands|cluster] [count=N]  Foldseek workflows; count=N (1-20) hit count",
         "/foldmason           launch FoldMason MSTA; auto-opens similar structures if only one is available",
         "/folddisco           export selected residue motif and launch FoldDisco",
         "/nucdock <seq> [type]  dock a DNA/RNA sequence to the current structure through HDOCK",
+        "/nucdock_load <path>  load downloaded HDOCK/NucDock structures into ChimeraX",
         "/afcomplex <seq> [type]  open AlphaFold Server with current protein chains plus DNA/RNA sequence",
-        "/boltz [panel]       run official latest Boltz CLI on current chains, or open ChimeraX Boltz panel",
-        "/membrane [view|mlp|web|opm|charmm|memgen|clear]  create a virtual membrane slab and launch membrane builders",
-        "/pisa [view|report|web]  select interface residues, measure buried area, and open PDBePISA",
+        "/afcomplex_load <path>  load downloaded AlphaFold Server complex structures into ChimeraX",
+        "/boltz [panel|setup] [model=boltz1|boltz2]   run Boltz CLI; setup auto-installs venv",
+        "/boltz_load <path>    load Boltz output structures into ChimeraX",
+        "/alphafold_load <path>  load downloaded AlphaFold prediction structures into ChimeraX",
+        "/rapidock <peptide> [pocket=N] [engine=X] [n=K] [buffer=B]   docking; pocket=N (1-20, default 1), n=K poses (1-20, default 5), buffer=B Å (4-30, default 12), engine={auto|hpepdock|docker|native}",
+        "/rapidock_setup [path]  clone RAPiDock to ~/RAPiDock or the supplied path",
+        "/rapidock_load <output_dir> [peptide=PEP] [limit=N]   load RAPiDock pose outputs; limit=N (1-20, default 5) top poses",
+        "/hpepdock_load <output_dir> [peptide=PEP] [limit=N]   package HPEPDOCK receptor+peptide complexes, summary TSV/MD, and load top poses",
+        "/hpepdock_refine <output_dir> [limit=N] [steps=N]   rerun HPEPDOCK minimization/validation and write minimized complexes",
+        "/alignpanel [#refspec]    register all open structures into the sequence-bar alignment panel",
+        "/cavity [reset|show|dist=D|trans=T|pockets=K|show=R|min_vol=V|min_depth=D]    cavity; rank K candidates (1-6, default 5), show selected rank(s)",
+        "/setup [tool]              install/configure CLI tools (rapidock, boltz, foldmason, folddisco, caver)",
+        "/cancel                    stop all RAPiDock/HPEPDOCK/Downloads/external watchers in this session",
+        "/membrane [view|mlp|web|opm|charmm|memgen|clear|report] [thickness=T] [trans=N] [width=W] [margin=M] [top=N]   virtual membrane slab; report top=N (1-50, default 10) TM segments",
+        "/pisa [view|report|web] [pair=N] [cutoff=C] [top=N]   interface analysis; report top=N (1-50, default 10) candidate cap",
         "/pisaweb            export current/selected structure and upload to PDBePISA",
-        "/caver [panel|prepare|run|web|import <path>|lining]  native CAVER job/result workflow",
+        "/caver [panel|prepare|run|web|import <path>|lining] [max_tunnels=N] [dist=D]   CAVER workflow; dist=D (1-15 Å, default 4) lining cutoff",
+        "/caver_load <path>    import CAVER tunnel results from a folder, ZIP, or PDB",
         "/seqview [chain]     open Sequence Viewer for a chain",
         "/profile [alignment-id]  open Profile Grid for an existing alignment",
         "/dali [selection|domain N|spec]  export a target and open the DALI server",
         "/daliweb            export current/selected structure and upload to DALI web form",
+        "/dali_load <path>     load downloaded DALI structures into ChimeraX",
         "/vast               export current/selected structure and upload to NCBI VAST",
+        "/vast_load <path>     load downloaded VAST structures into ChimeraX",
         "/pdbefold           export current/selected structure and upload to PDBeFold / SSM",
+        "/pdbefold_load <path> load downloaded PDBeFold structures into ChimeraX",
         "/usalign            align open structures in ChimeraX and run local US-align if available",
+        "/usalign_load <path>  load downloaded US-align structures into ChimeraX",
+        "/foldmason_load <path>  load FoldMason/Foldseek structure outputs into ChimeraX",
+        "/folddisco_load <path>  load FoldDisco structure outputs into ChimeraX",
         "/daliurl <url>       store a DALI result URL for this session",
         "/dalisummary <text>  store a short DALI hit summary note",
         "/dalistatus          show the latest DALI export/result state",
-        "/sequence [model]    chain sequence and gap report",
-        "/domains [model]     domain-like chunk report",
-        "/domains view [model]  color domain chunks and create named selections",
+        "/sequence [model] [gaps=N]   chain sequence/gap report; gaps=N (1-50, default 6) gap-list cap per chain",
+        "/domains [model] [chunks=N]   domain chunk report; chunks=N (1-50, default 10) per chain cap",
+        "/domains view [model] [labels=N]   color domain chunks; labels=N (0-50, default 8) labels to render",
         "/domains finer|coarser|reset|status [model]  refine current domain chunking",
-        "/complex [model]     chain-interface summary",
+        "/complex [model] [cutoff=C]   chain-interface summary; cutoff=C (3-15 Å, default 8) inter-chain contact distance",
         "/interfaces [spec]   compute interface network diagram/log summary",
         "/interfacesselect <spec1> <spec2>  select interface residues between two sets",
         "/roles [model]       active-site vs scaffold role summary",
-        "/roles view [model]  color active/scaffold/peripheral chain groups",
-        "/annotate [model]    UniProt, ligand, metal, catalytic annotation summary",
-        "/features [view] [model]  list or highlight UniProt feature annotations",
-        "/motif [model|pattern]  motif-like sequence report",
-        "/motif view [pattern]  highlight detected motif residues",
-        "/conservation [view] [model|chain]  ConSurf-lite local conservation report or highlight",
+        "/roles view [model] [labels=N]   color active/scaffold/peripheral; labels=N (0-50, default 8)",
+        "/annotate [model] [top=N]   UniProt+ligand+metal+catalytic+motif+features summary; top=N (1-50, default 4-8 per section) caps each block",
+        "/features [view] [model] [top=N]   UniProt features; report top=N (1-200, default 32); view top=N (1-100, default 24) entries to render",
+        "/motif [model|pattern] [top=N]   motif report; top=N (1-200, default 32) display cap; view subaction caps at 50",
+        "/motif view [pattern] [top=N]   highlight motif residues; top=N (1-50, default 12) hits to render",
+        "/conservation [view] [model|chain] [top=N]   ConSurf-lite; view top=N (1-50, default 18); report top=N (1-50, default 10) display cap",
         "/consurf [web|view] [model|chain]  open ConSurf Colab or run local conservation report",
-        "/ligand [model]      ligand-pocket neighborhood report",
-        "/catalytic [view|triage] [model]  scored catalytic-residue candidates and review loop",
+        "/ligand [model] [cutoff=C] [nearby=N] [catalytic=N]   ligand-pocket report; nearby/catalytic (1-50, default 10/8) display caps",
+        "/catalytic [view|triage|zoom] [model] [top=N] [triads=N] [trans=N] [triad_color=#hex]   catalytic; view: top/triads (color auto-picked from chain palette); zoom: cartoon trans + view-fit",
         "/chains [model]      show chain ranges for a model",
         "/analyze [model]     detailed structure analysis report",
-        "/metal [model]       metal-centered catalytic-site report",
+        "/metal [report|predict|place|evidence|clear] [model] [top=N] [all] [kvfinder]   metal-site report, RCSB fold evidence, or virtual metal placement",
         "/residue <spec>      highlight and label a residue or residue range",
-        "/site <metal|ligand|interface|catalytic|all>  select and highlight key sites",
+        "/site <metal|ligand|interface|catalytic|all> [residues=N]  highlight sites; residues=N (1-50, default 12) caps shown residues",
         "/show [spec] [atoms|cartoons|surfaces|models]  show common representations",
         "/hide [spec] [atoms|cartoons|surfaces|models]  hide common representations",
         "/select <spec|clear>  create or clear selection",
@@ -243,15 +491,15 @@ def list_builtin_commands():
         "/transparency <percent> [surface|cartoon|atoms|all]  set transparency",
         "/focus [all|sel]     focus all models or current selection",
         "/scene save [name] [note...]   save a named scene bookmark (view + render + caption/legend metadata)",
-        "/scene load [name] [frames]  restore a named scene bookmark",
+        "/scene load [name] [frames]  restore a named scene bookmark; frames clamp 1-600 (default 15)",
         "/scene info [name]   show saved metadata for a scene bookmark",
         "/scene note <name> <text>  update the note attached to a scene bookmark",
         "/scene list          list saved scene bookmarks",
         "/scene delete <name|all>  delete saved scene bookmarks",
         "/layout reset|spacing <value>  manage explode-layout settings",
-        "/snapshot [file|publication [file]]  save png screenshot",
-        "/movie <record|stop|encode|status|reset|abort|formats> [arg]  movie workflow helpers",
-        "/figure [lab|next|cycle|back|repeat|clean|publication|selection|selection-pocket|selection-motif|selection-interface|selection-composite|composite|explode-composite|domains|roles|assembly|pocket|interface|explode [spacing]|interactive]  apply figure-style display settings",
+        "/snapshot [file|publication [file]] [w=W h=H ss=K]   png screenshot; pub default 2400×1800 ss=3 (200-8000, 1-8)",
+        "/movie <record|stop|encode|status|reset|abort|formats> [path] [ss=K] [quality=Q]   record/encode movie; ss (1-8, default 3), quality {low|fair|good|high|highest}",
+        "/figure [lab|next|cycle|back|repeat|clean|publication|selection|selection-{pocket|motif|interface|composite} [top=N]|composite|explode-composite [spacing] [labels=N]|domains|roles|assembly|pocket [catalytic=N focus=K]|interface|explode [spacing] [labels=N]|interactive]  figure modes; selection top=N (1-50, default 8), explode labels=N (0-50, default 10), spacing 0.5-500 Å, pocket catalytic=N (1-30, default 8) focus=K (1-10, default 4)",
     ]
 
 
@@ -269,15 +517,26 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
         return True
 
     if command == "/selected":
-        action, target_arg = _split_action_arg(arg)
+        raw = str(arg or "").strip()
+        display_limit = None
+        kept_tokens = []
+        for tok in raw.split():
+            lower = tok.lower()
+            if lower.startswith("top=") or lower.startswith("n=") or lower.startswith("limit="):
+                try: display_limit = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                kept_tokens.append(tok)
+        cleaned_arg = " ".join(kept_tokens)
+        action, target_arg = _split_action_arg(cleaned_arg)
         if action in {"analyze", "focus", "detail"}:
             from .semantic import format_selection_focus_report
 
-            report = format_selection_focus_report(session, target_arg or None)
+            report = format_selection_focus_report(session, target_arg or None, display_limit=display_limit)
         else:
             from .semantic import format_selection_overlap_report
 
-            report = format_selection_overlap_report(session, arg or None)
+            report = format_selection_overlap_report(session, cleaned_arg or None, display_limit=display_limit)
         for line in report.splitlines():
             terminal_write(line)
         return True
@@ -292,6 +551,10 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
 
     if command == "/hhpred":
         write_block(_run_hhpred_tool(session, arg, executor=executor))
+        return True
+
+    if command == "/signalp":
+        write_block(_run_signalp_tool(session, arg, executor=executor))
         return True
 
     if command == "/alphafoldtool":
@@ -314,12 +577,60 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
         write_block(_run_nucdock_tool(session, arg, executor=executor))
         return True
 
+    if command == "/nucdock_load":
+        write_block(_run_external_load_tool(session, arg, "nucdock"))
+        return True
+
     if command == "/afcomplex":
         write_block(_run_afcomplex_tool(session, arg, executor=executor))
         return True
 
+    if command == "/afcomplex_load":
+        write_block(_run_external_load_tool(session, arg, "afcomplex"))
+        return True
+
     if command == "/boltz":
         write_block(_run_boltz_tool(session, arg, executor=executor))
+        return True
+
+    if command == "/boltz_load":
+        write_block(_run_external_load_tool(session, arg, "boltz"))
+        return True
+
+    if command == "/alphafold_load":
+        write_block(_run_external_load_tool(session, arg, "alphafold"))
+        return True
+
+    if command == "/rapidock":
+        write_block(_run_rapidock_tool(session, arg, executor=executor))
+        return True
+
+    if command == "/rapidock_setup":
+        write_block(_run_rapidock_setup_tool(session, arg, executor=executor))
+        return True
+
+    if command in ("/rapidock_load", "/hpepdock_load"):
+        write_block(_run_rapidock_load_tool(session, arg, executor=executor))
+        return True
+
+    if command == "/hpepdock_refine":
+        write_block(_run_hpepdock_refine_tool(session, arg, executor=executor))
+        return True
+
+    if command in ("/alignpanel", "/alignpanel_register"):
+        write_block(_run_alignpanel_register_tool(session, arg, executor=executor))
+        return True
+
+    if command == "/cavity":
+        write_block(_run_cavity_tool(session, arg, executor=executor))
+        return True
+
+    if command == "/setup":
+        write_block(_run_setup_tool(session, arg, executor=executor))
+        return True
+
+    if command in ("/rapidock_cancel", "/hpepdock_cancel", "/cancel"):
+        write_block(_run_cancel_tool(session, arg, executor=executor))
         return True
 
     if command == "/membrane":
@@ -345,25 +656,47 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
     if command == "/legend":
         from .semantic import format_legend_report
 
-        action, target_arg = _split_action_arg(arg)
+        raw_l = str(arg or "").strip()
+        display_limit = 8
+        kept_l = []
+        for tok in raw_l.split():
+            lower = tok.lower()
+            if lower.startswith("top=") or lower.startswith("n=") or lower.startswith("limit="):
+                try: display_limit = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                kept_l.append(tok)
+        cleaned_l = " ".join(kept_l)
+        action, target_arg = _split_action_arg(cleaned_l)
         if action == "save":
             write_block(_run_legend_save(session, target_arg))
             return True
         if action in {"save-table", "savetable", "table"}:
             write_block(_run_legend_save(session, target_arg, style="table"))
             return True
-        for line in format_legend_report(session, arg or None).splitlines():
+        for line in format_legend_report(session, cleaned_l or None, display_limit=display_limit).splitlines():
             terminal_write(line)
         return True
 
     if command == "/caption":
         from .semantic import format_caption_draft
 
-        style, target_arg = _split_action_arg(arg)
+        raw_c = str(arg or "").strip()
+        sentence_limit = None
+        kept_c = []
+        for tok in raw_c.split():
+            lower = tok.lower()
+            if lower.startswith("sentences=") or lower.startswith("top=") or lower.startswith("n=") or lower.startswith("limit="):
+                try: sentence_limit = max(1, min(20, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                kept_c.append(tok)
+        cleaned_c = " ".join(kept_c)
+        style, target_arg = _split_action_arg(cleaned_c)
         if style not in {"short", "paper", "nature", "panels", "selection", "domain", "pocket", "interface"}:
-            target_arg = arg or None
+            target_arg = cleaned_c or None
             style = "paper"
-        for line in format_caption_draft(session, target_arg, style=style).splitlines():
+        for line in format_caption_draft(session, target_arg, style=style, sentence_limit=sentence_limit).splitlines():
             terminal_write(line)
         return True
 
@@ -404,8 +737,36 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
         write_block(run_caver_action(session, arg, executor=executor))
         return True
 
+    if command == "/caver_load":
+        write_block(_run_caver_load_tool(session, arg, executor=executor))
+        return True
+
     if command == "/usalign":
         write_block(_run_structure_web_tool(session, "usalign", executor=executor))
+        return True
+
+    if command == "/dali_load":
+        write_block(_run_external_load_tool(session, arg, "dali"))
+        return True
+
+    if command == "/vast_load":
+        write_block(_run_external_load_tool(session, arg, "vast"))
+        return True
+
+    if command == "/pdbefold_load":
+        write_block(_run_external_load_tool(session, arg, "pdbefold"))
+        return True
+
+    if command == "/usalign_load":
+        write_block(_run_external_load_tool(session, arg, "usalign"))
+        return True
+
+    if command == "/foldmason_load":
+        write_block(_run_external_load_tool(session, arg, "foldmason"))
+        return True
+
+    if command == "/folddisco_load":
+        write_block(_run_external_load_tool(session, arg, "folddisco"))
         return True
 
     if command == "/daliurl":
@@ -440,15 +801,37 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
 
     if command == "/sequence":
         from .semantic import format_sequence_report
-
-        for line in format_sequence_report(session, arg or None).splitlines():
+        raw = str(arg or "").strip()
+        gaps_show = 6
+        kept_tokens = []
+        for tok in raw.split():
+            lower = tok.lower()
+            if lower.startswith("gaps=") or lower.startswith("top=") or lower.startswith("n="):
+                try: gaps_show = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                kept_tokens.append(tok)
+        cleaned_arg = " ".join(kept_tokens) or None
+        for line in format_sequence_report(session, cleaned_arg, gaps_show=gaps_show).splitlines():
             terminal_write(line)
         return True
 
     if command == "/domains":
-        action, target_arg = _split_action_arg(arg)
+        # Parse labels=N before splitting action
+        raw_d = str(arg or "").strip()
+        label_n = 8
+        kept_d = []
+        for tok in raw_d.split():
+            lower = tok.lower()
+            if lower.startswith("labels=") or lower.startswith("label=") or lower.startswith("lbl="):
+                try: label_n = max(0, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                kept_d.append(tok)
+        cleaned_d = " ".join(kept_d)
+        action, target_arg = _split_action_arg(cleaned_d)
         if action in {"view", "show", "color", "select", "selections"}:
-            write_block(_run_domains_view(session, target_arg, executor=executor))
+            write_block(_run_domains_view(session, target_arg, executor=executor, label_n=label_n))
             return True
         if action in {"finer", "fine", "split-more", "more"}:
             write_block(_run_domain_split_refinement(session, "finer", model_hint=target_arg or None, executor=executor))
@@ -463,15 +846,34 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
             write_block(_domain_split_status(session))
             return True
         from .semantic import format_domains_report
-
-        for line in format_domains_report(session, arg or None).splitlines():
+        chunks_show = 10
+        kept_tokens = []
+        for tok in cleaned_d.split():
+            lower = tok.lower()
+            if lower.startswith("chunks=") or lower.startswith("top=") or lower.startswith("n="):
+                try: chunks_show = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                kept_tokens.append(tok)
+        cleaned_arg = " ".join(kept_tokens) or None
+        for line in format_domains_report(session, cleaned_arg, chunks_show=chunks_show).splitlines():
             terminal_write(line)
         return True
 
     if command == "/complex":
         from .semantic import format_complex_report
-
-        for line in format_complex_report(session, arg or None).splitlines():
+        raw = str(arg or "").strip()
+        contact_cutoff = 8.0
+        tokens = []
+        for tok in raw.split():
+            lower = tok.lower()
+            if lower.startswith("cutoff=") or lower.startswith("contact="):
+                try: contact_cutoff = max(3.0, min(15.0, float(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                tokens.append(tok)
+        cleaned = " ".join(tokens) or None
+        for line in format_complex_report(session, cleaned, contact_cutoff=contact_cutoff).splitlines():
             terminal_write(line)
         return True
 
@@ -484,43 +886,99 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
         return True
 
     if command == "/roles":
-        action, target_arg = _split_action_arg(arg)
+        raw_r = str(arg or "").strip()
+        label_n = 8
+        kept_r = []
+        for tok in raw_r.split():
+            lower = tok.lower()
+            if lower.startswith("labels=") or lower.startswith("label=") or lower.startswith("lbl="):
+                try: label_n = max(0, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                kept_r.append(tok)
+        cleaned_r = " ".join(kept_r)
+        action, target_arg = _split_action_arg(cleaned_r)
         if action in {"view", "show", "color"}:
-            write_block(_run_roles_view(session, target_arg, executor=executor))
+            write_block(_run_roles_view(session, target_arg, executor=executor, label_n=label_n))
             return True
         from .semantic import format_roles_report
 
-        for line in format_roles_report(session, arg or None).splitlines():
+        for line in format_roles_report(session, cleaned_r or None).splitlines():
             terminal_write(line)
         return True
 
     if command == "/annotate":
         from .semantic import format_annotation_report
-
-        for line in format_annotation_report(session, arg or None).splitlines():
+        raw = str(arg or "").strip()
+        display_limit = None
+        kept_tokens = []
+        for tok in raw.split():
+            lower = tok.lower()
+            if lower.startswith("top=") or lower.startswith("n=") or lower.startswith("limit="):
+                try: display_limit = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                kept_tokens.append(tok)
+        cleaned_arg = " ".join(kept_tokens) or None
+        for line in format_annotation_report(session, cleaned_arg, display_limit=display_limit).splitlines():
             terminal_write(line)
         return True
 
     if command == "/features":
-        action, target_arg = _split_action_arg(arg)
+        raw = str(arg or "").strip()
+        display_limit = 32
+        view_top_n = 24
+        kept = []
+        for tok in raw.split():
+            lower = tok.lower()
+            if lower.startswith("top=") or lower.startswith("n=") or lower.startswith("limit="):
+                try:
+                    val = max(1, min(200, int(lower.split("=", 1)[1])))
+                except Exception:
+                    val = None
+                if val is not None:
+                    display_limit = val
+                    view_top_n = max(1, min(100, val))
+            else:
+                kept.append(tok)
+        cleaned_arg = " ".join(kept)
+        action, target_arg = _split_action_arg(cleaned_arg)
         if action in {"view", "show", "highlight"}:
-            write_block(_run_features_view(session, target_arg or None, executor=executor))
+            write_block(_run_features_view(session, target_arg or None, executor=executor, top_n=view_top_n))
             return True
         from .semantic import format_uniprot_feature_report
-
-        for line in format_uniprot_feature_report(session, arg or None).splitlines():
+        cleaned = cleaned_arg or None
+        for line in format_uniprot_feature_report(session, cleaned, display_limit=display_limit).splitlines():
             terminal_write(line)
         return True
 
     if command == "/motif":
-        action, target_arg = _split_action_arg(arg)
-        model_hint, motif_text = _parse_motif_args(target_arg if action in {"view", "show", "highlight"} else arg)
+        raw = str(arg or "").strip()
+        display_limit = 32
+        view_top_n = 12
+        kept_tokens = []
+        for tok in raw.split():
+            lower = tok.lower()
+            if lower.startswith("top=") or lower.startswith("n=") or lower.startswith("limit="):
+                try:
+                    val = max(1, min(200, int(lower.split("=", 1)[1])))
+                except Exception:
+                    val = None
+                if val is not None:
+                    display_limit = val
+                    view_top_n = max(1, min(50, val))
+            else:
+                kept_tokens.append(tok)
+        cleaned_arg = " ".join(kept_tokens)
+        action, target_arg = _split_action_arg(cleaned_arg)
+        model_hint, motif_text = _parse_motif_args(target_arg if action in {"view", "show", "highlight"} else cleaned_arg)
         if action in {"view", "show", "highlight"}:
-            write_block(_run_motif_view(session, motif_text=motif_text, model_hint=model_hint, executor=executor))
+            write_block(_run_motif_view(session, motif_text=motif_text, model_hint=model_hint,
+                                        executor=executor, top_n=view_top_n))
             return True
         from .semantic import format_motif_report
 
-        for line in format_motif_report(session, model_hint=model_hint, motif_text=motif_text).splitlines():
+        for line in format_motif_report(session, model_hint=model_hint, motif_text=motif_text, display_limit=display_limit).splitlines():
             terminal_write(line)
         return True
 
@@ -533,29 +991,116 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
             return True
         if action in {"view", "show", "highlight"}:
             from .conservation import apply_conservation_view
-
-            write_block(apply_conservation_view(session, model_hint=target_arg or None, query_text=arg, executor=executor))
+            # Parse top=N override
+            top_n = 18
+            cleaned_tokens = []
+            for tok in (target_arg or "").split():
+                lower = tok.lower()
+                if lower.startswith("top=") or lower.startswith("n="):
+                    try: top_n = max(1, min(50, int(lower.split("=", 1)[1])))
+                    except: pass
+                else:
+                    cleaned_tokens.append(tok)
+            cleaned_target = " ".join(cleaned_tokens) or None
+            write_block(apply_conservation_view(session, model_hint=cleaned_target,
+                                                query_text=arg, executor=executor, top_n=top_n))
             return True
         from .conservation import format_conservation_report
-
-        write_block(format_conservation_report(session, model_hint=arg or None, query_text=arg))
+        raw = str(arg or "").strip()
+        display_limit = 10
+        kept_tokens = []
+        for tok in raw.split():
+            lower = tok.lower()
+            if lower.startswith("top=") or lower.startswith("n=") or lower.startswith("limit="):
+                try: display_limit = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                kept_tokens.append(tok)
+        cleaned_arg = " ".join(kept_tokens) or None
+        write_block(format_conservation_report(session, model_hint=cleaned_arg, query_text=arg, display_limit=display_limit))
         return True
 
     if command == "/ligand":
         from .semantic import format_ligand_report
-
-        for line in format_ligand_report(session, arg or None).splitlines():
+        raw = str(arg or "").strip()
+        cutoff = 4.5
+        nearby_show = 10
+        catalytic_show = 8
+        tokens = []
+        for tok in raw.split():
+            lower = tok.lower()
+            if lower.startswith("cutoff=") or lower.startswith("shell="):
+                try: cutoff = max(2.0, min(15.0, float(lower.split("=", 1)[1])))
+                except: pass
+            elif lower.startswith("nearby=") or lower.startswith("near="):
+                try: nearby_show = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            elif lower.startswith("catalytic=") or lower.startswith("cat="):
+                try: catalytic_show = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                tokens.append(tok)
+        cleaned = " ".join(tokens) or None
+        for line in format_ligand_report(session, cleaned, shell_cutoff=cutoff,
+                                         nearby_show=nearby_show, catalytic_show=catalytic_show).splitlines():
             terminal_write(line)
         return True
 
     if command == "/catalytic":
         action, target_arg = _split_action_arg(arg)
         if action in {"view", "show", "highlight"}:
-            write_block(_run_catalytic_view(session, target_arg or None, executor=executor))
+            top_n = 12
+            triads_n = 6
+            triad_color_override = None
+            import re as _re
+            cleaned = []
+            for tok in (target_arg or "").split():
+                lower = tok.lower()
+                if lower.startswith("top=") or lower.startswith("n="):
+                    try: top_n = max(1, min(50, int(lower.split("=", 1)[1])))
+                    except: pass
+                elif lower.startswith("triad_color=") or lower.startswith("color="):
+                    # Check this BEFORE "triad=" since "triad_color=" also starts with "triad"
+                    val = tok.split("=", 1)[1]
+                    if _re.fullmatch(r"#[0-9a-fA-F]{6}", val):
+                        triad_color_override = val.lower()
+                elif lower.startswith("triads=") or lower.startswith("triad="):
+                    try: triads_n = max(1, min(20, int(lower.split("=", 1)[1])))
+                    except: pass
+                else:
+                    cleaned.append(tok)
+            target = " ".join(cleaned) or None
+            write_block(_run_catalytic_view(session, target, executor=executor,
+                                             top_n=top_n, triads_n=triads_n,
+                                             triad_color=triad_color_override))
+            return True
+        if action in {"zoom", "focus", "closeup"}:
+            # Make the catalytic triad pop: fade scaffold, zoom to triad atoms.
+            # trans=N (0-100, default 80) overrides cartoon transparency.
+            trans = 80
+            for tok in (target_arg or "").split():
+                lower = tok.lower()
+                if lower.startswith("trans=") or lower.startswith("transparency="):
+                    try: trans = max(0, min(100, int(lower.split("=", 1)[1])))
+                    except: pass
+            write_block(_run_catalytic_zoom(session, executor=executor, trans=trans))
             return True
         from .semantic import format_catalytic_report, format_catalytic_workflow_report
-
-        report = format_catalytic_workflow_report(session, target_arg or None) if action in {"triage", "workflow", "review", "test", "검증"} else format_catalytic_report(session, arg or None)
+        raw = str(arg if action not in {"triage", "workflow", "review", "test", "검증"} else target_arg or "").strip()
+        display_limit = 15
+        kept_tokens = []
+        for tok in raw.split():
+            lower = tok.lower()
+            if lower.startswith("top=") or lower.startswith("n=") or lower.startswith("limit="):
+                try: display_limit = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                kept_tokens.append(tok)
+        cleaned_arg = " ".join(kept_tokens) or None
+        if action in {"triage", "workflow", "review", "test", "검증"}:
+            report = format_catalytic_workflow_report(session, cleaned_arg, display_limit=display_limit)
+        else:
+            report = format_catalytic_report(session, cleaned_arg, display_limit=display_limit)
         for line in report.splitlines():
             terminal_write(line)
         return True
@@ -569,8 +1114,140 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
 
     if command == "/metal":
         from .semantic import format_metal_report
+        raw = str(arg or "").strip()
+        raw_tokens = raw.split()
+        action = raw_tokens[0].lower() if raw_tokens else "report"
+        if action in {"report", "existing", "place", "put", "insert", "add", "optimize", "optimise", "refine", "predict", "candidate", "candidates", "scan", "evidence", "fold", "homolog", "homologue", "rcsb", "clear", "reset"}:
+            raw_tokens = raw_tokens[1:]
+        else:
+            action = "report"
 
-        for line in format_metal_report(session, arg or None).splitlines():
+        if action in {"clear", "reset"}:
+            from .metal_placement import clear_predicted_metals
+
+            removed = clear_predicted_metals(session)
+            terminal_write(f"[metal] cleared {removed} predicted-metal model(s)/pseudobond group(s).")
+            return True
+
+        if action in {"evidence", "fold", "homolog", "homologue", "rcsb"}:
+            from .metal_placement import format_metal_evidence_report
+
+            top_n = 5
+            rows = 12
+            model_tokens = []
+            for tok in raw_tokens:
+                lower = tok.lower()
+                if lower.startswith(("top=", "n=", "sites=", "count=")):
+                    try:
+                        top_n = max(1, min(20, int(lower.split("=", 1)[1])))
+                    except Exception:
+                        pass
+                elif lower.startswith(("rows=", "hits=")):
+                    try:
+                        rows = max(3, min(50, int(lower.split("=", 1)[1])))
+                    except Exception:
+                        pass
+                else:
+                    model_tokens.append(tok)
+            model_hint = " ".join(model_tokens) or None
+            text = format_metal_evidence_report(
+                session,
+                model_hint=model_hint,
+                top_n=top_n,
+                include_rcsb=True,
+                rows=rows,
+            )
+            for line in text.splitlines():
+                terminal_write(line)
+            return True
+
+        if action in {"place", "put", "insert", "add", "optimize", "optimise", "refine", "predict", "candidate", "candidates", "scan"}:
+            from .metal_placement import run_metal_placement_pipeline
+
+            place = action in {"place", "put", "insert", "add", "optimize", "optimise", "refine"}
+            top_n = 1 if place else 5
+            show_all = False if place else True
+            clear_existing = True
+            use_kvfinder = True
+            preview = not place
+            site_index = None
+            model_tokens = []
+            for tok in raw_tokens:
+                lower = tok.lower()
+                if lower in {"all", "show_all", "show-all"}:
+                    show_all = True
+                    if top_n == 1:
+                        top_n = 5
+                elif lower in {"keep", "append", "noclear", "no-clear"}:
+                    clear_existing = False
+                elif lower in {"kvfinder", "pocket", "pockets"}:
+                    use_kvfinder = True
+                elif lower in {"fast", "no-kvfinder", "no_kvfinder", "no-pocket", "no_pocket"}:
+                    use_kvfinder = False
+                elif lower in {"report", "no-preview", "no_preview"}:
+                    preview = False
+                elif lower.startswith(("top=", "n=", "sites=", "count=")):
+                    try:
+                        top_n = max(1, min(20, int(lower.split("=", 1)[1])))
+                    except Exception:
+                        pass
+                elif lower.startswith(("site=", "rank=", "candidate=")):
+                    try:
+                        site_index = max(1, min(20, int(lower.split("=", 1)[1])))
+                    except Exception:
+                        pass
+                elif lower.isdigit():
+                    top_n = max(1, min(20, int(lower)))
+                    if place:
+                        show_all = True
+                    else:
+                        show_all = True
+                else:
+                    model_tokens.append(tok)
+            model_hint = " ".join(model_tokens) or None
+            text = run_metal_placement_pipeline(
+                session,
+                model_hint=model_hint,
+                top_n=top_n,
+                show_all=show_all,
+                clear_existing=clear_existing,
+                use_kvfinder=use_kvfinder,
+                place=place,
+                preview=preview,
+                site_index=site_index,
+                executor=executor,
+            )
+            for line in text.splitlines():
+                terminal_write(line)
+            return True
+
+        direct_cutoff = 3.0
+        shell_cutoff = 5.0
+        direct_show = 8
+        catalytic_show = 10
+        tokens = []
+        for tok in raw_tokens:
+            lower = tok.lower()
+            if lower.startswith("direct="):
+                try: direct_cutoff = max(1.5, min(6.0, float(lower.split("=", 1)[1])))
+                except: pass
+            elif lower.startswith("shell=") or lower.startswith("cutoff="):
+                try: shell_cutoff = max(2.0, min(15.0, float(lower.split("=", 1)[1])))
+                except: pass
+            elif lower.startswith("direct_show=") or lower.startswith("dshow="):
+                try: direct_show = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            elif lower.startswith("catalytic_show=") or lower.startswith("cshow=") or lower.startswith("cat_show="):
+                try: catalytic_show = max(1, min(50, int(lower.split("=", 1)[1])))
+                except: pass
+            else:
+                tokens.append(tok)
+        cleaned = " ".join(tokens) or None
+        for line in format_metal_report(session, cleaned,
+                                        direct_cutoff=direct_cutoff,
+                                        shell_cutoff=shell_cutoff,
+                                        direct_show=direct_show,
+                                        catalytic_show=catalytic_show).splitlines():
             terminal_write(line)
         return True
 
@@ -684,7 +1361,7 @@ def run_builtin_slash(session, command, arg, terminal_write, executor=None):
 
     if command == "/site":
         if not arg:
-            terminal_write("usage: /site metal|ligand|interface|catalytic|all")
+            terminal_write("usage: /site metal|ligand|interface|catalytic|all [residues=N]")
             return True
         write_block(_run_site(session, arg, executor=executor))
         return True
@@ -828,7 +1505,7 @@ def _annotation_fastpath(session, prompt, lowered, progress, executor):
 
     residue_like = False
     try:
-        residue_like = bool(_extract_residue_specs_from_text(session, prompt)) or any(
+        residue_like = bool(_extract_residue_specs_for_phrase(session, prompt)) or any(
             word in lowered for word in ("residue", "residues", "잔기", "핵심", "core residue", "specific residue", "selection", "selected", "선택")
         )
     except Exception:
@@ -876,9 +1553,50 @@ def _conservation_fastpath(session, prompt, lowered, progress, executor):
 def _metal_fastpath(session, prompt, lowered, progress, executor):
     if not any(word in lowered for word in ("metal", "zn", "mg", "mn", "fe", "cofactor", "금속")):
         return None
-    from .semantic import format_metal_report
+    evidence_words = any(word in lowered for word in (
+        "evidence", "fold", "homolog", "homologue", "rcsb", "pdb",
+        "solved", "experimental", "known structure",
+        "현재 열", "열어놓", "구조기반", "구조 기반", "구조밝혀", "구조 밝혀",
+        "점검", "확인",
+    ))
+    if evidence_words:
+        from .metal_placement import format_metal_evidence_report
+
+        _emit(progress, "Local fast-path: metal evidence from current structure and RCSB homologs")
+        return format_metal_evidence_report(session, model_hint=prompt, include_rcsb=True)
+
+    explicit_place_words = any(word in lowered for word in (
+        "place", "put", "insert", "add", "optimize", "optimise", "refine",
+        "삽입", "넣", "박아", "주입", "배치", "추가", "최적화",
+    ))
+    review_words = any(word in lowered for word in (
+        "position", "coordination", "coordinating", "candidate", "predict",
+        "preview", "review", "site", "sites",
+        "찾", "후보", "예측", "위치", "좌표", "검토",
+    ))
+    if explicit_place_words or review_words:
+        from .metal_placement import run_metal_placement_pipeline
+
+        _emit(
+            progress,
+            "Local fast-path: virtual metal placement pipeline"
+            if explicit_place_words else "Local fast-path: virtual metal-site prediction/preview",
+        )
+        return run_metal_placement_pipeline(
+            session,
+            model_hint=prompt,
+            top_n=1 if explicit_place_words else 5,
+            show_all=False if explicit_place_words else True,
+            clear_existing=True,
+            use_kvfinder=True,
+            place=explicit_place_words,
+            preview=not explicit_place_words,
+            executor=executor,
+        )
 
     _emit(progress, "Local fast-path: metal-centered site analysis")
+    from .semantic import format_metal_report
+
     return format_metal_report(session)
 
 
@@ -1365,6 +2083,64 @@ def _run_color(session, arg, executor=None):
     return _format_local_result(command)
 
 
+_PALETTE_LEVEL_KEYS = {
+    "chains": "chains",
+    "chain": "chains",
+    "structures": "structures",
+    "structure": "structures",
+    "models": "structures",
+    "model": "structures",
+    "residues": "residues",
+    "residue": "residues",
+    "polymer": "polymer",
+    "polymers": "polymer",
+}
+
+_PALETTE_TARGET_KEYS = {
+    "atoms": "a",
+    "atom": "a",
+    "cartoon": "c",
+    "cartoons": "c",
+    "ribbon": "c",
+    "surface": "s",
+    "surfaces": "s",
+    "all": "acs",
+}
+
+_KNOWN_PALETTES = {
+    "viridis", "plasma", "inferno", "magma", "cividis",
+    "rainbow", "spectrum", "rwb", "bwr", "rgb", "rby", "ylorrd",
+    "blues", "greens", "reds", "greys", "purples",
+    "paired", "set1", "set2", "set3", "tableau", "tab10",
+    "redbluepurple",
+}
+
+
+def _parse_palette_request(text):
+    """Split a /palette request into (palette_name, level, target_letters).
+
+    Defaults: palette_name='viridis', level='chains', target_letters=''.
+    Unknown palette tokens fall back to the default; level/target are
+    matched against known keys so arbitrary user input can't slip through
+    to ChimeraX as a raw command.
+    """
+    palette_name = "viridis"
+    level = "chains"
+    target_letters = ""
+    for tok in str(text or "").split():
+        low = tok.lower()
+        if low in _PALETTE_LEVEL_KEYS:
+            level = _PALETTE_LEVEL_KEYS[low]
+            continue
+        if low in _PALETTE_TARGET_KEYS:
+            target_letters = _PALETTE_TARGET_KEYS[low]
+            continue
+        if low in _KNOWN_PALETTES:
+            palette_name = low
+            continue
+    return palette_name, level, target_letters
+
+
 def _run_palette(session, arg, executor=None):
     text = (arg or "").strip()
     if not text or text.lower() in {"list", "ls", "show"}:
@@ -1643,14 +2419,35 @@ def _run_residue_view(session, arg, executor=None):
     )
 
 
-def _run_site(session, arg, executor=None):
+def _run_site(session, arg, executor=None, preserve_existing=False):
     from .semantic import best_interface_pair, best_ligand_site, best_metal_site
 
-    target = (arg or "").strip().lower()
+    raw = (arg or "").strip()
+    tokens = raw.split()
+    residues_n = None
+    keep_tokens = []
+    for tok in tokens:
+        lower_tok = tok.lower()
+        if lower_tok.startswith("residues=") or lower_tok.startswith("res=") or lower_tok.startswith("top="):
+            try:
+                residues_n = max(1, min(50, int(tok.split("=", 1)[1])))
+            except Exception:
+                pass
+        else:
+            keep_tokens.append(tok)
+    if residues_n is not None:
+        session._codex_site_residues_n = residues_n
+    try:
+        n = max(1, min(50, int(getattr(session, "_codex_site_residues_n", 12) or 12)))
+    except (TypeError, ValueError):
+        n = 12
+    target = " ".join(keep_tokens).strip().lower()
+    if not target and residues_n is not None:
+        return f"Site residue cap set to {n}. Provide a target (metal|ligand|interface|catalytic|all)."
     if target == "all":
         blocks = []
         for site_kind in ("catalytic", "metal", "ligand", "interface"):
-            result = _run_site(session, site_kind, executor=executor)
+            result = _run_site(session, site_kind, executor=executor, preserve_existing=preserve_existing)
             if result and not result.startswith("No "):
                 blocks.extend(result.splitlines())
         if not blocks:
@@ -1661,9 +2458,9 @@ def _run_site(session, arg, executor=None):
         site = best_metal_site(session)
         if site is None:
             return "No metal site detected."
-        specs = [site["metal_spec"], *site["site_residue_specs"][:12]]
+        specs = [site["metal_spec"], *site["site_residue_specs"][:n]]
         commands = [
-            *_publication_base_commands(""),
+            *([] if preserve_existing else _publication_base_commands("")),
             "select " + " ".join(specs),
             "name frozen site_metal sel",
             "view sel",
@@ -1672,6 +2469,7 @@ def _run_site(session, arg, executor=None):
         ]
         for command in commands:
             _run(session, command, executor=executor)
+        restore_charge_colors(session, " ".join(specs))
         _clear_selection(session)
         return "\n".join(
             [
@@ -1685,9 +2483,9 @@ def _run_site(session, arg, executor=None):
         site = best_ligand_site(session)
         if site is None:
             return "No ligand pocket detected."
-        specs = [site["ligand_spec"], *[f"{site['model_spec']}/{hit['chain_id']}:{int(hit['number'])}" for hit in site["nearby"][:12]]]
+        specs = [site["ligand_spec"], *[f"{site['model_spec']}/{hit['chain_id']}:{int(hit['number'])}" for hit in site["nearby"][:n]]]
         commands = [
-            *_publication_base_commands(""),
+            *([] if preserve_existing else _publication_base_commands("")),
             "select " + " ".join(specs),
             "name frozen site_ligand sel",
             "view sel",
@@ -1696,6 +2494,7 @@ def _run_site(session, arg, executor=None):
         ]
         for command in commands:
             _run(session, command, executor=executor)
+        restore_charge_colors(session, " ".join(specs))
         _clear_selection(session)
         return "\n".join(
             [
@@ -1710,7 +2509,7 @@ def _run_site(session, arg, executor=None):
         if pair is None:
             return "No interface pair detected."
         commands = [
-            *_publication_base_commands(""),
+            *([] if preserve_existing else _publication_base_commands("")),
             f"interfaces select {pair['chain_a_spec']} contacting {pair['chain_b_spec']} bothSides true",
             "name frozen site_interface sel",
             "view sel",
@@ -1734,9 +2533,9 @@ def _run_site(session, arg, executor=None):
         candidates = best_catalytic_candidates(session)
         if not candidates:
             return "No catalytic candidates detected."
-        specs = [c["residue_spec"] for c in candidates[:12]]
+        specs = [c["residue_spec"] for c in candidates[:n]]
         commands = [
-            *_publication_base_commands(""),
+            *([] if preserve_existing else _publication_base_commands("")),
             "select " + " ".join(specs),
             "name frozen site_catalytic sel",
             "view sel",
@@ -1745,6 +2544,7 @@ def _run_site(session, arg, executor=None):
         ]
         for command in commands:
             _run(session, command, executor=executor)
+        restore_charge_colors(session, " ".join(specs))
         _clear_selection(session)
         return "\n".join(
             [
@@ -1754,14 +2554,33 @@ def _run_site(session, arg, executor=None):
             ]
         )
 
-    return "usage: /site metal|ligand|interface|catalytic|all"
+    return "usage: /site metal|ligand|interface|catalytic|all [residues=N]"
 
 
 def _run_snapshot(session, filename, executor=None, publication=False):
     from chimerax.core.commands import StringArg
 
-    if filename:
-        path = Path(filename).expanduser()
+    raw = str(filename or "").strip()
+    width = 2400
+    height = 1800
+    supersample = 3
+    kept = []
+    for tok in raw.split():
+        lower = tok.lower()
+        if lower.startswith("w=") or lower.startswith("width="):
+            try: width = max(200, min(8000, int(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("h=") or lower.startswith("height="):
+            try: height = max(200, min(8000, int(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("ss=") or lower.startswith("supersample="):
+            try: supersample = max(1, min(8, int(lower.split("=", 1)[1])))
+            except: pass
+        else:
+            kept.append(tok)
+    cleaned_filename = " ".join(kept)
+    if cleaned_filename:
+        path = Path(cleaned_filename).expanduser()
     else:
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         suffix = "_publication" if publication else ""
@@ -1775,7 +2594,7 @@ def _run_snapshot(session, filename, executor=None, publication=False):
                 f"cartoon style width {PUBLICATION_CARTOON_WIDTH} thick {PUBLICATION_CARTOON_THICK}",
                 "lighting soft",
                 f"graphics silhouettes true width {PUBLICATION_SILHOUETTE_WIDTH} color {PUBLICATION_SILHOUETTE_COLOR} depthJump {PUBLICATION_SILHOUETTE_DEPTH_JUMP}",
-                f"save {quoted} width 2400 height 1800 supersample 3",
+                f"save {quoted} width {width} height {height} supersample {supersample}",
             ]
         )
     else:
@@ -1793,7 +2612,15 @@ def _run_snapshot(session, filename, executor=None, publication=False):
 
 
 def _scene_bookmarks(session):
-    return getattr(session, "_codex_bridge_scene_bookmarks", {})
+    """Return the live scene-bookmarks dict, lazy-initializing it on the
+    session so callers' mutations persist. Previously returned a fresh
+    {} default on first read, silently dropping the first /scene save.
+    """
+    bookmarks = getattr(session, "_codex_bridge_scene_bookmarks", None)
+    if bookmarks is None:
+        bookmarks = {}
+        session._codex_bridge_scene_bookmarks = bookmarks
+    return bookmarks
 
 
 def _scene_default_name():
@@ -2014,7 +2841,7 @@ def _run_scene(session, arg, executor=None):
         frames = 15
         if len(parts) > 1:
             try:
-                frames = max(1, int(parts[1]))
+                frames = max(1, min(600, int(parts[1])))
             except Exception:
                 frames = 15
         quoted_name = StringArg.unparse(scene_name)
@@ -2105,18 +2932,21 @@ def _run_movie(session, arg, executor=None):
 
 
 def _default_chain_query(session, text=None):
-    from .semantic import extract_chain_specs_from_text, get_session_semantics, resolve_default_model_spec
+    from .semantic import extract_chain_specs_from_text, get_session_semantics, resolve_default_model_spec, resolve_model_spec
 
-    chain_specs = extract_chain_specs_from_text(session, text or "")
+    token_text = str(text or "").strip()
+    chain_specs = extract_chain_specs_from_text(session, token_text)
     if chain_specs:
         return chain_specs[0]
 
     selection = get_session_semantics(session).get("selection", {})
-    for token in selection.get("ranges", []):
-        if "/" in token:
-            return token.split(":", 1)[0]
+    model_spec = resolve_model_spec(session, token_text) if token_text else None
+    if not model_spec:
+        for token in selection.get("ranges", []):
+            if "/" in token:
+                return token.split(":", 1)[0]
 
-    model_spec = resolve_default_model_spec(session)
+    model_spec = model_spec or resolve_default_model_spec(session)
     if not model_spec:
         return None
     semantics = get_session_semantics(session)
@@ -2185,6 +3015,12 @@ def _run_hhpred_tool(session, arg, executor=None):
     return launch_sequence_analysis_site(session, "hhpred")
 
 
+def _run_signalp_tool(session, arg, executor=None):
+    from .signalp import run_signalp_command_text
+
+    return run_signalp_command_text(session, arg, executor=executor)
+
+
 def _run_alphafold_tool(session, arg, executor=None):
     token_text = str(arg or "").strip()
     lowered = normalized_prompt_for_matching(token_text)
@@ -2203,17 +3039,39 @@ def _run_alphafold_tool(session, arg, executor=None):
 
 def _run_similar_tool(session, arg, executor=None):
     token_text = str(arg or "").strip()
+    # Extract count=N override BEFORE normalization (which lowercases tokens)
+    hit_count = None
+    remaining_tokens = []
+    for tok in token_text.split():
+        if tok.lower().startswith("count=") or tok.lower().startswith("n="):
+            try:
+                hit_count = max(1, min(20, int(tok.split("=", 1)[1])))
+            except Exception:
+                pass
+        else:
+            remaining_tokens.append(tok)
+    token_text = " ".join(remaining_tokens)
+
     lowered = normalized_prompt_for_matching(token_text)
     before_sets = _similar_set_names(session)
     if not lowered or any(word in lowered for word in ("open", "load", "align", "aligned", "열어", "불러", "정렬", "얼라인")):
         from .toolbar_actions import launch_similar_open_aligned
 
-        return launch_similar_open_aligned(session, executor=executor)
+        return launch_similar_open_aligned(session, count=(hit_count or 3), executor=executor)
     if any(word in lowered for word in ("sequences", "coverage", "sequence plot", "서열")):
+        problem = _check_similar_results_query_chain(session, "Foldseek sequences")
+        if problem:
+            return problem
         command = _similar_command_with_from_set(session, "similarstructures sequences")
     elif any(word in lowered for word in ("traces", "trace", "백본", "backbone")):
+        problem = _check_similar_results_query_chain(session, "Foldseek traces")
+        if problem:
+            return problem
         command = _similar_command_with_from_set(session, "similarstructures traces")
     elif any(word in lowered for word in ("ligand", "ligands", "pocket", "리간드")):
+        problem = _check_similar_results_query_chain(session, "Foldseek ligands")
+        if problem:
+            return problem
         command = _similar_command_with_from_set(session, "similarstructures ligands")
     elif any(word in lowered for word in ("cluster", "umap", "scatter", "클러스터")):
         command = _similar_command_with_from_set(session, "similarstructures cluster")
@@ -2225,16 +3083,32 @@ def _run_similar_tool(session, arg, executor=None):
         from .toolbar_actions import launch_similar_open_aligned
 
         database = "afdb50" if any(word in lowered for word in ("alphafold", "afdb")) else "pdb100"
-        return launch_similar_open_aligned(session, database=database, executor=executor)
+        return launch_similar_open_aligned(session, count=(hit_count or 3), database=database, executor=executor)
     _run(session, command, executor=executor)
     _remember_latest_similar_set(session, before_names=before_sets)
     return _format_local_result(command)
 
 
 def _run_foldmason_tool(session, arg, executor=None):
+    """`/foldmason [count=N] [no-similar]`
+
+      count=N      Foldseek auto-fetch hit count if <2 structures open (default 5)
+      no-similar   skip auto-Foldseek when only 1 structure open (return error)
+    """
     from .toolbar_actions import launch_foldmason
 
-    return launch_foldmason(session, executor=executor)
+    raw = str(arg or "").strip()
+    similar_count = 5
+    auto_similar = True
+    for tok in raw.split():
+        lower = tok.lower()
+        if lower.startswith("count=") or lower.startswith("n="):
+            try: similar_count = max(2, min(20, int(lower.split("=", 1)[1])))
+            except: pass
+        elif lower in ("no-similar", "no_similar", "manual"):
+            auto_similar = False
+    return launch_foldmason(session, executor=executor,
+                            auto_similar=auto_similar, similar_count=similar_count)
 
 
 def _run_folddisco_tool(session, arg, executor=None):
@@ -2256,30 +3130,620 @@ def _run_afcomplex_tool(session, arg, executor=None):
 
 
 def _run_boltz_tool(session, arg, executor=None):
+    """`/boltz [panel|setup] [model=boltz1|boltz2]`
+
+      panel        open native ChimeraX Boltz panel
+      setup        show installation steps
+      model=X      boltz1 or boltz2 (default boltz2)
+    """
     from .toolbar_actions import launch_boltz_latest_predict, launch_boltz_panel
 
-    lowered = normalized_prompt_for_matching(str(arg or ""))
+    raw = str(arg or "").strip()
+    model = "boltz2"
+    tokens = []
+    for tok in raw.split():
+        lower = tok.lower()
+        if lower.startswith("model="):
+            val = lower.split("=", 1)[1]
+            if val in ("boltz1", "boltz2"):
+                model = val
+        else:
+            tokens.append(tok)
+    cleaned = " ".join(tokens)
+
+    lowered = normalized_prompt_for_matching(cleaned)
     if any(word in lowered for word in ("panel", "gui", "native", "built-in", "builtin", "내장", "패널")):
         return launch_boltz_panel(session)
     if any(word in lowered for word in ("install", "setup", "설치", "세팅")):
+        return _run_setup_tool(session, "boltz", executor=executor)
+    return launch_boltz_latest_predict(session, model=model)
+
+
+def _run_rapidock_tool(session, arg, executor=None):
+    """`/rapidock [global|local] <peptide> [pocket=N] [engine=X] [n=K] [buffer=B]`
+
+    Tunable args (all optional):
+      pocket=N    pick Nth KVFinder pocket (1-based, default 1 = largest)
+      engine=X   auto | hpepdock | docker | native (default auto)
+      n=K        number of poses to generate (default 5)
+      buffer=B   Å cube buffer around pocket lining (default 12.0)
+    Run /cavity first to see available pockets + volumes.
+    """
+    from .toolbar_actions import launch_rapidock_prediction, _prompt_peptide_sequence
+
+    action, target_arg = _split_action_arg(arg)
+    mode = "global"
+    if action in {"local", "pocket"}:
+        mode = "local"
+    elif action in {"global", "blind"}:
+        mode = "global"
+    raw = str((target_arg if action else arg) or "").strip()
+
+    pocket_index = 1
+    engine = "auto"
+    n_samples = 5
+    pocket_buffer = 12.0
+    tokens = []
+    for tok in raw.split():
+        lower = tok.lower()
+        if lower.startswith("pocket="):
+            try: pocket_index = max(1, min(20, int(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("engine="):
+            val = lower.split("=", 1)[1].strip()
+            if val in ("auto", "hpepdock", "docker", "native"):
+                engine = val
+        elif lower.startswith("n=") or lower.startswith("samples="):
+            try: n_samples = max(1, min(20, int(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("buffer="):
+            try: pocket_buffer = max(4.0, min(30.0, float(lower.split("=", 1)[1])))
+            except: pass
+        else:
+            tokens.append(tok)
+    peptide = " ".join(tokens).strip()
+    if not peptide:
+        peptide = _prompt_peptide_sequence(session)
+    return launch_rapidock_prediction(
+        session, peptide=peptide, mode=mode,
+        pocket_index=pocket_index, engine=engine,
+        n_samples=n_samples, pocket_buffer=pocket_buffer,
+    )
+
+
+def _run_rapidock_setup_tool(session, arg, executor=None):
+    import threading as _threading
+    from .toolbar_actions import setup_rapidock_repo
+
+    text = str(arg or "").strip()
+    target_path = None
+    skip_models = False
+    gpu_mode = None
+    if text:
         try:
-            panel_message = launch_boltz_panel(session)
+            parts = shlex.split(text)
         except Exception:
-            panel_message = "Could not open native ChimeraX Boltz panel."
-        return "\n".join(
-            [
-                "Install official latest Boltz CLI in a separate environment:",
-                "python3 -m venv ~/boltz2_latest",
-                "~/boltz2_latest/bin/python -m pip install -U pip",
-                "~/boltz2_latest/bin/python -m pip install -U boltz",
-                "Then run /boltz again.",
-                panel_message,
-            ]
+            parts = [text]
+        idx = 0
+        while idx < len(parts):
+            token = parts[idx]
+            lower = token.lower()
+            if lower in {"--skip-models", "skip-models", "no-models"}:
+                skip_models = True
+            elif lower in {"--cpu", "cpu"}:
+                gpu_mode = None
+            elif lower == "--gpu":
+                next_token = parts[idx + 1] if idx + 1 < len(parts) else None
+                if next_token and next_token.lower() in {"auto", "cu118", "cu121", "cpu"}:
+                    gpu_mode = next_token.lower()
+                    idx += 1
+                else:
+                    gpu_mode = "auto"
+            elif lower.startswith("--gpu="):
+                val = (lower.split("=", 1)[1] or "auto").strip()
+                gpu_mode = val if val in {"auto", "cu118", "cu121", "cpu"} else "auto"
+            elif lower in {"auto-gpu", "gpu", "gpu-auto"}:
+                gpu_mode = "auto"
+            elif lower in {"cu118", "cu121"}:
+                gpu_mode = lower
+            elif target_path is None:
+                target_path = token
+            idx += 1
+
+    def _worker():
+        try:
+            message = setup_rapidock_repo(
+                target_path,
+                session=session,
+                skip_models=skip_models,
+                gpu=gpu_mode,
+            )
+        except Exception as err:
+            try:
+                session.logger.error(f"RAPiDock setup crashed: {err}")
+            except Exception:
+                pass
+            return
+        try:
+            session.logger.info(message)
+        except Exception:
+            pass
+
+    build_hint = (
+        f"GPU build ({gpu_mode})" if gpu_mode else "CPU build"
+    )
+    try:
+        session.logger.info(
+            f"RAPiDock automated setup started in background ({build_hint}). "
+            "Typical duration: 5-15 minutes (git clone + pip install + ~110 MB model download). "
+            "Watch this log for progress."
         )
-    return launch_boltz_latest_predict(session)
+    except Exception:
+        pass
+    _threading.Thread(target=_worker, daemon=True).start()
+    return f"RAPiDock setup started ({build_hint}) — see the log for progress."
+
+
+def _run_setup_tool(session, arg, executor=None):
+    """Unified `/setup <tool>` — auto-installs CLI tools when possible,
+    or surfaces concrete install commands for tools that need manual steps.
+    """
+    text = str(arg or "").strip().lower()
+    if not text or text in ("help", "list"):
+        return "\n".join([
+            "Setup helpers (run /setup <tool>):",
+            "  rapidock   — auto: clone repo, venv, deps, models. Optional: --gpu auto",
+            "  boltz      — auto: pip install boltz into ~/boltz2_latest venv",
+            "  foldmason  — manual: brew install foldmason (or build from source)",
+            "  folddisco  — manual: see https://github.com/steineggerlab/folddisco",
+            "  caver      — manual: download CAVER 3 JAR from https://www.caver.cz",
+            "Examples:",
+            "  /setup rapidock --gpu auto",
+            "  /setup boltz",
+        ])
+    parts = shlex.split(text)
+    tool = parts[0]
+    extras = parts[1:]
+    if tool == "rapidock":
+        return _run_rapidock_setup_tool(session, " ".join(extras), executor=executor)
+    if tool == "boltz":
+        return _run_boltz_setup(session, executor=executor)
+    if tool in ("foldmason", "folddisco", "caver"):
+        return {
+            "foldmason": "Install foldmason: `brew install foldmason` (macOS) or build from https://github.com/steineggerlab/foldmason",
+            "folddisco": "Install FoldDisco: `git clone https://github.com/steineggerlab/folddisco && cd folddisco && cargo build --release`",
+            "caver":     "Install CAVER 3 JAR from https://www.caver.cz/download (Java required). Or use CAVER Web (auto-handled).",
+        }[tool]
+    return f"Unknown tool '{tool}'. Run /setup with no args for the list."
+
+
+def _run_boltz_setup(session, executor=None):
+    """Auto-install Boltz CLI into ~/boltz2_latest using the same pattern as
+    RAPiDock setup (system Python venv, no contamination from ChimeraX bundle)."""
+    import threading as _threading
+    from .toolbar_actions import _find_system_python, _run_setup_step, _setup_log
+
+    def _worker():
+        target = Path.home() / "boltz2_latest"
+        venv_python = target / "bin" / "python"
+        if venv_python.exists() and shutil.which(str(venv_python)):
+            try:
+                session.logger.info(f"Boltz venv already present at {target}.")
+            except Exception:
+                pass
+            return
+        sys_py = _find_system_python(session)
+        if not sys_py:
+            try:
+                session.logger.error(
+                    "Boltz setup needs a system Python 3.9–3.11. "
+                    "Install one (`brew install python@3.11`) and retry."
+                )
+            except Exception:
+                pass
+            return
+        target.parent.mkdir(parents=True, exist_ok=True)
+        ok, err = _run_setup_step(
+            session, f"create Boltz venv via {sys_py}",
+            [sys_py, "-m", "venv", str(target)], timeout=120,
+        )
+        if not ok:
+            try:
+                session.logger.error(f"Boltz venv creation failed:\n{err}")
+            except Exception:
+                pass
+            return
+        ok, err = _run_setup_step(
+            session, "pip install boltz (this can take 5-10 min)",
+            [str(venv_python), "-m", "pip", "install", "-q", "-U", "boltz"],
+            timeout=1800,
+        )
+        if not ok:
+            try:
+                session.logger.error(f"Boltz pip install failed:\n{err}")
+            except Exception:
+                pass
+            return
+        try:
+            session.logger.info(
+                f"Boltz installed at {target / 'bin' / 'boltz'}. "
+                "Click the Boltz toolbar to predict structures."
+            )
+        except Exception:
+            pass
+
+    _threading.Thread(target=_worker, daemon=True).start()
+    return (
+        "Boltz setup started in background (~5-10 min for first-time pip install). "
+        "Watch the log for progress."
+    )
+
+
+def _run_cancel_tool(session, arg, executor=None):
+    """Cancel any running RAPiDock/HPEPDOCK watchers + downloads watchers in
+    this session. Doesn't kill the remote HuangLab job (that runs server-side
+    until done) — but stops local polling and frees daemon threads."""
+    canceled = []
+    # RAPiDock + HPEPDOCK watchers
+    try:
+        from .toolbar_actions import _cancel_rapidock_output_watchers
+        watchers = getattr(session, "_codex_rapidock_watchers", None)
+        if watchers:
+            n = len(watchers)
+            _cancel_rapidock_output_watchers(session)
+            canceled.append(f"{n} RAPiDock/HPEPDOCK watcher(s)")
+    except Exception as err:
+        canceled.append(f"(rapidock cancel failed: {err})")
+    # Downloads watchers — wrap whole block so a hostile dict can't block
+    # the per-tool external watchers below from being cancelled too.
+    try:
+        dl_watchers = getattr(session, "_codex_downloads_watchers", None) or {}
+        if dl_watchers:
+            n = 0
+            for entry in list(dl_watchers.values()):
+                stop = entry.get("stop") if isinstance(entry, dict) else None
+                if stop is not None:
+                    try:
+                        stop.set()
+                        n += 1
+                    except Exception:
+                        pass
+            try:
+                session._codex_downloads_watchers = {}
+            except Exception:
+                pass
+            canceled.append(f"{n} Downloads watcher(s)")
+    except Exception as err:
+        canceled.append(f"(downloads cancel failed: {err})")
+    # External tool watchers (alphafold/foldmason/folddisco/etc.)
+    for tool in ("alphafold", "afcomplex", "nucdock", "boltz", "foldmason", "folddisco",
+                 "dali", "vast", "pdbefold", "usalign", "caver"):
+        attr = f"_codex_{tool}_watchers"
+        try:
+            watchers = getattr(session, attr, None) or {}
+            if not watchers:
+                continue
+            n = 0
+            for entry in list(watchers.values()):
+                stop = entry.get("stop") if isinstance(entry, dict) else None
+                if stop is not None:
+                    try:
+                        stop.set()
+                        n += 1
+                    except Exception:
+                        pass
+            try:
+                setattr(session, attr, {})
+            except Exception:
+                pass
+            if n:
+                canceled.append(f"{n} {tool} watcher(s)")
+        except Exception:
+            continue
+    if not canceled:
+        return "No active background watchers to cancel."
+    return "Cancelled: " + ", ".join(canceled)
+
+
+def _run_cavity_tool(session, arg, executor=None):
+    """`/cavity [reset|show] [dist=D] [trans=T] [pockets=K] [show=R] [min_vol=V] [min_depth=D]`
+
+      reset|show   manage cached preset
+      dist=D       contact distance (Å, 2–15)
+      trans=T      surface transparency (%, 0–100)
+      pockets=K    KVFinder top-N pockets to rank (1–6, default 5)
+      show=R       selected rank(s) to render, e.g. show=1 or show=1,3
+      min_vol=V    minimum pocket volume Å³ (1-10000, default 30)
+      min_depth=D  minimum pocket depth Å (0-50, default 1)
+
+    Examples:
+      /cavity                          # toolbar dialog or cached preset
+      /cavity dist=5 trans=50          # force preset and dispatch
+      /cavity pockets=5 show=2 min_vol=100
+      /cavity reset
+    """
+    text = str(arg or "").strip()
+    lower = text.lower()
+    if lower in ("reset", "clear", "forget"):
+        had = getattr(session, "_codex_cavity_last_params", None)
+        for attr in ("_codex_cavity_last_params", "_codex_cavity_pocket_count",
+                     "_codex_cavity_min_volume", "_codex_cavity_min_depth"):
+            try: delattr(session, attr)
+            except: pass
+        return f"Cavity preset cleared (was {had})." if had else "No cached cavity preset to clear."
+    if lower in ("show", "params", "current"):
+        cached = getattr(session, "_codex_cavity_last_params", None)
+        pockets = getattr(session, "_codex_cavity_pocket_count", 5)
+        min_vol = getattr(session, "_codex_cavity_min_volume", 30.0)
+        min_depth = getattr(session, "_codex_cavity_min_depth", 1.0)
+        if cached:
+            return (f"Cavity preset: distance {cached[0]:.1f} Å, transparency {int(cached[1])}%, "
+                    f"pockets {pockets}, min_vol {min_vol:g} Å³, min_depth {min_depth:g} Å.")
+        return (f"No cavity preset cached (pockets {pockets}, min_vol {min_vol:g} Å³, "
+                f"min_depth {min_depth:g} Å). Click the Cavity toolbar to set one.")
+    dist = None
+    trans = None
+    pockets = None
+    selected_ranks = None
+    min_vol = None
+    min_depth = None
+    for tok in text.split():
+        lower_tok = tok.lower()
+        if lower_tok.startswith("dist="):
+            try: dist = max(2.0, min(15.0, float(tok.split("=", 1)[1])))
+            except: pass
+        elif lower_tok.startswith("trans="):
+            try: trans = max(0, min(100, int(tok.split("=", 1)[1])))
+            except: pass
+        elif lower_tok.startswith("pockets=") or lower_tok.startswith("top="):
+            try: pockets = max(1, min(6, int(tok.split("=", 1)[1])))
+            except: pass
+        elif lower_tok.startswith("show=") or lower_tok.startswith("select="):
+            raw = tok.split("=", 1)[1]
+            ranks = []
+            for piece in re.split(r"[,;]", raw):
+                try:
+                    rank = max(1, min(6, int(piece.strip())))
+                except Exception:
+                    continue
+                if rank not in ranks:
+                    ranks.append(rank)
+            if ranks:
+                selected_ranks = ranks
+        elif lower_tok.startswith("min_vol=") or lower_tok.startswith("vol=") or lower_tok.startswith("volume="):
+            try: min_vol = max(1.0, min(10000.0, float(tok.split("=", 1)[1])))
+            except: pass
+        elif lower_tok.startswith("min_depth=") or lower_tok.startswith("depth="):
+            try: min_depth = max(0.0, min(50.0, float(tok.split("=", 1)[1])))
+            except: pass
+    if dist is not None and trans is not None:
+        session._codex_cavity_last_params = (float(dist), int(trans))
+    elif dist is not None or trans is not None:
+        cached = getattr(session, "_codex_cavity_last_params", None) or (3.5, 65)
+        d = dist if dist is not None else cached[0]
+        t = trans if trans is not None else cached[1]
+        session._codex_cavity_last_params = (float(d), int(t))
+    if pockets is not None:
+        session._codex_cavity_pocket_count = pockets
+    if min_vol is not None:
+        session._codex_cavity_min_volume = min_vol
+    if min_depth is not None:
+        session._codex_cavity_min_depth = min_depth
+    if text:
+        cached = getattr(session, "_codex_cavity_last_params", None) or (5.0, 65)
+        session._codex_cavity_force_options = {
+            "distance": float(cached[0]),
+            "transparency": int(cached[1]),
+            "count": int(pockets if pockets is not None else getattr(session, "_codex_cavity_pocket_count", 5)),
+            "min_volume": float(min_vol if min_vol is not None else getattr(session, "_codex_cavity_min_volume", 30.0)),
+            "min_depth": float(min_depth if min_depth is not None else getattr(session, "_codex_cavity_min_depth", 1.0)),
+        }
+        if selected_ranks:
+            session._codex_cavity_force_options["selected_ranks"] = selected_ranks
+    from .toolbar_actions import run_toolbar_action
+    run_toolbar_action(session, "ai-quick-cavity")
+    final_preset = getattr(session, "_codex_cavity_last_params", None)
+    final_pockets = getattr(session, "_codex_cavity_pocket_count", 5)
+    return f"Cavity dispatched (preset: {final_preset}, pockets: {final_pockets})." if final_preset else "Cavity dispatched."
+
+
+def _run_alignpanel_register_tool(session, arg, executor=None):
+    """Register all currently open atomic structures as pairwise alignments
+    for the sequence-bar alignment panel. Useful after loading external
+    DALI/VAST/PDBeFold/US-align result PDBs into ChimeraX manually."""
+    from .toolbar_actions import register_open_models_in_alignment_panel
+
+    text = str(arg or "").strip()
+    reference_spec = None
+    if text:
+        try:
+            parts = shlex.split(text)
+        except Exception:
+            parts = [text]
+        for token in parts:
+            if token.startswith("#"):
+                reference_spec = token
+                break
+    return register_open_models_in_alignment_panel(session, reference_spec=reference_spec)
+
+
+def _run_rapidock_load_tool(session, arg, executor=None):
+    """`/rapidock_load` / `/hpepdock_load <output_dir> [peptide=PEP] [limit=N]`
+
+      limit=N   load top N poses (1-20, default 5)
+      peptide=  override peptide token used in group names
+    """
+    from .toolbar_actions import load_rapidock_outputs
+
+    text = str(arg or "").strip()
+    if not text:
+        return "Usage: /rapidock_load or /hpepdock_load <output_dir> [peptide=PEP] [limit=N]"
+    try:
+        parts = shlex.split(text)
+    except Exception:
+        parts = [text]
+    output_dir = None
+    peptide = None
+    limit = 5
+    positional = []
+    for tok in parts:
+        lower = tok.lower()
+        if lower.startswith("peptide="):
+            peptide = tok.split("=", 1)[1]
+        elif lower.startswith("limit=") or lower.startswith("n="):
+            try: limit = max(1, min(20, int(lower.split("=", 1)[1])))
+            except: pass
+        else:
+            positional.append(tok)
+    if positional:
+        output_dir = positional[0]
+        if len(positional) > 1 and peptide is None:
+            peptide = positional[1]
+    if not output_dir:
+        return "Usage: /rapidock_load or /hpepdock_load <output_dir> [peptide=PEP] [limit=N]"
+    return load_rapidock_outputs(session, output_dir, peptide=peptide, limit=limit)
+
+
+def _run_hpepdock_refine_tool(session, arg, executor=None):
+    """`/hpepdock_refine <output_dir> [limit=N] [steps=N]`"""
+    from .hpepdock_client import prepare_hpepdock_results
+
+    text = str(arg or "").strip()
+    if not text:
+        return "Usage: /hpepdock_refine <output_dir> [limit=N] [steps=N]"
+    try:
+        parts = shlex.split(text)
+    except Exception:
+        parts = [text]
+    output_dir = None
+    limit = 5
+    steps = 240
+    positional = []
+    for tok in parts:
+        lower = tok.lower()
+        if lower.startswith("limit=") or lower.startswith("n="):
+            try: limit = max(1, min(20, int(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("steps=") or lower.startswith("step="):
+            try: steps = max(0, min(2000, int(lower.split("=", 1)[1])))
+            except: pass
+        else:
+            positional.append(tok)
+    if positional:
+        output_dir = positional[0]
+    if not output_dir:
+        return "Usage: /hpepdock_refine <output_dir> [limit=N] [steps=N]"
+    package = prepare_hpepdock_results(
+        output_dir,
+        top_n=limit,
+        minimize=True,
+        minimize_steps=steps,
+        force_minimize=True,
+    )
+    summaries = package.get("summaries") or []
+    if not summaries:
+        return f"HPEPDOCK refine: no HPEPDOCK pose PDBs found under {output_dir}."
+    lines = [
+        f"HPEPDOCK refine complete: {len(summaries)} pose(s).",
+        f"- summary: {package.get('summary_tsv')}",
+        f"- validation: {package.get('validation_tsv')}",
+        f"- recommended ranking: {package.get('recommended_tsv')}",
+        f"- best pose: {package.get('best_pose_pdb')}",
+        f"- best report: {package.get('best_report_md')}",
+        f"- view script: {package.get('view_best_cxc')}",
+        f"- minimized complexes: {', '.join(Path(p).name for p in package.get('complexes', []))}",
+    ]
+    for item in summaries[: min(5, len(summaries))]:
+        lines.append(
+            f"validation rank {item.get('validation_rank')} / HPE rank {item.get('rank')}: "
+            f"{item.get('validation_status')} ({item.get('validation_flags')}); ITScore {item.get('itscore')}; "
+            f"clashes {item.get('raw_clash_atom_pairs_2a')} -> {item.get('clash_atom_pairs_2a')}; "
+            f"closest {float(item.get('raw_min_distance_a') or 0):.2f} -> {float(item.get('min_distance_a') or 0):.2f} A; "
+            f"shift {float(item.get('minimization_translation_a') or 0):.2f} A; "
+            f"contacts retained {float(item.get('contact_retained_fraction') or 0):.2f}"
+        )
+    return "\n".join(lines)
+
+
+def _run_external_load_tool(session, arg, tool):
+    """Generic external loader: `/{tool}_load <path> [limit=N]`
+
+    limit=N (1-50, default 10) caps how many result files are imported.
+    """
+    from .toolbar_actions import (
+        _external_output_files,
+        _start_external_output_watcher,
+        load_external_tool_outputs,
+    )
+
+    labels = {
+        "alphafold": "AlphaFold",
+        "afcomplex": "AF Complex",
+        "nucdock": "NucDock",
+        "boltz": "Boltz",
+        "foldmason": "FoldMason",
+        "folddisco": "FoldDisco",
+        "dali": "DALI",
+        "vast": "VAST",
+        "pdbefold": "PDBeFold",
+        "usalign": "US-align",
+    }
+    label = labels.get(tool, tool)
+    text = str(arg or "").strip()
+    if not text:
+        return f"Usage: /{tool}_load <file-or-output-dir> [limit=N]"
+    try:
+        parts = shlex.split(text)
+    except Exception:
+        parts = [text]
+    limit = 10
+    positional = []
+    for tok in parts:
+        lower = tok.lower()
+        if lower.startswith("limit=") or lower.startswith("n="):
+            try: limit = max(1, min(50, int(lower.split("=", 1)[1])))
+            except: pass
+        else:
+            positional.append(tok)
+    if not positional:
+        return f"Usage: /{tool}_load <file-or-output-dir> [limit=N]"
+    path = Path(positional[0]).expanduser()
+    if not path.exists():
+        return f"{label}: path does not exist: {path}"
+    files = _external_output_files(path, limit=limit)
+    if files:
+        return load_external_tool_outputs(session, path, tool=tool, label=label, limit=limit)
+    if path.is_dir():
+        _start_external_output_watcher(session, path, tool=tool, label=label, limit=limit)
+        return (
+            f"{label}: no PDB/CIF/SDF/PSE files found yet under {path}.\n"
+            f"Started a watcher (limit={limit}); files dropped there will auto-load."
+        )
+    return f"{label}: unsupported result file type: {path}"
+
+
+def _run_caver_load_tool(session, arg, executor=None):
+    text = str(arg or "").strip()
+    if not text:
+        return "Usage: /caver_load <folder|zip|pdb>"
+    try:
+        parts = shlex.split(text)
+    except Exception:
+        parts = [text]
+    path = parts[0] if parts else text
+    from .caver import import_caver_results
+
+    return import_caver_results(session, path, executor=executor)
 
 
 def _run_membrane_tool(session, arg, executor=None):
+    """`/membrane [view|mlp|clear|web|opm|charmm|memgen|report] [thickness=T] [trans=N] [width=W] [margin=M]`
+
+      thickness=T  slab core thickness Å (10-60, default auto from z-span)
+      trans=N      surface transparency % (0-100, default 45)
+      width=W      slab width override Å (30-300; default auto bbox+margin clamp 46-220)
+      margin=M     padding around bbox Å (0-100, default 32)
+    """
     from .membrane import (
         apply_membrane_mlp,
         clear_virtual_membrane,
@@ -2288,10 +3752,39 @@ def _run_membrane_tool(session, arg, executor=None):
         run_membrane_view,
     )
 
-    action, target_arg = _split_action_arg(arg)
+    raw = str(arg or "").strip()
+    thickness = None
+    trans = 45
+    width = None
+    margin = None
+    display_limit = 10
+    tokens = []
+    for tok in raw.split():
+        lower = tok.lower()
+        if lower.startswith("thickness="):
+            try: thickness = max(10.0, min(60.0, float(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("trans=") or lower.startswith("transparency="):
+            try: trans = max(0, min(100, int(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("width=") or lower.startswith("w="):
+            try: width = max(30.0, min(300.0, float(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("margin=") or lower.startswith("pad="):
+            try: margin = max(0.0, min(100.0, float(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("top=") or lower.startswith("n=") or lower.startswith("limit="):
+            try: display_limit = max(1, min(50, int(lower.split("=", 1)[1])))
+            except: pass
+        else:
+            tokens.append(tok)
+    cleaned = " ".join(tokens)
+    action, target_arg = _split_action_arg(cleaned)
     action = (action or "").lower()
     if action in {"view", "show", "fill", "slab", "virtual", "가상", "표시", "채워"}:
-        return run_membrane_view(session, target_arg or None, executor=executor)
+        return run_membrane_view(session, target_arg or None, executor=executor,
+                                 thickness=thickness, transparency=trans,
+                                 width=width, margin=margin)
     if action in {"mlp", "hydrophobic", "hydrophobicity", "소수성"}:
         return apply_membrane_mlp(session, target_arg or None, executor=executor)
     if action in {"clear", "delete", "remove", "지워", "삭제"}:
@@ -2305,14 +3798,41 @@ def _run_membrane_tool(session, arg, executor=None):
     if action == "memgen":
         return launch_membrane_builder_sites(session, "memgen", target_arg or None, executor=executor)
     if action in {"report", "analyze", "analysis", "분석", ""}:
-        return format_membrane_report(session, target_arg or None)
-    return run_membrane_view(session, arg or None, executor=executor)
+        return format_membrane_report(session, target_arg or None, display_limit=display_limit)
+    return run_membrane_view(session, cleaned or None, executor=executor,
+                             thickness=thickness, transparency=trans,
+                             width=width, margin=margin)
 
 
 def _run_pisa_tool(session, arg, executor=None):
+    """`/pisa [view|report|web] [pair=N] [cutoff=C]`
+
+      pair=N      pick Nth interface candidate (1-based, default 1 = largest)
+      cutoff=C    contact distance Å (default 8.0)
+    """
     from .pisa import run_pisa_view
 
-    return run_pisa_view(session, arg or "view", executor=executor)
+    raw = str(arg or "").strip()
+    pair_index = 1
+    cutoff = 8.0
+    display_limit = 10
+    tokens = []
+    for tok in raw.split():
+        lower = tok.lower()
+        if lower.startswith("pair=") or lower.startswith("interface="):
+            try: pair_index = max(1, min(50, int(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("cutoff="):
+            try: cutoff = max(3.0, min(15.0, float(lower.split("=", 1)[1])))
+            except: pass
+        elif lower.startswith("top=") or lower.startswith("n=") or lower.startswith("limit="):
+            try: display_limit = max(1, min(50, int(lower.split("=", 1)[1])))
+            except: pass
+        else:
+            tokens.append(tok)
+    cleaned_arg = " ".join(tokens) or "view"
+    return run_pisa_view(session, cleaned_arg, executor=executor,
+                         pair_index=pair_index, cutoff=cutoff, display_limit=display_limit)
 
 
 def _run_profile_tool(session, arg):
@@ -2338,7 +3858,13 @@ def _run_profile_tool(session, arg):
     if alignment is None:
         alignment = alignments[-1]
 
-    from chimerax.profile_grids.tool import ProfileGridsTool
+    try:
+        from chimerax.profile_grids.tool import ProfileGridsTool
+    except ImportError:
+        return (
+            "Profile Grids bundle (ChimeraX-ProfileGrids) is not installed.\n"
+            "Install it via Tools → More Tools, then retry /profile."
+        )
 
     ProfileGridsTool(session, "Profile Grids", alignment)
     session._codex_bridge_last_alignment_id = getattr(alignment, "ident", None)
@@ -2393,6 +3919,49 @@ def _similar_command_with_from_set(session, base_command):
     if set_name:
         return f"{base_command} fromSet {set_name}"
     return base_command
+
+
+def _check_similar_results_query_chain(session, label="Foldseek"):
+    """Pre-flight: ChimeraX's similarstructures sub-commands raise UserError
+    if the result set's query_chain has been closed. Catch this early with a
+    friendly message instead of letting users hit
+    'Cannot position Foldseek ligands without query structure'.
+    """
+    try:
+        from .toolbar_actions import _similar_results
+    except Exception:
+        return None
+    set_name = getattr(session, "_codex_bridge_last_similar_name", None)
+    sets = _similar_set_names(session)
+    if not sets:
+        return (
+            f"{label} needs a Foldseek result set. Run /similar (or click Similar in the toolbar) first, "
+            "wait for hits to appear, then re-run this command."
+        )
+    if set_name and set_name not in sets:
+        # Stale cache — fall through to pick the latest set
+        set_name = None
+    target_set = set_name or sets[-1]
+    try:
+        results = _similar_results(session, target_set)
+    except Exception as err:
+        return f"{label}: cannot inspect Foldseek result set '{target_set}' ({err})"
+    if results is None:
+        return f"{label}: Foldseek result set '{target_set}' is empty."
+    query_chain = getattr(results, "query_chain", None)
+    if query_chain is None:
+        return (
+            f"{label}: the Foldseek result set '{target_set}' has no query chain attached "
+            "(the original receptor was probably closed, or the set was loaded from a stale file). "
+            "Re-open the original receptor and run /similar again to refresh."
+        )
+    structure = getattr(query_chain, "structure", None)
+    if structure is None or structure not in session.models.list():
+        return (
+            f"{label}: the query chain for '{target_set}' is no longer in this session. "
+            "Re-open the original receptor and run /similar again."
+        )
+    return None
 
 
 def _run_snapshot_hint():
@@ -2534,28 +4103,31 @@ def _run_figure(session, mode, executor=None):
         result = _run_selection_view(session, executor=executor)
         _set_last_figure_mode(session, "selection")
         return result
-    if mode_name == "selection-pocket":
-        result = _run_selection_pocket_view(session, executor=executor)
-        _set_last_figure_mode(session, "selection-pocket")
-        return result
-    if mode_name == "selection-motif":
-        result = _run_selection_motif_view(session, executor=executor)
-        _set_last_figure_mode(session, "selection-motif")
-        return result
-    if mode_name == "selection-interface":
-        result = _run_selection_interface_view(session, executor=executor)
-        _set_last_figure_mode(session, "selection-interface")
-        return result
-    if mode_name == "selection-composite":
-        result = _run_selection_composite_view(session, executor=executor)
-        _set_last_figure_mode(session, "selection-composite")
+    if mode_name in {"selection-pocket", "selection-motif", "selection-interface", "selection-composite"}:
+        for tok in (mode_arg or "").split():
+            low = tok.lower()
+            if low.startswith("top=") or low.startswith("n=") or low.startswith("limit="):
+                try:
+                    session._codex_selection_top_n = max(1, min(50, int(tok.split("=", 1)[1])))
+                except Exception:
+                    pass
+        if mode_name == "selection-pocket":
+            result = _run_selection_pocket_view(session, executor=executor)
+        elif mode_name == "selection-motif":
+            result = _run_selection_motif_view(session, executor=executor)
+        elif mode_name == "selection-interface":
+            result = _run_selection_interface_view(session, executor=executor)
+        else:
+            result = _run_selection_composite_view(session, executor=executor)
+        _set_last_figure_mode(session, mode_name)
         return result
     if mode_name == "composite":
         result = _run_composite_view(session, executor=executor)
         _set_last_figure_mode(session, "composite")
         return result
     if mode_name == "explode-composite":
-        result = _run_explode_composite_view(session, executor=executor, spacing=_coerce_spacing(mode_arg))
+        spacing_val, label_n_val = _parse_explode_args(mode_arg)
+        result = _run_explode_composite_view(session, executor=executor, spacing=spacing_val, label_n=label_n_val)
         _set_last_figure_mode(session, f"explode-composite {mode_arg}".strip())
         return result
     if mode_name in {"roles", "assembly"}:
@@ -2563,6 +4135,14 @@ def _run_figure(session, mode, executor=None):
         _set_last_figure_mode(session, mode_name)
         return result
     if mode_name == "pocket":
+        for tok in (mode_arg or "").split():
+            lower_tok = tok.lower()
+            if lower_tok.startswith("catalytic=") or lower_tok.startswith("cat="):
+                try: session._codex_pocket_catalytic_count = max(1, min(30, int(tok.split("=", 1)[1])))
+                except Exception: pass
+            elif lower_tok.startswith("focus="):
+                try: session._codex_pocket_focus_count = max(1, min(10, int(tok.split("=", 1)[1])))
+                except Exception: pass
         result = _run_pocket_view(session, executor=executor)
         _set_last_figure_mode(session, "pocket")
         return result
@@ -2571,7 +4151,8 @@ def _run_figure(session, mode, executor=None):
         _set_last_figure_mode(session, "interface")
         return result
     if mode_name == "explode":
-        result = _run_explode_view(session, executor=executor, spacing=_coerce_spacing(mode_arg))
+        spacing_val, label_n_val = _parse_explode_args(mode_arg)
+        result = _run_explode_view(session, executor=executor, spacing=spacing_val, label_n=label_n_val)
         _set_last_figure_mode(session, f"explode {mode_arg}".strip())
         return result
 
@@ -2582,8 +4163,8 @@ def _run_figure(session, mode, executor=None):
         if not target:
             return _run_best_publication_view(session, executor=executor)
         commands = [
-            *_publication_base_commands(target, scaffold_color=""),
-            f"color {target} bychain".strip(),
+            *_publication_base_commands(target, scaffold_color="", session=session),
+            *_figure_scaffold_color_commands(session, target, scaffold_color="lightgray", default_scheme="bychain"),
             f"view {view_target}",
         ]
     else:
@@ -2724,9 +4305,13 @@ def _resolve_visual_model_hint(session, model_hint=None):
     return _selected_chain_spec(session) or _selected_model_spec(session)
 
 
-def _run_domains_view(session, model_hint=None, executor=None):
+def _run_domains_view(session, model_hint=None, executor=None, *, label_n=8):
     from .semantic import get_domain_selections
 
+    try:
+        label_cap = max(0, min(50, int(label_n)))
+    except Exception:
+        label_cap = 8
     resolved_hint = _resolve_visual_model_hint(session, model_hint)
     entries = get_domain_selections(session, model_hint=resolved_hint)
     chains = [entry for entry in entries if entry["kind"] == "chain"]
@@ -2734,8 +4319,9 @@ def _run_domains_view(session, model_hint=None, executor=None):
     scope = resolved_hint or ""
     view_target = scope or "all"
 
-    commands = _publication_base_commands(scope)
-    if not domains and chains:
+    color_mode = _figure_color_mode(session)
+    commands = _publication_base_commands(scope, session=session)
+    if not domains and chains and color_mode in {"auto", "bychain"}:
         commands.append(_color_scheme_command(scope, "bychain"))
 
     executed = []
@@ -2775,7 +4361,7 @@ def _run_domains_view(session, model_hint=None, executor=None):
         if domain.get("label_spec"):
             label_specs.append(domain["label_spec"])
 
-    for command in _label_commands_for_specs(label_specs[:8]):
+    for command in _label_commands_for_specs(label_specs[:label_cap]):
         _run(session, command, executor=executor)
         executed.append(command)
 
@@ -2806,17 +4392,21 @@ def _run_domains_view(session, model_hint=None, executor=None):
     return "\n".join(summary)
 
 
-def _run_roles_view(session, model_hint=None, executor=None):
+def _run_roles_view(session, model_hint=None, executor=None, *, label_n=8):
     from .semantic import get_role_selections
 
+    try:
+        label_cap = max(0, min(50, int(label_n)))
+    except Exception:
+        label_cap = 8
     resolved_hint = _resolve_visual_model_hint(session, model_hint)
     entries = get_role_selections(session, model_hint=resolved_hint)
     if not entries:
-        return _run_domains_view(session, resolved_hint, executor=executor)
+        return _run_domains_view(session, resolved_hint, executor=executor, label_n=label_cap)
 
     scope = resolved_hint or ""
     view_target = scope or "all"
-    commands = _publication_base_commands(scope)
+    commands = _publication_base_commands(scope, session=session)
     executed = []
     for command in commands:
         _run(session, command, executor=executor)
@@ -2842,7 +4432,7 @@ def _run_roles_view(session, model_hint=None, executor=None):
             executed.extend([select_command, name_command, group_command, color_command])
             label_specs.extend(entry.get("label_specs", [])[:2])
 
-    for command in _label_commands_for_specs(label_specs[:8]):
+    for command in _label_commands_for_specs(label_specs[:label_cap]):
         _run(session, command, executor=executor)
         executed.append(command)
 
@@ -2889,18 +4479,13 @@ def _run_best_publication_view(session, executor=None):
     return _run_domains_view(session, None, executor=executor)
 
 
-def _run_clean_publication_view(session, executor=None):
-    commands = [
-        "set bgColor white",
-        "cartoon",
-        "hide all atoms",
-        "~surface",
-        "color bychain",
-        f"cartoon style width {PUBLICATION_CARTOON_WIDTH} thick {PUBLICATION_CARTOON_THICK}",
-        "lighting soft",
-        f"graphics silhouettes true width {PUBLICATION_SILHOUETTE_WIDTH} color {PUBLICATION_SILHOUETTE_COLOR} depthJump {PUBLICATION_SILHOUETTE_DEPTH_JUMP}",
-        "view all",
+def _run_clean_publication_view(session, executor=None, preserve_existing=False, preserve_camera=True):
+    commands = [] if preserve_existing else [
+        *_publication_base_commands("", scaffold_color="", session=session),
+        *_figure_scaffold_color_commands(session, "", scaffold_color="lightgray", default_scheme="bychain"),
     ]
+    if not preserve_existing and not preserve_camera:
+        commands.append("view all")
     executed = []
     failed = []
     for command in commands:
@@ -2948,13 +4533,17 @@ def _run_selection_pocket_view(session, executor=None, include_base=True):
     if not include_base and not _selection_target(session):
         return "No current selection to focus."
 
+    try:
+        cap = max(1, min(50, int(getattr(session, "_codex_selection_top_n", 8) or 8)))
+    except Exception:
+        cap = 8
     payload = get_selection_overlap_payload(session)
     overlays = ["Selection-pocket overlays applied."]
     if payload is None:
         overlays.append("- no selection overlap payload available")
         return "\n".join([base, "", *overlays])
 
-    catalytic_hits = payload["catalytic_hits"][:8]
+    catalytic_hits = payload["catalytic_hits"][:cap]
     if catalytic_hits:
         commands = [
             "select " + " ".join(entry["residue_spec"] for entry in catalytic_hits),
@@ -3007,21 +4596,20 @@ def _run_selection_pocket_view(session, executor=None, include_base=True):
     return "\n".join(overlays)
 
 
-def _run_explode_view(session, executor=None, spacing=None):
+def _run_explode_view(session, executor=None, spacing=None, *, label_n=10):
     from .semantic import get_domain_selections
 
+    try:
+        label_cap = max(0, min(50, int(label_n)))
+    except Exception:
+        label_cap = 10
     chain_entries = [entry for entry in get_domain_selections(session) if entry["kind"] == "chain"]
     if len(chain_entries) <= 1:
-        return _run_roles_view(session, None, executor=executor)
+        return _run_roles_view(session, None, executor=executor, label_n=label_cap)
 
     commands = [
-        "preset sil",
-        "preset cartoon",
-        "cartoon",
-        "~surface",
-        "color bychain",
-        "lighting soft",
-        "graphics silhouettes true width 2 color black",
+        *_publication_base_commands("", scaffold_color="", session=session),
+        *_figure_scaffold_color_commands(session, "", scaffold_color="lightgray", default_scheme="bychain"),
     ]
     executed = []
     for command in commands:
@@ -3043,7 +4631,7 @@ def _run_explode_view(session, executor=None, spacing=None):
             executed.append(command)
             reverse_commands.append(f"move y {-dy:.1f} atoms {entry['spec']}")
 
-    for command in _label_commands_for_specs([entry.get("label_spec") for entry in chain_entries][:10]):
+    for command in _label_commands_for_specs([entry.get("label_spec") for entry in chain_entries][:label_cap]):
         _run(session, command, executor=executor)
         executed.append(command)
     view_command = "view all"
@@ -3062,8 +4650,8 @@ def _run_explode_view(session, executor=None, spacing=None):
     )
 
 
-def _run_explode_composite_view(session, executor=None, spacing=None):
-    exploded = _run_explode_view(session, executor=executor, spacing=spacing)
+def _run_explode_composite_view(session, executor=None, spacing=None, *, label_n=10):
+    exploded = _run_explode_view(session, executor=executor, spacing=spacing, label_n=label_n)
     overlay_lines = ["Exploded composite overlays applied."]
     for site_kind in ("catalytic", "ligand", "metal", "interface"):
         overlay = _run_site_overlay(session, site_kind, executor=executor)
@@ -3084,6 +4672,10 @@ def _run_selection_motif_view(session, executor=None, include_base=True):
     if not include_base and not _selection_target(session):
         return "No current selection to focus."
 
+    try:
+        cap = max(1, min(50, int(getattr(session, "_codex_selection_top_n", 8) or 8)))
+    except Exception:
+        cap = 8
     payload = get_selection_overlap_payload(session)
     overlays = ["Selection-motif overlays applied."]
     if payload is None or not payload["motif_matches"]:
@@ -3093,7 +4685,7 @@ def _run_selection_motif_view(session, executor=None, include_base=True):
         return "\n".join([*overlays, _run_snapshot_hint()])
 
     motif_specs = []
-    for entry in payload["motif_matches"][:8]:
+    for entry in payload["motif_matches"][:cap]:
         motif_specs.extend(entry["residue_specs"])
     motif_specs = list(dict.fromkeys(motif_specs))
     commands = [
@@ -3170,7 +4762,7 @@ def _run_selection_view(session, executor=None):
         return "No current selection to focus."
 
     commands = [
-        *_publication_base_commands(""),
+        *_publication_base_commands("", session=session),
         *_selection_stick_style_commands("gold"),
         "label sel residues",
         "view sel",
@@ -3189,9 +4781,18 @@ def _run_selection_view(session, executor=None):
 def _run_pocket_view(session, executor=None):
     from .semantic import best_catalytic_candidates, best_ligand_site, best_metal_site
 
+    try:
+        cat_n = max(1, min(30, int(getattr(session, "_codex_pocket_catalytic_count", 8) or 8)))
+    except Exception:
+        cat_n = 8
+    try:
+        focus_n = max(1, min(10, int(getattr(session, "_codex_pocket_focus_count", 4) or 4)))
+    except Exception:
+        focus_n = 4
+
     ligand_site = best_ligand_site(session)
     metal_site = best_metal_site(session)
-    catalytic = best_catalytic_candidates(session, limit=8)
+    catalytic = best_catalytic_candidates(session, limit=cat_n)
 
     scope = ""
     if ligand_site is not None:
@@ -3199,14 +4800,14 @@ def _run_pocket_view(session, executor=None):
     elif metal_site is not None:
         scope = metal_site["model_spec"]
 
-    commands = _publication_base_commands(scope)
+    commands = _publication_base_commands(scope, session=session)
     executed = []
     created = []
     for command in commands:
         _run(session, command, executor=executor)
         executed.append(command)
 
-    catalytic_specs = [entry["residue_spec"] for entry in catalytic[:8]]
+    catalytic_specs = [entry["residue_spec"] for entry in catalytic[:cat_n]]
     if catalytic_specs:
         select_command = "select " + " ".join(catalytic_specs)
         name_command = "name frozen site_catalytic sel"
@@ -3242,7 +4843,7 @@ def _run_pocket_view(session, executor=None):
         focus_specs.append(ligand_site["ligand_spec"])
     if metal_site is not None:
         focus_specs.append(metal_site["metal_spec"])
-    focus_specs.extend(catalytic_specs[:4])
+    focus_specs.extend(catalytic_specs[:focus_n])
     _clear_selection(session)
     view_command = "view " + (" ".join(focus_specs) if focus_specs else (scope or "all"))
     _run(session, view_command, executor=executor)
@@ -3264,17 +4865,45 @@ def _run_pocket_view(session, executor=None):
 def _run_interface_view(session, executor=None):
     from .semantic import best_interface_pair
 
+    # If the user opened the Figure -> Interface picker dialog, it stashed
+    # explicit enzyme/ligand specs on the session. Honour those and run the
+    # pastel-coloured interaction pipeline. Otherwise fall back to the
+    # heuristic chain-pair picker.
+    picked_enzyme = getattr(session, "_codex_interface_enzyme_spec", None)
+    picked_ligand = getattr(session, "_codex_interface_ligand_spec", None)
+    picked_cutoff = getattr(session, "_codex_interface_cutoff", 4.5)
+    if picked_enzyme and picked_ligand:
+        return _run_picked_interface_view(
+            session,
+            picked_enzyme,
+            picked_ligand,
+            picked_cutoff,
+            executor=executor,
+        )
+
     pair = best_interface_pair(session)
     if pair is None:
         return _run_roles_view(session, None, executor=executor)
 
     chain_a = pair["chain_a_spec"]
     chain_b = pair["chain_b_spec"]
+    color_mode = _figure_color_mode(session)
+    if color_mode == "auto":
+        chain_color_commands = [
+            f"color {chain_a} #78bfd2 target ac",
+            f"color {chain_b} #d1987a target ac",
+        ]
+    elif color_mode == "bychain":
+        chain_color_commands = [
+            _color_scheme_command(chain_a, "bychain"),
+            _color_scheme_command(chain_b, "bychain"),
+        ]
+    else:
+        chain_color_commands = []
     commands = [
-        *_publication_base_commands(""),
+        *_publication_base_commands("", session=session),
         f"cartoon {chain_a} {chain_b}",
-        f"color {chain_a} #78bfd2 target ac",
-        f"color {chain_b} #d1987a target ac",
+        *chain_color_commands,
         f"interfaces select {chain_a} contacting {chain_b} bothSides true",
         "name frozen site_interface sel",
         *_selection_stick_style_commands("hotpink"),
@@ -3292,6 +4921,89 @@ def _run_interface_view(session, executor=None):
     return "\n".join(
         [
             "Interface-focused publication view applied.",
+            "Executed ChimeraX commands:",
+            *[f"- {command}" for command in executed],
+        ]
+    )
+
+
+def _run_picked_interface_view(session, enzyme_spec, ligand_spec, cutoff, executor=None):
+    """Interface view scoped strictly to the picked enzyme + ligand.
+
+    Renders a translucent cartoon (70%) for the enzyme so the pocket sticks
+    pop out, sticks for the ligand and for every enzyme residue with any
+    atom within ``cutoff`` of the ligand, and overlays the Codex pastel
+    interaction pseudobonds (H-bond / salt-bridge / pi-stacking /
+    hydrophobic). Other open models, the background, and global preset
+    state are left untouched -- earlier versions called
+    ``_publication_base_commands("")`` which mutated the whole scene.
+    """
+    from .interaction_colors import apply_interaction_coloring
+
+    enzyme = enzyme_spec.strip()
+    ligand = ligand_spec.strip()
+    try:
+        cutoff_val = max(2.5, min(8.0, float(cutoff)))
+    except (TypeError, ValueError):
+        cutoff_val = 4.5
+
+    commands = [
+        # ---- enzyme: cartoon, no atoms, label clean ----
+        f"cartoon {enzyme}",
+        f"hide {enzyme} atoms",
+        f"~label {enzyme}",
+        # Whole enzyme cartoon is heavily translucent context (80%) so the
+        # eye locks onto the pocket. The interaction-residue cartoon will be
+        # restored to opaque below, after we select those residues.
+        f"transparency {enzyme} 80 target c",
+        # ---- ligand: fully opaque sticks ----
+        f"show {ligand} atoms",
+        f"style {ligand} stick",
+        f"transparency {ligand} 0 target abcs",
+        # ---- pocket residues on the enzyme: any residue with an atom within
+        # cutoff of the ligand. ChimeraX zone syntax `spec :< d` returns
+        # atoms in residues that have any atom within d of spec.
+        f"select (({ligand}) :< {cutoff_val:.2f}) & ({enzyme})",
+        "name frozen site_interface sel",
+        # Sticks + opaque atoms/bonds for the interaction residues...
+        "show sel atoms",
+        "style sel stick",
+        "transparency sel 0 target ab",
+        # ...and override the global 80% cartoon transparency for these
+        # specific residues so their backbone stands out from the de-
+        # emphasised rest of the protein.
+        "transparency sel 0 target c",
+        # ---- frame the view on what we just highlighted ----
+        f"view (sel) | ({ligand})",
+    ]
+    executed = []
+    for command in commands:
+        _run(session, command, executor=executor)
+        executed.append(command)
+
+    # Pastel pseudobonds for H-bond / salt-bridge / pi-stacking / hydrophobic.
+    # Failures here should not abort the rest of the figure setup.
+    try:
+        executed.extend(
+            apply_interaction_coloring(
+                session,
+                enzyme,
+                ligand,
+                cutoff=cutoff_val,
+                executor=executor,
+            )
+        )
+    except Exception as err:
+        try:
+            session.logger.warning(f"interaction coloring failed: {err}")
+        except Exception:
+            pass
+
+    _clear_selection(session)
+    return "\n".join(
+        [
+            f"Interface view applied (enzyme={enzyme}, ligand={ligand}, cutoff={cutoff_val:.1f} Å).",
+            "Other open models were not modified.",
             "Executed ChimeraX commands:",
             *[f"- {command}" for command in executed],
         ]
@@ -3362,13 +5074,17 @@ def _run_site_overlay(session, target, executor=None):
     return " ".join(commands)
 
 
-def _run_motif_view(session, motif_text=None, model_hint=None, executor=None):
+def _run_motif_view(session, motif_text=None, model_hint=None, executor=None, *, top_n=12):
     from .semantic import get_motif_hits
 
     hits = get_motif_hits(session, model_hint=model_hint, motif_text=motif_text)
     if not hits:
         return "No motif hits detected."
 
+    try:
+        cap = max(1, min(50, int(top_n)))
+    except Exception:
+        cap = 12
     commands = [
         "preset sil",
         "preset cartoon",
@@ -3383,7 +5099,7 @@ def _run_motif_view(session, motif_text=None, model_hint=None, executor=None):
         _run(session, command, executor=executor)
 
     motif_specs = []
-    for hit in hits[:12]:
+    for hit in hits[:cap]:
         motif_specs.extend(hit["residue_specs"])
         _run(session, "select " + " ".join(hit["residue_specs"]), executor=executor)
         _run(session, f"name frozen {hit['selection_name']} sel", executor=executor)
@@ -3414,28 +5130,149 @@ def _run_motif_view(session, motif_text=None, model_hint=None, executor=None):
     )
 
 
-def _run_catalytic_view(session, model_hint=None, executor=None):
-    from .semantic import best_catalytic_candidates, format_catalytic_workflow_report
+def _run_catalytic_zoom(session, model_hint=None, executor=None, *, trans=80):
+    """Close-up view: fade the scaffold cartoon and zoom to the catalytic triad.
 
-    candidates = best_catalytic_candidates(session, model_hint=model_hint, limit=12)
+    Targets the triad if `find_catalytic_triads` produces one; otherwise
+    falls back to the top catalytic candidates from `best_catalytic_candidates`.
+    Cartoon transparency clamps to 0-100.
+    """
+    from .semantic import best_catalytic_candidates, find_catalytic_triads
+    try:
+        trans_pct = max(0, min(100, int(trans)))
+    except Exception:
+        trans_pct = 80
+
+    triad_specs = []
+    try:
+        triads = find_catalytic_triads(session, model_hint=model_hint) or []
+        if triads:
+            triad_specs = list(triads[0].get("specs") or [])
+    except Exception:
+        pass
+    if not triad_specs:
+        try:
+            cands = best_catalytic_candidates(session, model_hint=model_hint, limit=6) or []
+            triad_specs = [c["residue_spec"] for c in cands if c.get("residue_spec")]
+        except Exception:
+            pass
+
+    if not triad_specs:
+        return "No catalytic triad/candidate detected — nothing to zoom into."
+
+    spec_text = " ".join(triad_specs)
+    # Auto-pick the same accent color the Analyze button uses so the triad
+    # in zoom view matches the named-group swatch the user sees in Models.
+    try:
+        from .display_color import choose_accent_color
+        accent = choose_accent_color(session)
+    except Exception:
+        accent = "#d4845c"
+    commands = [
+        f"transparency {trans_pct} target c",
+        f"select {spec_text}",
+        "show sel atoms",
+        "style sel stick",
+        f"color sel {accent} target ab",
+        "label sel residues",
+        f"view {spec_text}",
+    ]
+    for command in commands:
+        try:
+            _run(session, command, executor=executor)
+        except Exception:
+            pass
+    restore_charge_colors(session, spec_text)
+    _clear_selection(session)
+    return "\n".join([
+        "Catalytic-zoom view applied.",
+        f"- cartoon transparency: {trans_pct}%",
+        f"- focus residues: {spec_text}",
+        "Executed ChimeraX commands:",
+        *[f"- {c}" for c in commands],
+    ])
+
+
+def _run_catalytic_view(session, model_hint=None, executor=None, preserve_existing=False,
+                        *, top_n=12, triads_n=6, triad_color=None,
+                        preserve_camera=True):
+    """top_n: how many candidate catalytic residues to highlight (default 12).
+    triad_color: optional '#rrggbb' override; default is auto-chosen via
+    choose_accent_color() to harmonize with current chain coloring."""
+    from .semantic import best_catalytic_candidates, format_catalytic_workflow_report, find_catalytic_triads
+    from .named_selection import add_group
+
+    try:
+        n = max(1, min(50, int(top_n)))
+    except Exception:
+        n = 12
+
+    candidates = best_catalytic_candidates(session, model_hint=model_hint, limit=n)
     if not candidates:
         return "No catalytic candidates detected."
 
     scope = candidates[0].get("model_spec", "")
-    commands = [*_publication_base_commands(scope)]
+    commands = [] if preserve_existing else [*_publication_base_commands(scope, session=session)]
     for command in commands:
         _run(session, command, executor=executor)
 
-    specs = [candidate["residue_spec"] for candidate in candidates[:12]]
+    specs = [candidate["residue_spec"] for candidate in candidates[:n]]
     followup_commands = [
         "select " + " ".join(specs),
         "name frozen site_catalytic sel",
         *_selection_stick_style_commands("gold"),
         "label sel residues",
     ]
+    if not preserve_camera:
+        followup_commands.append("view sel")
     for command in followup_commands:
         _run(session, command, executor=executor)
+    restore_charge_colors(session, " ".join(specs))
     _clear_selection(session)
+
+    # Surface results in the Models panel as CodexNamedSelectionGroup so they
+    # behave like Cavity/Site groups (toggle visibility, color, etc.) and are
+    # registered for the session-state cleanup on model close.
+    try:
+        triads = find_catalytic_triads(session, model_hint=model_hint) or []
+    except Exception:
+        triads = []
+    # Adaptive accent: harmonizes with current chain coloring.
+    # Override via triad_color=#hex when caller knows better.
+    if triad_color is None:
+        try:
+            from .display_color import choose_accent_color
+            triad_color = choose_accent_color(session)
+        except Exception:
+            triad_color = "#d4845c"
+    try:
+        triad_cap = max(1, min(20, int(triads_n)))
+    except Exception:
+        triad_cap = 6
+    for index, triad in enumerate(triads[:triad_cap], start=1):
+        triad_specs = list(triad.get("specs") or [])
+        if not triad_specs:
+            continue
+        label = str(triad.get("label", "triad")).split()[0].lower().replace("/", "_")
+        chain = ""
+        first = triad_specs[0]
+        if "/" in first and ":" in first:
+            try:
+                chain = first.split("/", 1)[1].split(":", 1)[0].lower()
+            except Exception:
+                chain = ""
+        slug = f"triad_{label}_{chain}{index:02d}".replace("__", "_").strip("_")
+        try:
+            add_group(session, slug, " ".join(triad_specs), color=triad_color)
+        except Exception:
+            pass
+
+    # Also register one umbrella "site_catalytic" group containing all candidates
+    if specs:
+        try:
+            add_group(session, "site_catalytic", " ".join(specs), color=triad_color)
+        except Exception:
+            pass
 
     workflow_lines = format_catalytic_workflow_report(session, model_hint=model_hint).splitlines()[:12]
     return "\n".join(
@@ -3449,14 +5286,18 @@ def _run_catalytic_view(session, model_hint=None, executor=None):
     )
 
 
-def _run_features_view(session, model_hint=None, executor=None):
+def _run_features_view(session, model_hint=None, executor=None, preserve_existing=False, *, top_n=24):
     from .semantic import get_uniprot_feature_entries
 
     entries = get_uniprot_feature_entries(session, model_hint=model_hint)
     if not entries:
         return "No UniProt feature annotations fetched or mapped."
 
-    commands = [
+    try:
+        cap = max(1, min(100, int(top_n)))
+    except Exception:
+        cap = 24
+    commands = [] if preserve_existing else [
         "preset sil",
         "preset cartoon",
         "cartoon",
@@ -3481,13 +5322,14 @@ def _run_features_view(session, model_hint=None, executor=None):
         "Region": "#d9b36c",
     }
     label_specs = []
-    for entry in entries[:24]:
+    for entry in entries[:cap]:
         select_command = f"select {entry['spec']}"
         name_command = f"name frozen {entry['selection_name']} sel"
         group_command = f"name frozen {entry['group_name']} sel"
         color_command = _color_selection_command(feature_colors.get(entry["feature_type"], "#ffb347"))
         for command in (select_command, name_command, group_command, _show_selection_atoms_command(), "style sel stick", color_command):
             _run(session, command, executor=executor)
+        restore_charge_colors(session, entry["spec"])
         created.append(entry["selection_name"])
         groups.append(entry["group_name"])
         label_specs.append(f"{entry['model_spec']}/{entry['chain_id']}:{entry['start']}")
@@ -3957,7 +5799,10 @@ def _append_dali_history(session, item):
 
 
 def _get_layout_spacing(session):
-    return float(getattr(session, "_codex_bridge_layout_spacing", 18.0) or 18.0)
+    try:
+        return float(getattr(session, "_codex_bridge_layout_spacing", 18.0) or 18.0)
+    except (TypeError, ValueError):
+        return 18.0
 
 
 def _run_layout_spacing(session, value_text):
@@ -4064,13 +5909,17 @@ def _run_dali(session, arg=None, executor=None):
     selection_snapshot = _capture_selection_snapshot(session)
     commands = []
     try:
+        # Critic P1 #6/#7: paths with spaces or shell-special chars must be quoted
+        # for the ChimeraX command parser, not just embedded raw.
+        from .toolbar_actions import _quote_command_token as _q
+        quoted_path = _q(str(path))
         if target["select_spec"]:
             select_command = f"select {target['select_spec']}"
             commands.append(select_command)
             _run(session, select_command, executor=executor)
-            save_command = f"save {path} format pdb models {target['model_spec']} selectedOnly true"
+            save_command = f"save {quoted_path} format pdb models {target['model_spec']} selectedOnly true"
         else:
-            save_command = f"save {path} format pdb models {target['model_spec']}"
+            save_command = f"save {quoted_path} format pdb models {target['model_spec']}"
         commands.append(save_command)
         _run(session, save_command, executor=executor)
     finally:
@@ -4134,6 +5983,9 @@ def _run_dali_url(session, url_text):
     url = str(url_text or "").strip()
     if not url:
         return "usage: /daliurl <url>"
+    lower = url.lower()
+    if not (lower.startswith("http://") or lower.startswith("https://")):
+        return f"DALI URL must start with http:// or https:// — got: {url}"
     history = _get_dali_history(session)
     if not history:
         _append_dali_history(session, {"target": "", "file": "", "submit_url": "", "result_url": url, "summary": ""})
@@ -4203,6 +6055,24 @@ def _run_layout_reset(session, executor=None):
     )
 
 
+def _parse_explode_args(text):
+    """Split 'spacing labels=N' into (spacing_or_None, label_n_default_10)."""
+    raw = str(text or "").strip()
+    label_n = 10
+    spacing = None
+    for tok in raw.split():
+        lower = tok.lower()
+        if lower.startswith("labels=") or lower.startswith("label=") or lower.startswith("lbl="):
+            try:
+                label_n = max(0, min(50, int(tok.split("=", 1)[1])))
+            except Exception:
+                pass
+        else:
+            if spacing is None:
+                spacing = _coerce_spacing(tok)
+    return spacing, label_n
+
+
 def _coerce_spacing(text):
     token = str(text or "").strip()
     if not token:
@@ -4213,7 +6083,7 @@ def _coerce_spacing(text):
         return None
     if value <= 0:
         return None
-    return value
+    return max(0.5, min(500.0, value))
 
 
 def _capture_selection_snapshot(session):
@@ -4888,6 +6758,18 @@ def _movie_command_from_text(text):
     if not lowered:
         return None
 
+    supersample = 3
+    quality = "good"
+    for tok in token_text.split():
+        low = tok.lower()
+        if low.startswith("ss=") or low.startswith("supersample="):
+            try: supersample = max(1, min(8, int(tok.split("=", 1)[1])))
+            except Exception: pass
+        elif low.startswith("quality=") or low.startswith("q="):
+            val = tok.split("=", 1)[1].strip().lower()
+            if val in ("low", "fair", "good", "high", "highest"):
+                quality = val
+
     if "formats" in lowered or "format list" in lowered or "포맷" in lowered:
         return "movie formats"
     if "abort" in lowered or "취소" in lowered:
@@ -4899,12 +6781,12 @@ def _movie_command_from_text(text):
     if "stop" in lowered or "중지" in lowered or "정지" in lowered:
         return "movie stop"
     if "record" in lowered or "start" in lowered or "녹화" in lowered:
-        return "movie record supersample 3"
+        return f"movie record supersample {supersample}"
     if "encode" in lowered or "save" in lowered or "export" in lowered or "저장" in lowered:
         path = _extract_output_path(token_text)
         if path:
-            return _clean_command(f"movie encode output {path} quality good")
-        return "movie encode output ~/Desktop/movie.mp4 quality good"
+            return _clean_command(f"movie encode output {path} quality {quality}")
+        return f"movie encode output ~/Desktop/movie.mp4 quality {quality}"
     return None
 
 
@@ -4992,7 +6874,7 @@ def _zoom_command_from_text(text):
         if "zoom" in lowered or "줌" in lowered:
             return "zoom"
         return None
-    factor = float(factor)
+    factor = max(0.05, min(50.0, float(factor)))
     if factor.is_integer():
         factor_text = str(int(factor))
     else:
@@ -5004,7 +6886,8 @@ def _wait_command_from_text(text):
     lowered = str(text or "").lower()
     match = re.search(r"(\d+)\s*(?:frames?|프레임)?", lowered)
     if match:
-        return f"wait {int(match.group(1))}"
+        frames = max(1, min(3600, int(match.group(1))))
+        return f"wait {frames}"
     if "wait" in lowered or "기다" in lowered or "대기" in lowered:
         return "wait 1"
     return None
@@ -5108,19 +6991,68 @@ def _color_selection_command(color, target="c"):
     return _clean_command(f"color sel {color} target {target}")
 
 
-def _publication_base_commands(scope="", scaffold_color="lightgray"):
+def _figure_color_mode(session=None, explicit=None):
+    raw = explicit if explicit is not None else getattr(session, "_codex_figure_color_mode", "auto")
+    mode = str(raw or "auto").strip().lower().replace("-", "_")
+    aliases = {
+        "keep": "preserve",
+        "current": "preserve",
+        "existing": "preserve",
+        "preserve_current": "preserve",
+        "chain": "bychain",
+        "by_chain": "bychain",
+        "gray": "neutral",
+        "grey": "neutral",
+        "domain_safe": "domain",
+        "domains": "domain",
+    }
+    mode = aliases.get(mode, mode)
+    if mode in {"auto", "preserve", "bychain", "neutral", "domain"}:
+        return mode
+    return "auto"
+
+
+def _figure_scaffold_color_commands(session=None, scope="", scaffold_color="lightgray", default_scheme=None, color_mode=None):
+    mode = _figure_color_mode(session, explicit=color_mode)
+    if mode == "preserve":
+        return []
+    if mode == "bychain":
+        return [_color_scheme_command(scope, "bychain")]
+    if mode in {"neutral", "domain"}:
+        color = scaffold_color or "lightgray"
+        return [_color_scope_command(scope, color)]
+    if default_scheme:
+        return [_color_scheme_command(scope, default_scheme)]
+    if scaffold_color:
+        return [_color_scope_command(scope, scaffold_color)]
+    return []
+
+
+def _publication_base_commands(scope="", scaffold_color="lightgray", session=None, color_mode=None):
+    mode = _figure_color_mode(session, explicit=color_mode)
+    if mode == "preserve":
+        commands = [
+            "set bgColor white",
+            f"cartoon {scope}".strip(),
+            _clean_command(f"hide {_spec_or_all(scope)} atoms"),
+            f"~surface {scope}".strip(),
+            f"cartoon style width {PUBLICATION_CARTOON_WIDTH} thick {PUBLICATION_CARTOON_THICK}",
+            "lighting soft",
+            f"graphics silhouettes true width {PUBLICATION_SILHOUETTE_WIDTH} color {PUBLICATION_SILHOUETTE_COLOR} depthJump {PUBLICATION_SILHOUETTE_DEPTH_JUMP}",
+        ]
+        return [_clean_command(command) for command in commands if str(command or "").strip()]
+
     commands = [
         "set bgColor white",
         "preset sil",
         "preset cartoon",
         f"cartoon {scope}".strip(),
         f"~surface {scope}".strip(),
+        *_figure_scaffold_color_commands(session, scope, scaffold_color, color_mode=mode),
         f"cartoon style width {PUBLICATION_CARTOON_WIDTH} thick {PUBLICATION_CARTOON_THICK}",
         "lighting soft",
         f"graphics silhouettes true width {PUBLICATION_SILHOUETTE_WIDTH} color {PUBLICATION_SILHOUETTE_COLOR} depthJump {PUBLICATION_SILHOUETTE_DEPTH_JUMP}",
     ]
-    if scaffold_color:
-        commands.insert(5, _color_scope_command(scope, scaffold_color))
     return [_clean_command(command) for command in commands if str(command or "").strip()]
 
 
@@ -5159,10 +7091,41 @@ def _run(session, command, executor=None):
     if executor is not None:
         result = executor(command)
         maybe_apply_stick_context_colors_for_command(session, command)
+        _restore_charge_colors_for_color_command(session, command)
         return result
     result = run(session, command)
     maybe_apply_stick_context_colors_for_command(session, command)
+    _restore_charge_colors_for_color_command(session, command)
     return result
+
+
+def _restore_charge_colors_for_color_command(session, command):
+    text = str(command or "").strip()
+    if not text.lower().startswith("color "):
+        return
+    try:
+        tokens = shlex.split(text)
+    except Exception:
+        tokens = text.split()
+    if len(tokens) < 2 or tokens[0].lower() != "color":
+        return
+    lowered = [token.lower() for token in tokens]
+    if any(token in lowered for token in ("byelement", "byatom", "byhetero", "byhet", "fromatoms", "fromcartoons", "fromribbons")):
+        return
+    if len(tokens) > 2 and lowered[1] in {"name", "delete", "list", "show", "modify", "sequential"}:
+        return
+    try:
+        target_index = lowered.index("target")
+        target = lowered[target_index + 1] if target_index + 1 < len(lowered) else ""
+    except ValueError:
+        target = "abcspf"
+    if target and "a" not in target.lower():
+        return
+    if len(tokens) == 2 or lowered[1] in {"bychain", "bymodel", "byidentity", "bypolymer", "random"}:
+        spec = "all"
+    else:
+        spec = tokens[1]
+    restore_charge_colors(session, spec)
 
 
 def _emit(progress, message):

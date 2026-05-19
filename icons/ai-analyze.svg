@@ -1,8 +1,77 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <circle cx="27" cy="27" r="15" fill="#F8FAFC" stroke="#111827" stroke-width="4"/>
-  <path d="M38 38 L52 52" stroke="#111827" stroke-width="5" stroke-linecap="round"/>
-  <path d="M18 31 C21 20, 25 20, 28 31 S35 42, 37 24" stroke="#2563EB" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="20" cy="31" r="3.2" fill="#22C55E" stroke="#111827" stroke-width="2"/>
-  <circle cx="28" cy="23" r="3.2" fill="#F59E0B" stroke="#111827" stroke-width="2"/>
-  <circle cx="36" cy="28" r="3.2" fill="#EF4444" stroke="#111827" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="anCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a4047"/>
+      <stop offset="0.5" stop-color="#23272c"/>
+      <stop offset="1" stop-color="#13161a"/>
+    </linearGradient>
+    <linearGradient id="anBarBlue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1f3f7a"/>
+      <stop offset="0.45" stop-color="#7aa6e6"/>
+      <stop offset="0.55" stop-color="#9ec0ee"/>
+      <stop offset="1" stop-color="#2c5fb8"/>
+    </linearGradient>
+    <linearGradient id="anBarGreen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1d6238"/>
+      <stop offset="0.45" stop-color="#5cc78c"/>
+      <stop offset="0.55" stop-color="#9aebbd"/>
+      <stop offset="1" stop-color="#2d8a55"/>
+    </linearGradient>
+    <linearGradient id="anBarYellow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7a4612"/>
+      <stop offset="0.45" stop-color="#fbcf80"/>
+      <stop offset="0.55" stop-color="#ffe1a8"/>
+      <stop offset="1" stop-color="#cc7a26"/>
+    </linearGradient>
+    <linearGradient id="anBarRed" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7a1d1b"/>
+      <stop offset="0.45" stop-color="#ff8a87"/>
+      <stop offset="0.55" stop-color="#ffb5b3"/>
+      <stop offset="1" stop-color="#a83632"/>
+    </linearGradient>
+    <radialGradient id="anLensGlass" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#5a7298" stop-opacity="0.45"/>
+      <stop offset="0.4" stop-color="#1a2532" stop-opacity="0.85"/>
+      <stop offset="0.85" stop-color="#0a1118"/>
+      <stop offset="1" stop-color="#08101a"/>
+    </radialGradient>
+    <linearGradient id="anLensRim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cfdcef"/>
+      <stop offset="0.5" stop-color="#5c8fd6"/>
+      <stop offset="1" stop-color="#1d3a6a"/>
+    </linearGradient>
+    <linearGradient id="anHandle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0f3f6"/>
+      <stop offset="0.5" stop-color="#a8b1bb"/>
+      <stop offset="1" stop-color="#4a5159"/>
+    </linearGradient>
+    <filter id="anShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1" stdDeviation="0.9" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+
+  <rect x="5" y="5" width="54" height="54" rx="10" fill="url(#anCard)" stroke="#0a0c0f" stroke-width="2"/>
+  <rect x="5.6" y="5.6" width="52.8" height="52.8" rx="9.5" fill="none" stroke="#7a8088" stroke-width="0.5" opacity="0.45"/>
+  <rect x="5.6" y="5.6" width="52.8" height="3" rx="9" fill="#ffffff" opacity="0.05"/>
+
+  <line x1="11" y1="50.5" x2="49" y2="50.5" stroke="#3a4047" stroke-width="1.4"/>
+  <line x1="11" y1="51" x2="49" y2="51" stroke="#0a0c0f" stroke-width="0.6" opacity="0.7"/>
+
+  <rect x="13" y="36" width="7" height="14" rx="1.2" fill="url(#anBarBlue)" stroke="#0a0c0f" stroke-width="0.7" filter="url(#anShadow)"/>
+  <rect x="14" y="37" width="1.2" height="12" rx="0.6" fill="#ffffff" opacity="0.45"/>
+  <rect x="22" y="24" width="7" height="26" rx="1.2" fill="url(#anBarGreen)" stroke="#0a0c0f" stroke-width="0.7" filter="url(#anShadow)"/>
+  <rect x="23" y="25" width="1.2" height="24" rx="0.6" fill="#ffffff" opacity="0.45"/>
+  <rect x="31" y="30" width="7" height="20" rx="1.2" fill="url(#anBarYellow)" stroke="#0a0c0f" stroke-width="0.7" filter="url(#anShadow)"/>
+  <rect x="32" y="31" width="1.2" height="18" rx="0.6" fill="#ffffff" opacity="0.45"/>
+  <rect x="40" y="20" width="7" height="30" rx="1.2" fill="url(#anBarRed)" stroke="#0a0c0f" stroke-width="0.7" filter="url(#anShadow)"/>
+  <rect x="41" y="21" width="1.2" height="28" rx="0.6" fill="#ffffff" opacity="0.5"/>
+
+  <circle cx="42" cy="22" r="14" fill="url(#anLensGlass)" stroke="url(#anLensRim)" stroke-width="2.6" filter="url(#anShadow)"/>
+  <circle cx="42" cy="22" r="13" fill="none" stroke="#0a0c0f" stroke-width="0.6" opacity="0.85"/>
+  <ellipse cx="37" cy="16" rx="5.5" ry="3" fill="#ffffff" opacity="0.42" transform="rotate(-25 37 16)"/>
+  <ellipse cx="46" cy="29" rx="2" ry="0.8" fill="#ffffff" opacity="0.25"/>
+
+  <line x1="51" y1="31" x2="58" y2="38" stroke="#0a0c0f" stroke-width="6" stroke-linecap="round"/>
+  <line x1="51" y1="31" x2="58" y2="38" stroke="url(#anHandle)" stroke-width="3" stroke-linecap="round"/>
+  <line x1="52" y1="30" x2="56" y2="34" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round" opacity="0.55"/>
 </svg>

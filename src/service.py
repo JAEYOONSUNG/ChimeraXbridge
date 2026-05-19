@@ -25,7 +25,15 @@ from .backends import (
     sanitize_model_override,
 )
 from .agent_tools import dispatch_openai_agent_tool, openai_agent_tool_definitions
-from .builtin_actions import recommended_figure_mode, run_figure_mode, run_partial_local_flow, try_analysis_fastpath, try_builtin_fastpath, try_visual_fastpath
+from .builtin_actions import (
+    recommended_figure_mode,
+    run_analysis_visual_companion,
+    run_figure_mode,
+    run_partial_local_flow,
+    try_analysis_fastpath,
+    try_builtin_fastpath,
+    try_visual_fastpath,
+)
 from .docs_index import format_docs_snippets, likely_command_aliases
 from .docs_hints import docs_hints_for_prompt
 from .nl_memory import record_nl_event, register_feedback
@@ -41,7 +49,6 @@ from .semantic import (
     format_domains_report,
     format_external_reference_report,
     format_ligand_report,
-    format_metal_report,
     format_motif_report,
     format_research_brief,
     format_uniprot_residue_report,
@@ -52,6 +59,7 @@ from .semantic import (
     summarize_semantics,
 )
 from .membrane import format_membrane_report
+from .metal_placement import format_metal_evidence_report
 from .pisa import format_pisa_report
 
 
@@ -219,7 +227,7 @@ def ask_analysis(session, user_prompt, *, progress=None, fast=True):
     brief = format_research_brief(session)
     general = format_analyze_report(session)
     annotation = format_annotation_report(session)
-    metal = format_metal_report(session)
+    metal = _combined_metal_context(session)
     motifs = format_motif_report(session)
     dali = format_dali_report(session)
     sequence = format_sequence_report(session)
@@ -251,6 +259,7 @@ def ask_analysis(session, user_prompt, *, progress=None, fast=True):
             "Use visual_suggestions only for allowed figure modes that would help inspect the current structure.",
             "If exact commands would help, put them in command_suggestions as plain ChimeraX command strings.",
             "For catalytic-residue questions, prioritize candidates supported by multiple evidence streams: motif, ligand/metal neighborhood, 3D catalytic-like clustering, and recent conservation.",
+            "For metal-placement questions, first include existing metal-ion coordination and predicted virtual candidates; use RCSB fold/homolog evidence when the user asks whether related solved structures contain metals; suggest `metal place` only when a marker should be added.",
             "For membrane-protein questions, use membrane context and prefer a virtual in-app slab for visualization; use OPM/PPM or CHARMM-GUI/MemGen for authoritative orientation or explicit lipids.",
             "For interface-area or PISA questions, use the PISA-like context and prefer `/pisa view` so ChimeraX measures buried surface area in the Log.",
             "Keep claims compact and evidence high-signal.",
@@ -308,6 +317,10 @@ def ask_analysis(session, user_prompt, *, progress=None, fast=True):
     reply = _format_analysis_response(parsed_reply)
     _append_analysis_memory(session, user_prompt, brief, reply)
     return reply
+
+
+def _combined_metal_context(session, model_hint=None):
+    return format_metal_evidence_report(session, model_hint=model_hint, include_rcsb=False)
 
 
 def _parse_analysis_response(raw_reply):
@@ -641,6 +654,7 @@ def plan_codex_actions(session, user_prompt, *, include_models=True, include_sel
             "Allowed figure modes: " + ", ".join(FIGURE_MODE_OPTIONS),
             f"Recommended figure mode right now: {recommended_figure_mode(session) or 'none'}",
             "If the request should not trigger execution, return an empty actions array and explain briefly in message.",
+            "For virtual metal placement goals, inspect current metal/candidate evidence first unless insertion was explicit; use `metal place` only when the user asks to add/place/optimize a marker.",
             "Do not invent files, shell commands, or model IDs that are not in the context.",
             f"Recent ChimeraX state changes since last AI turn:\n{prepared_context['state_delta_text']}",
             f"Recent ChimeraX command and terminal history:\n{_recent_command_history_text(session, limit=10)}",
@@ -740,6 +754,7 @@ def plan_codex_agent_step(
             f"This is step {step_number} of at most {max_steps}.",
             "Use short, safe action batches. After each batch, the session state will be refreshed and shown to you again.",
             "For catalytic-residue or active-site goals, first gather local catalytic, motif, ligand/metal, and conservation evidence; do not claim a catalytic residue from appearance alone.",
+            "For virtual metal placement goals, inspect current metal/candidate evidence first unless insertion was explicit; use `metal place` only when the user asks to add/place/optimize a marker.",
             "If the user's goal appears complete, or you should stop and report back, set done to true.",
             "For conversational or explanatory requests that do not require changing ChimeraX, return an empty actions array and set done to true.",
             "Use action type chimeraX_command_batch for exact ChimeraX commands.",
@@ -986,9 +1001,22 @@ def run_mode_request(
                 analysis_reply = ask_analysis(session, user_prompt, progress=progress, fast=fast)
             except Exception as err:
                 error_text = str(err) if str(err) else err.__class__.__name__
+                auto_visual = None
+                if visual is None and not _analysis_text_only_request(user_prompt):
+                    try:
+                        auto_visual = run_analysis_visual_companion(
+                            session,
+                            user_prompt,
+                            progress=progress,
+                            executor=executor,
+                        )
+                    except Exception as visual_err:
+                        auto_visual = f"Analysis visual companion failed: {visual_err}"
                 blocks = []
                 if visual:
                     blocks.extend([visual, ""])
+                elif auto_visual:
+                    blocks.extend([auto_visual, ""])
                 if local:
                     blocks.extend([local, ""])
                 blocks.extend([brief, "", "Backend analysis failed:", error_text])
@@ -996,10 +1024,20 @@ def run_mode_request(
             else:
                 auto_visual = None
                 if visual is None and not _analysis_text_only_request(user_prompt):
-                    mode_name = _analysis_visual_mode_for_prompt(session, user_prompt)
-                    if mode_name:
-                        _emit_progress(progress, f"[route] explicit visual companion -> figure {mode_name}")
-                        auto_visual = run_figure_mode(session, mode_name, executor=executor)
+                    try:
+                        auto_visual = run_analysis_visual_companion(
+                            session,
+                            user_prompt,
+                            progress=progress,
+                            executor=executor,
+                        )
+                    except Exception as err:
+                        auto_visual = f"Analysis visual companion failed: {err}"
+                    if auto_visual is None:
+                        mode_name = _analysis_visual_mode_for_prompt(session, user_prompt)
+                        if mode_name:
+                            _emit_progress(progress, f"[route] explicit visual companion -> figure {mode_name}")
+                            auto_visual = run_figure_mode(session, mode_name, executor=executor)
 
                 extracted_visual = None
                 suggested_commands = None
@@ -1588,7 +1626,13 @@ def _run_session_command(session, command):
             event.set()
 
     thread_safe(runner)
-    event.wait()
+    # 120s upper bound so a dead Qt loop surfaces as a clear timeout rather
+    # than hanging the worker thread forever. Most UI-bounced commands return
+    # in milliseconds; long-running ones (foldseek, etc.) run async.
+    if not event.wait(120):
+        raise TimeoutError(
+            f"_run_session_command: UI thread did not run command within 120s: {command!r}"
+        )
     if "error" in result_box:
         raise result_box["error"]
     return result_box.get("result")
@@ -1884,6 +1928,7 @@ def _openai_agent_instructions():
             "Prefer a tool call when the user asks you to change the scene, inspect current structure state, or verify whether an action worked.",
             "Call analyze_structure before making functional, active-site, ligand-pocket, interface, or domain claims that are not directly obvious from the current context.",
             "For catalytic-residue or active-site questions, use analyze_structure with report=catalytic_workflow, then verify visual or selection actions against the updated scene state.",
+            "For metal questions, use analyze_structure with report=metal_candidates for local candidates and report=metal_evidence when the user asks whether related solved/fold-homolog structures contain metals; call predict_and_place_metal with place=true only for explicit insertion requests.",
             "For membrane-protein questions, use analyze_structure with report=membrane; for a quick in-app membrane visualization run `/membrane view` through run_chimerax_command.",
             "For contact-surface, buried-area, or PISA questions, use analyze_structure with report=pisa; for direct measurement run ChimeraX `interfaces select` and `measure buriedarea` commands from that report.",
             "Keep command batches short. After visual changes, inspect scene state if the next action depends on whether the view changed.",
@@ -2309,7 +2354,10 @@ def _read_process_stream(stream, sink, progress, kind):
 
 
 def _append_turn_memory(session, mode, user_prompt, reply):
-    memory = session._codex_bridge_turn_memory
+    memory = getattr(session, "_codex_bridge_turn_memory", None)
+    if memory is None:
+        memory = []
+        session._codex_bridge_turn_memory = memory
     memory.append(
         {
             "mode": str(mode or "chat"),
@@ -2383,7 +2431,10 @@ def _reply_memory_lines(reply):
 
 
 def _append_analysis_memory(session, user_prompt, brief, reply):
-    memory = session._codex_bridge_analysis_memory
+    memory = getattr(session, "_codex_bridge_analysis_memory", None)
+    if memory is None:
+        memory = []
+        session._codex_bridge_analysis_memory = memory
     catalytic = best_catalytic_candidates(session)
     dali = format_dali_report(session)
     memory.append(

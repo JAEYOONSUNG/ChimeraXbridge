@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cavity">
+  <defs>
+    <linearGradient id="card" x1="9" y1="7" x2="55" y2="57" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3a4047"/>
+      <stop offset="1" stop-color="#171a1d"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="145%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.2" flood-color="#050608" flood-opacity=".45"/>
+    </filter>
+    <radialGradient id="protein" cx="0" cy="0" r="1" gradientTransform="translate(28 26) rotate(38) scale(24 20)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d8e2ec"/>
+      <stop offset=".55" stop-color="#7f8b98"/>
+      <stop offset="1" stop-color="#3e4650"/>
+    </radialGradient>
+    <radialGradient id="pocket" cx="0" cy="0" r="1" gradientTransform="translate(36 35) scale(15 12)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe6cf" stop-opacity=".92"/>
+      <stop offset=".58" stop-color="#ff9d5a" stop-opacity=".66"/>
+      <stop offset="1" stop-color="#d35f2b" stop-opacity=".36"/>
+    </radialGradient>
+    <radialGradient id="ligand" cx="0" cy="0" r="1" gradientTransform="translate(39 35) scale(5.8)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff8e8"/>
+      <stop offset=".5" stop-color="#f8c66a"/>
+      <stop offset="1" stop-color="#b86522"/>
+    </radialGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="10" fill="url(#card)" filter="url(#shadow)"/>
+  <path d="M17.5 25.2c-2.7 6.6.5 15.4 7.2 20.1 6.1 4.2 15.3 3.4 20.6-1.1 6.1-5.2 7.7-14.9 3.2-21.3-4.1-5.9-12.9-8.1-20.2-6.4-5.1 1.2-9 3.9-10.8 8.7z" fill="url(#protein)" stroke="#0d1116" stroke-width="2.4"/>
+  <path d="M25.2 20.3c4.6-2.8 11.9-2.5 16.1 1.4M18.4 32.2c2.5-1.2 5.3-1.5 8.3-.9M26.2 46.1c3.1-3.7 7.5-5.3 13.1-4.9" fill="none" stroke="#edf3f9" stroke-width="1.5" stroke-linecap="round" opacity=".33"/>
+  <path d="M27.8 31.2c2.8-5.8 12.2-7.2 16.7-2.8 4.1 4 2.9 11.7-2.4 14.7-4.9 2.8-12.6.6-15-4-1.1-2.2-.6-5 .7-7.9z" fill="url(#pocket)" stroke="#ffbd87" stroke-width="1.8" opacity=".9"/>
+  <circle cx="39" cy="35" r="5.6" fill="url(#ligand)" stroke="#5a2b14" stroke-width="1.5"/>
+  <circle cx="32.5" cy="31" r="2.3" fill="#ffddbf" opacity=".88"/>
+  <circle cx="43.8" cy="39.8" r="1.9" fill="#ffd3a8" opacity=".78"/>
+  <path d="M19.5 49.2c7.8 5.5 20.7 5 28.3-1.4" fill="none" stroke="#07090b" stroke-width="2.2" stroke-linecap="round" opacity=".42"/>
+</svg>

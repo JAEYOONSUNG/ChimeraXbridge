@@ -268,6 +268,34 @@ def codex_seqbar(session):
 codex_seqbar_desc = CmdDesc()
 
 
+def codex_structalign(session, request=""):
+    from .structural_alignment_report import generate_structural_alignment_report
+
+    text = str(request or "").strip().lower()
+    mode = "core" if any(token in text for token in ("core", "코어")) else "full"
+    message = generate_structural_alignment_report(session, mode=mode, open_report=True)
+    session.logger.info(message)
+    return message
+
+
+codex_structalign_desc = CmdDesc(
+    optional=[("request", RestOfLine)],
+)
+
+
+def signalp(session, request=""):
+    from .signalp import run_signalp_command_text
+
+    message = run_signalp_command_text(session, request)
+    session.logger.info(message)
+    return message
+
+
+signalp_desc = CmdDesc(
+    optional=[("request", RestOfLine)],
+)
+
+
 def codex_backend(session, name=None):
     ensure_session_preferences(session)
     if name is None:

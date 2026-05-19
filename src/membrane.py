@@ -59,17 +59,21 @@ def _resolve_default_model_spec(session):
         return None
 
 
-def format_membrane_report(session, model_hint=None):
+def format_membrane_report(session, model_hint=None, display_limit=10):
     target = _resolve_target_structure(session, model_hint)
     if target is None:
         if model_hint:
             return f"- No atomic model matched for membrane analysis: {model_hint}"
         return "- No atomic model is open for membrane analysis."
 
+    try:
+        cap = max(1, min(50, int(display_limit)))
+    except Exception:
+        cap = 10
     model, spec = target
     bounds = _model_bounds(model)
     segments = _tm_like_segments(model, spec)
-    session._codex_bridge_last_membrane_segments = segments[:16]
+    session._codex_bridge_last_membrane_segments = segments[:max(16, cap)]
 
     lines = ["Membrane workflow"]
     lines.append(f"- target: {spec} {getattr(model, 'name', 'structure')}")
@@ -82,7 +86,7 @@ def format_membrane_report(session, model_hint=None):
 
     if segments:
         lines.append(f"- TM-like hydrophobic segments: {len(segments)}")
-        for segment in segments[:10]:
+        for segment in segments[:cap]:
             lines.append(
                 f"  - {segment['chain_id']}:{segment['start']}-{segment['end']} "
                 f"{segment['sse']} score {segment['score']:.2f}; "
@@ -99,7 +103,15 @@ def format_membrane_report(session, model_hint=None):
     return "\n".join(lines)
 
 
-def run_membrane_view(session, model_hint=None, *, executor=None, apply_mlp=True):
+def run_membrane_view(session, model_hint=None, *, executor=None, apply_mlp=True,
+                      thickness=None, transparency=45, width=None, margin=None):
+    """Render a virtual membrane slab.
+
+    thickness: optional Å override (default = auto from z-span, clamped 28-42).
+    transparency: surface transparency 0-100 (default 45).
+    width: optional Å slab width override (clamped 30-300).
+    margin: extra padding around model bbox (default 32 Å, clamped 0-100).
+    """
     target = _resolve_target_structure(session, model_hint)
     if target is None:
         if model_hint:
@@ -113,14 +125,30 @@ def run_membrane_view(session, model_hint=None, *, executor=None, apply_mlp=True
 
     _close_virtual_membrane(session, executor=executor)
     center, size = bounds
-    slab = _membrane_geometry(model, center, size)
+    slab = _membrane_geometry(model, center, size, margin=margin)
+    if width is not None:
+        try:
+            override_w = max(30.0, min(300.0, float(width)))
+            slab["width"] = override_w
+            slab["height"] = override_w
+        except Exception:
+            pass
+    if thickness is not None:
+        try:
+            slab["thickness"] = max(10.0, min(60.0, float(thickness)))
+        except Exception:
+            pass
     models = _open_membrane_bild(session, _membrane_bild(slab), "AI virtual membrane", executor=executor)
     session._codex_bridge_virtual_membrane_models = list(models)
 
+    try:
+        trans_pct = max(0, min(100, int(transparency)))
+    except Exception:
+        trans_pct = 45
     commands = [
         f"cartoon {spec}",
         f"surface {spec}",
-        f"transparency {spec} 45 target s",
+        f"transparency {spec} {trans_pct} target s",
     ]
     executed = []
     for command in commands:
@@ -275,12 +303,16 @@ def _model_bounds(model):
     return center, size
 
 
-def _membrane_geometry(model, center, size):
+def _membrane_geometry(model, center, size, margin=None):
     np = _np()
     segments = _tm_like_segments(model, f"#{getattr(model, 'id_string', '?')}")
     z_values = [segment.get("center_z") for segment in segments if segment.get("center_z") is not None]
     z_center = float(np.median(z_values)) if z_values else float(center[2])
-    width = _clamp(float(max(size[0], size[1]) + 32.0), 46.0, 220.0)
+    try:
+        m = max(0.0, min(100.0, float(margin))) if margin is not None else 32.0
+    except Exception:
+        m = 32.0
+    width = _clamp(float(max(size[0], size[1]) + m), 46.0, 220.0)
     height = width
     thickness = 30.0
     if segments:
@@ -336,7 +368,16 @@ def _open_membrane_bild(session, bild_text, name, *, executor=None):
         session._codex_bridge_virtual_membrane_specs = [model_spec]
         return []
 
-    from chimerax.bild.bild import read_bild
+    try:
+        from chimerax.bild.bild import read_bild
+    except ImportError:
+        try:
+            session.logger.warning(
+                "ChimeraX-Bild bundle is not installed; cannot render virtual membrane slab."
+            )
+        except Exception:
+            pass
+        return []
 
     models, _status = read_bild(session, io.BytesIO(bild_text.encode("utf-8")), name)
     for model in models:
@@ -397,6 +438,7 @@ def _write_temp_bild(bild_text):
 
 
 def _tm_like_segments(model, spec):
+    np = _np()
     from chimerax.atomic import Residue
 
     segments = []
@@ -563,7 +605,7 @@ def _copy_text_to_clipboard(text):
     try:
         import subprocess
 
-        subprocess.run(["pbcopy"], input=str(text).encode("utf-8"), check=False)
+        subprocess.run(["pbcopy"], input=str(text).encode("utf-8"), check=False, timeout=5)
     except Exception:
         pass
 

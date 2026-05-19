@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Zoom">
+  <defs>
+    <linearGradient id="zlens" x1="12" y1="9" x2="46" y2="45" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#b8c7d9"/>
+    </linearGradient>
+    <linearGradient id="zhandle" x1="39" y1="39" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b4652"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <radialGradient id="ztriad" cx="0" cy="0" r="1" gradientTransform="translate(28 27) rotate(90) scale(11)">
+      <stop offset="0" stop-color="#ffd166"/>
+      <stop offset=".55" stop-color="#d4845c"/>
+      <stop offset="1" stop-color="#7c2d12"/>
+    </radialGradient>
+  </defs>
+  <!-- Lens — same dimensions as Analyze for identical toolbar bounding box -->
+  <circle cx="28" cy="27" r="17" fill="url(#zlens)" stroke="#111827" stroke-width="4"/>
+  <!-- Handle — same path as Analyze -->
+  <path d="M40.5 39.5 53.5 52.5" stroke="url(#zhandle)" stroke-width="7" stroke-linecap="round"/>
+  <!-- Triad inside lens (3 dots in triangle, sienna palette matching catalytic accent) -->
+  <circle cx="28" cy="27" r="9.5" fill="url(#ztriad)" stroke="#111827" stroke-width="2.4"/>
+  <circle cx="22.5" cy="23.5" r="2.8" fill="#fff7ed" stroke="#7c2d12" stroke-width="1.4"/>
+  <circle cx="33.5" cy="23.5" r="2.8" fill="#fff7ed" stroke="#7c2d12" stroke-width="1.4"/>
+  <circle cx="28" cy="32" r="2.8" fill="#fff7ed" stroke="#7c2d12" stroke-width="1.4"/>
+  <!-- Bottom underline — matches Analyze's underline at y=46 for identical vertical bounds -->
+  <path d="M16 46h18" stroke="#64748b" stroke-width="3" stroke-linecap="round" opacity=".75"/>
+</svg>

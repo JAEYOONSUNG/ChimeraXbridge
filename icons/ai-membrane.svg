@@ -1,18 +1,97 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="g" x1="8" y1="10" x2="56" y2="54" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#6f7782"/>
-      <stop offset="1" stop-color="#161a1f"/>
+    <linearGradient id="mbCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a4047"/>
+      <stop offset="0.5" stop-color="#23272c"/>
+      <stop offset="1" stop-color="#13161a"/>
     </linearGradient>
+    <radialGradient id="mbHead" cx="0.32" cy="0.28" r="0.85">
+      <stop offset="0" stop-color="#fff4d6"/>
+      <stop offset="0.35" stop-color="#fbcf80"/>
+      <stop offset="0.75" stop-color="#cc7a26"/>
+      <stop offset="1" stop-color="#5a3308"/>
+    </radialGradient>
+    <linearGradient id="mbTail" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a8b1bb"/>
+      <stop offset="1" stop-color="#3a4047"/>
+    </linearGradient>
+    <linearGradient id="mbHelix" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1d3a6a"/>
+      <stop offset="0.4" stop-color="#5c8fd6"/>
+      <stop offset="0.55" stop-color="#9ec0ee"/>
+      <stop offset="0.7" stop-color="#cfdcef"/>
+      <stop offset="1" stop-color="#26447b"/>
+    </linearGradient>
+    <linearGradient id="mbWater" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c4a72" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#0e1a30" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="mbWaterBot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e1a30" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#2c4a72" stop-opacity="0.18"/>
+    </linearGradient>
+    <filter id="mbDrop" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0.9" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.65"/>
+    </filter>
   </defs>
-  <rect x="8" y="21" width="48" height="22" rx="7" fill="url(#g)" opacity=".82"/>
-  <path d="M10 22h44M10 42h44" fill="none" stroke="#aab2bd" stroke-width="3" stroke-linecap="round" opacity=".9"/>
-  <path d="M15 28c5-4 9 4 14 0s9 4 14 0 6 2 8 1" fill="none" stroke="#e8edf2" stroke-width="2.8" stroke-linecap="round"/>
-  <path d="M15 36c5 4 9-4 14 0s9-4 14 0 6-2 8-1" fill="none" stroke="#9099a4" stroke-width="2.8" stroke-linecap="round"/>
-  <circle cx="18" cy="22" r="3.2" fill="#d0d6dd"/>
-  <circle cx="30" cy="22" r="3.2" fill="#d0d6dd"/>
-  <circle cx="42" cy="22" r="3.2" fill="#d0d6dd"/>
-  <circle cx="18" cy="42" r="3.2" fill="#d0d6dd"/>
-  <circle cx="30" cy="42" r="3.2" fill="#d0d6dd"/>
-  <circle cx="42" cy="42" r="3.2" fill="#d0d6dd"/>
+
+  <rect x="5" y="5" width="54" height="54" rx="10" fill="url(#mbCard)" stroke="#0a0c0f" stroke-width="2"/>
+  <rect x="5.6" y="5.6" width="52.8" height="52.8" rx="9.5" fill="none" stroke="#7a8088" stroke-width="0.5" opacity="0.45"/>
+  <rect x="5.6" y="5.6" width="52.8" height="3" rx="9" fill="#ffffff" opacity="0.05"/>
+
+  <rect x="6" y="8" width="52" height="14" fill="url(#mbWater)"/>
+  <rect x="6" y="42" width="52" height="14" fill="url(#mbWaterBot)"/>
+
+  <g stroke="url(#mbTail)" stroke-width="1.4" stroke-linecap="round" opacity="0.95">
+    <path d="M11 23 C10 27, 12 29, 11 32" fill="none"/>
+    <path d="M14 23 C15 27, 13 29, 14 32" fill="none"/>
+    <path d="M19 23 C18 27, 20 29, 19 32" fill="none"/>
+    <path d="M22 23 C23 27, 21 29, 22 32" fill="none"/>
+    <path d="M44 23 C43 27, 45 29, 44 32" fill="none"/>
+    <path d="M47 23 C48 27, 46 29, 47 32" fill="none"/>
+    <path d="M52 23 C51 27, 53 29, 52 32" fill="none"/>
+    <path d="M55 23 C56 27, 54 29, 55 32" fill="none"/>
+
+    <path d="M11 41 C10 37, 12 35, 11 32" fill="none"/>
+    <path d="M14 41 C15 37, 13 35, 14 32" fill="none"/>
+    <path d="M19 41 C18 37, 20 35, 19 32" fill="none"/>
+    <path d="M22 41 C23 37, 21 35, 22 32" fill="none"/>
+    <path d="M44 41 C43 37, 45 35, 44 32" fill="none"/>
+    <path d="M47 41 C48 37, 46 35, 47 32" fill="none"/>
+    <path d="M52 41 C51 37, 53 35, 52 32" fill="none"/>
+    <path d="M55 41 C56 37, 54 35, 55 32" fill="none"/>
+  </g>
+
+  <g filter="url(#mbDrop)">
+    <circle cx="11" cy="22" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="14" cy="22" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="19" cy="22" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="22" cy="22" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="44" cy="22" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="47" cy="22" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="52" cy="22" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="55" cy="22" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+
+    <circle cx="11" cy="42" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="14" cy="42" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="19" cy="42" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="22" cy="42" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="44" cy="42" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="47" cy="42" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="52" cy="42" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+    <circle cx="55" cy="42" r="2.6" fill="url(#mbHead)" stroke="#0a0c0f" stroke-width="0.7"/>
+  </g>
+
+  <g filter="url(#mbDrop)">
+    <ellipse cx="32" cy="14" rx="6" ry="3.2" fill="url(#mbHelix)" stroke="#0a0c0f" stroke-width="1"/>
+    <ellipse cx="30" cy="13" rx="3" ry="1" fill="#ffffff" opacity="0.4" transform="rotate(-8 30 13)"/>
+    <ellipse cx="32" cy="22" rx="6" ry="3.2" fill="url(#mbHelix)" stroke="#0a0c0f" stroke-width="1"/>
+    <ellipse cx="30" cy="21" rx="3" ry="1" fill="#ffffff" opacity="0.4" transform="rotate(-8 30 21)"/>
+    <ellipse cx="32" cy="32" rx="6" ry="3.2" fill="url(#mbHelix)" stroke="#0a0c0f" stroke-width="1"/>
+    <ellipse cx="30" cy="31" rx="3" ry="1" fill="#ffffff" opacity="0.4" transform="rotate(-8 30 31)"/>
+    <ellipse cx="32" cy="42" rx="6" ry="3.2" fill="url(#mbHelix)" stroke="#0a0c0f" stroke-width="1"/>
+    <ellipse cx="30" cy="41" rx="3" ry="1" fill="#ffffff" opacity="0.4" transform="rotate(-8 30 41)"/>
+    <ellipse cx="32" cy="50" rx="6" ry="3.2" fill="url(#mbHelix)" stroke="#0a0c0f" stroke-width="1"/>
+    <ellipse cx="30" cy="49" rx="3" ry="1" fill="#ffffff" opacity="0.4" transform="rotate(-8 30 49)"/>
+  </g>
 </svg>

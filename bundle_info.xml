@@ -18,7 +18,7 @@ ChimeraX bundle names must start with "ChimeraX-".
     with open-model, selection, view, and structure
     reference context. Provides the commands "ai", "codex ask", "codex backend",
     "codex model", "codex routing", "codex context", "codex selftest",
-    "codex tool", and "codex seqbar", plus a live Qt workspace
+    "codex tool", "codex seqbar", and "signalp", plus a live Qt workspace
     with quick actions and interactive suggestions.
   </Description>
 
@@ -27,15 +27,20 @@ ChimeraX bundle names must start with "ChimeraX-".
   </Categories>
 
   <DataFiles>
+    <DataFile>web_sequence_launcher.mjs</DataFile>
     <DataFile>docs/user/commands/codex.html</DataFile>
     <DataFile>docs/user/tools/codex_assistant.html</DataFile>
     <DataFile>docs/user/tools/codex_action_pad.html</DataFile>
+    <DataDir>icons</DataDir>
   </DataFiles>
 
   <Dependencies>
     <Dependency name="ChimeraX-Core" version="~=1.10"/>
     <Dependency name="ChimeraX-Atomic" version="~=1.10"/>
     <Dependency name="ChimeraX-UI" version="~=1.10"/>
+    <Dependency name="ChimeraX-CommandLine" version="~=1.0"/>
+    <Dependency name="ChimeraX-MouseModes" version="~=1.0"/>
+    <Dependency name="ChimeraX-Toolbar" version="~=1.0"/>
   </Dependencies>
 
   <Classifiers>
@@ -65,6 +70,18 @@ ChimeraX bundle names must start with "ChimeraX-".
       Open the PyMOL-style action pad</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Command :: codex seqbar :: General ::
       Open the PyMOL-style top sequence bar</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex structalign :: General ::
+      Export an ESPript-like structural MSA report for the open aligned structures</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: signalp :: General ::
+      Run SignalP signal-peptide analysis and color predicted regions on the current model</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: metal place :: General ::
+      Predict metal-binding sites and place virtual metal ions with coordination guides</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: metal predict :: General ::
+      Report predicted metal-binding candidates without placing markers</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: metal evidence :: General ::
+      Check current metals, predicted candidates, and RCSB fold-homolog metal evidence</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: metal clear :: General ::
+      Clear all predicted metal markers and coordination guides from the view</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-tab :: toolbar :: tab:AI :: after:"Right Mouse" :: help:help:user/tools/codex_assistant.html</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-layout-quick :: toolbar :: tab:AI :: section:Quick</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-layout-sequence :: toolbar :: tab:AI :: section:Sequence :: after:Quick</ChimeraXClassifier>
@@ -76,17 +93,25 @@ ChimeraX bundle names must start with "ChimeraX-".
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-quick-view :: toolbar :: tab:AI :: section:Quick :: display_name:View :: icon:ai-view.svg :: description:"Apply the next AI-guided structure view"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-quick-site :: toolbar :: tab:AI :: section:Quick :: display_name:Site :: icon:ai-site.svg :: description:"Focus the most likely site or interface"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-quick-figure :: toolbar :: tab:AI :: section:Quick :: display_name:Figure :: icon:ai-figure.svg :: description:"Cycle figure-ready views"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-quick-triad-zoom :: toolbar :: tab:AI :: section:Quick :: display_name:Zoom :: icon:ai-zoom.svg :: description:"Fade scaffold cartoon to 80% transparency and zoom into the catalytic triad close-up"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-quick-cavity :: toolbar :: tab:AI :: section:Quick :: display_name:Cavity :: icon:ai-cavity.svg :: description:"Detect substrate-binding cavity and overlay a translucent surface"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-blast :: toolbar :: tab:AI :: section:Sequence :: display_name:Blast :: icon:blast-logo.png :: description:"Run ChimeraX native Blast Protein for the current chain"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-profile :: toolbar :: tab:AI :: section:Sequence :: display_name:Profile :: icon:uniprot-logo.png :: description:"Open UniProt BLAST with the current protein sequence"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-hhpred :: toolbar :: tab:AI :: section:Sequence :: display_name:HHpred :: icon:hhpred-logo.svg :: description:"Open HHpred / HHblits with the current protein sequence"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-signalp :: toolbar :: tab:AI :: section:Sequence :: display_name:SignalP :: icon:ai-signalp.png :: description:"Predict signal peptides, cleavage sites, and prodomain-like N-terminal regions"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-conserve :: toolbar :: tab:AI :: section:Sequence :: display_name:Consurf :: icon:consurf-logo.png :: description:"Run local ConSurf-lite conservation view for the current structure"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-3dconserve :: toolbar :: tab:AI :: section:Sequence :: display_name:Conserve :: icon:ai-conserve.png :: description:"Highlight sequence-unique residues across the structures currently open and aligned"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-hydrophobicity :: toolbar :: tab:AI :: section:Sequence :: display_name:MLP :: icon:ai-hydrophobicity.svg :: description:"Color all visible structures by hydrophobicity (mlp) on a fixed scale so they are directly comparable"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-alphafold :: toolbar :: tab:AI :: section:Modeling :: display_name:AlphaFold :: icon:alphafold-logo.png :: description:"Run ChimeraX native AlphaFold match/search for the current chain"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-afcomplex :: toolbar :: tab:AI :: section:Modeling :: display_name:"AF Complex" :: icon:alphafold-logo.png :: description:"Paste DNA/RNA sequence and open AlphaFold Server with current protein chains"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-boltz :: toolbar :: tab:AI :: section:Modeling :: display_name:Boltz :: icon:boltz-logo.svg :: description:"Run official latest Boltz CLI on current chains, or open native Boltz panel"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-rapidock :: toolbar :: tab:AI :: section:Modeling :: display_name:RAPiDock :: icon:rapidock-logo.svg :: description:"Dock a peptide against the current protein with RAPiDock (engine picker: native/Docker/HPEPDOCK)"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-hpepdock :: toolbar :: tab:AI :: section:Modeling :: display_name:HPEPDOCK :: icon:hpepdock-logo.svg :: description:"Submit peptide + receptor to HPEPDOCK 2.0 web service (works on macOS, no GPU)"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-nucdock :: toolbar :: tab:AI :: section:Modeling :: display_name:NucDock :: icon:hdock-logo.png :: description:"Paste DNA/RNA sequence and dock it against the current receptor with HDOCK"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-catalytic :: toolbar :: tab:AI :: section:Sites :: display_name:Catalytic :: icon:ai-catalytic.svg :: description:"Rank and highlight catalytic residue candidates"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-folddisco :: toolbar :: tab:AI :: section:Sites :: display_name:FoldDisco :: icon:folddisco-logo.png :: description:"Search a selected structural motif with FoldDisco"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-pisa :: toolbar :: tab:AI :: section:Sites :: display_name:PISA :: icon:pisa-logo.svg :: description:"Measure and highlight chain-chain interface buried surface area"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-metal :: toolbar :: tab:AI :: section:Sites :: display_name:Metal :: icon:ai-metal.svg :: description:"Review existing metals and predicted metal-binding candidates"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-caver :: toolbar :: tab:AI :: section:Channels :: display_name:CAVER :: icon:caverweb-logo.svg :: description:"Export current structure and open CAVER Web tunnel/channel analysis"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-membrane :: toolbar :: tab:AI :: section:Channels :: display_name:Membrane :: icon:ai-membrane.svg :: description:"Create a virtual graphite membrane slab and run MLP hydrophobic analysis"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-similar :: toolbar :: tab:AI :: section:Structure :: display_name:Similar :: icon:foldseek-logo.png :: description:"Run Foldseek Similar Structures and align top hits"</ChimeraXClassifier>
@@ -95,7 +120,11 @@ ChimeraX bundle names must start with "ChimeraX-".
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-vast :: toolbar :: tab:AI :: section:Structure :: display_name:VAST :: icon:vast-logo.svg :: description:"Export current structure and open NCBI VAST"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-pdbefold :: toolbar :: tab:AI :: section:Structure :: display_name:PDBeFold :: icon:pdbefold-logo.png :: description:"Export current structure and open PDBeFold / SSM"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-usalign :: toolbar :: tab:AI :: section:Structure :: display_name:US-align :: icon:usalign-logo.svg :: description:"Align open structures in ChimeraX and run local US-align if available"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-analysis-structalign :: toolbar :: tab:AI :: section:Structure :: display_name:StructMSA :: icon:ai-sequence-bar.svg :: description:"Export an ESPript-like structural MSA report with core/loop, conservation, and metal-near tracks"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-display-controls :: toolbar :: tab:"Molecule Display" :: section:Adjust :: display_name:"Display Ctrl" :: icon:display-controls.svg :: description:"Open display sliders and a rainbow color palette"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-sequence-bar :: toolbar :: tab:"Molecule Display" :: section:Helper :: display_name:Sequence :: icon:display-controls.svg :: description:"Toggle the top Sequence display bar (clickable single-letter sequence)"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-action-pad :: toolbar :: tab:"Molecule Display" :: section:Helper :: display_name:"Action Pad" :: icon:ai-action-pad.svg :: description:"Open the PyMOL-style Action Pad for the current selection and models"</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Provider :: ai-camera-bookmarks :: toolbar :: tab:"Molecule Display" :: section:Helper :: display_name:"Bookmarks" :: icon:ai-camera-bookmarks.svg :: description:"Save / restore camera angles for screenshots"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-nucleotide-dock :: toolbar :: tab:Nucleotides :: section:"AI Tools" :: display_name:NucDock :: icon:hdock-logo.png :: description:"Paste DNA/RNA sequence and open HDOCK with the current receptor structure"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-nucleotide-afcomplex :: toolbar :: tab:Nucleotides :: section:"AI Tools" :: display_name:"AF Complex" :: icon:alphafold-logo.png :: description:"Paste DNA/RNA sequence and open AlphaFold Server with current protein chains"</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Provider :: ai-nucleotide-boltz :: toolbar :: tab:Nucleotides :: section:"AI Tools" :: display_name:Boltz :: icon:boltz-logo.svg :: description:"Run official latest Boltz CLI on current protein/DNA/RNA chains"</ChimeraXClassifier>
@@ -111,6 +140,8 @@ ChimeraX bundle names must start with "ChimeraX-".
       Slider controls and a rainbow color palette for molecule display</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Tool :: CAVER :: General ::
       Native CAVER job preparation, result import, tunnel display, and lining-residue selection</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Tool :: Camera Bookmarks :: General ::
+      Save and restore camera angles with a one-click list</ChimeraXClassifier>
   </Classifiers>
 
 </BundleInfo>

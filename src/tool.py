@@ -35,7 +35,11 @@ from .backends import (
 )
 from .builtin_actions import list_builtin_commands, recommended_figure_mode, run_builtin_slash, run_figure_mode
 from .control_intent import try_handle_control_intent
-from .display_color import apply_stick_context_colors, maybe_apply_stick_context_colors_for_command
+from .display_color import (
+    apply_stick_context_colors,
+    maybe_apply_stick_context_colors_for_command,
+    show_sticks_with_cartoon_anchor,
+)
 from .integration import command_batch
 from .service import format_memory_compare, run_mode_request
 
@@ -48,6 +52,13 @@ def _is_qt_main_thread():
         return app is not None and QThread.currentThread() == app.thread()
     except Exception:
         return False
+
+
+def _is_selection_only_command_text(command):
+    text = str(command or "").strip().lower()
+    if not text:
+        return False
+    return text == "select" or text.startswith("select ") or text.startswith("~select")
 
 
 class _PromptEditMixin:
@@ -169,7 +180,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 51
+    UI_LAYOUT_VERSION = 58
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -309,6 +320,12 @@ class CodexAssistant(ToolInstance):
             " border-color: #59636f;"
             "}"
             "QPushButton:pressed, QToolButton:pressed { background: #191d21; }"
+            "QPushButton:checked {"
+            " background: #2c3a4d;"
+            " border-color: #5c8bd6;"
+            " color: #f4f7fa;"
+            "}"
+            "QPushButton:checked:hover { background: #344660; border-color: #7aa6e6; }"
             "QToolButton { padding-right: 24px; }"
             "QToolButton::menu-indicator {"
             f" image: url(\"{control_arrow}\");"
@@ -424,6 +441,13 @@ class CodexAssistant(ToolInstance):
         self.analysis_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.analysis_menu_button.setMenu(self._build_analysis_menu(parent))
 
+        self.quick_rapidock_button = QPushButton("RAPiDock", parent)
+        self.quick_rapidock_button.clicked.connect(self._quick_rapidock)
+        self.quick_rapidock_button.setMinimumWidth(0)
+        self.quick_rapidock_button.setMaximumWidth(120)
+        self.quick_rapidock_button.hide()
+        self.quick_rapidock_button.setVisible(False)
+
         self.mode_combo = QComboBox(parent)
         for mode in self._mode_order:
             self.mode_combo.addItem(mode, mode)
@@ -443,7 +467,7 @@ class CodexAssistant(ToolInstance):
         self.speed_combo.setMaximumWidth(140)
 
         self.width_slider = QSlider(Qt.Orientation.Horizontal, parent)
-        self.width_slider.setRange(10, 50)
+        self.width_slider.setRange(10, 95)
         self.width_slider.setFixedWidth(90)
         self.width_slider.valueChanged.connect(self._dock_width_slider_changed)
         self.width_slider.setVisible(False)
@@ -478,6 +502,11 @@ class CodexAssistant(ToolInstance):
         self.open_action_pad_button.clicked.connect(self._open_action_pad)
         self.open_display_controls_button = QPushButton("Display Ctrl", parent)
         self.open_display_controls_button.clicked.connect(self._open_display_controls)
+        self.open_sequence_panel_button = QPushButton("Sequence", parent)
+        self.open_sequence_panel_button.setToolTip("Show or hide the Sequence display bar.")
+        self.open_sequence_panel_button.setCheckable(True)
+        self.open_sequence_panel_button.clicked.connect(self._toggle_sequence_bar)
+        self.open_display_controls_button.setCheckable(True)
         self._set_action_buttons_compact(True)
 
         sequence_status_row = QGridLayout()
@@ -525,6 +554,9 @@ class CodexAssistant(ToolInstance):
         self.quick_membrane_button.clicked.connect(self._quick_membrane)
         self.quick_pisa_button = QPushButton("PISA", parent)
         self.quick_pisa_button.clicked.connect(self._quick_pisa)
+        self.quick_metal_button = QPushButton("Metal", parent)
+        self.quick_metal_button.setToolTip("Review existing metals and predicted metal-binding sites")
+        self.quick_metal_button.clicked.connect(self._quick_metal)
 
         self.quick_blast_button = QPushButton("BLAST", parent)
         self.quick_blast_button.clicked.connect(self._quick_blast)
@@ -727,7 +759,10 @@ class CodexAssistant(ToolInstance):
         self.result_detail_edit = QPlainTextEdit(parent)
         self.result_detail_edit.setReadOnly(True)
         self.result_detail_edit.setFont(fixed_font)
-        self.result_detail_edit.setFixedHeight(88)
+        self.result_detail_edit.setFixedHeight(36)
+        self.result_detail_edit.setMaximumHeight(36)
+        self.result_detail_edit.setMinimumHeight(36)
+        self.result_detail_edit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.result_detail_edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         self.result_detail_edit.setPlaceholderText("Recent result details will appear here.")
         self.result_detail_edit.setStyleSheet(
@@ -843,6 +878,9 @@ class CodexAssistant(ToolInstance):
         assistant_layout.addWidget(self.assistant_vertical_splitter, 1)
 
         transcript_panel = QWidget(assistant_panel)
+        self.transcript_panel = transcript_panel
+        transcript_panel.setMaximumHeight(150)
+        transcript_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         transcript_layout = QVBoxLayout()
         transcript_layout.setContentsMargins(0, 0, 0, 0)
         transcript_layout.setSpacing(6)
@@ -872,14 +910,20 @@ class CodexAssistant(ToolInstance):
             " color: #d9dde2;"
             " border: 1px solid #343a40;"
             " border-radius: 10px;"
-            " padding: 10px;"
+            " padding: 6px;"
             " selection-background-color: #3a424a;"
             f"{mono_qss}"
             "}"
         )
-        transcript_layout.addWidget(self.terminal_edit, 1)
+        self.terminal_edit.setMinimumHeight(32)
+        self.terminal_edit.setMaximumHeight(140)
+        self.terminal_edit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        transcript_layout.addWidget(self.terminal_edit)
 
         interaction_panel = QWidget(assistant_panel)
+        self.interaction_panel = interaction_panel
+        interaction_panel.setMaximumHeight(120)
+        interaction_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         interaction_layout = QVBoxLayout()
         interaction_layout.setContentsMargins(0, 0, 0, 0)
         interaction_layout.setSpacing(6)
@@ -899,8 +943,11 @@ class CodexAssistant(ToolInstance):
 
         prompt_panel = QWidget(interaction_panel)
         self.prompt_panel = prompt_panel
-        self.prompt_panel.setMinimumHeight(96)
-        self.prompt_panel.setMaximumHeight(150)
+        # Height must accommodate: stage_label (~20px) + prompt_edit (≥50px for
+        # 2 lines + padding) + Run button (38px) + panel padding (19px) + spacing.
+        self.prompt_panel.setMinimumHeight(112)
+        self.prompt_panel.setMaximumHeight(160)
+        self.prompt_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         self.prompt_panel.setObjectName("PromptPanel")
         self.prompt_panel.setStyleSheet(
             "QWidget#PromptPanel {"
@@ -1022,7 +1069,7 @@ class CodexAssistant(ToolInstance):
             f"{mono_qss}"
             "}"
         )
-        self.command_terminal_output.setMinimumHeight(60)
+        self.command_terminal_output.setMinimumHeight(40)
         terminal_layout.addWidget(self.command_terminal_output, 1)
 
         terminal_row = QHBoxLayout()
@@ -1061,14 +1108,16 @@ class CodexAssistant(ToolInstance):
         self.interaction_vertical_splitter.addWidget(prompt_panel)
         self.interaction_vertical_splitter.addWidget(terminal_panel)
         self.interaction_vertical_splitter.setStretchFactor(0, 2)
-        self.interaction_vertical_splitter.setStretchFactor(1, 1)
-        self.interaction_vertical_splitter.setSizes([135, 120])
+        self.interaction_vertical_splitter.setStretchFactor(1, 0)
+        # Give prompt_panel real room (≥112 from setMinimumHeight) and collapse
+        # terminal_panel to 0 by default — _set_command_terminal_visible reopens it.
+        self.interaction_vertical_splitter.setSizes([130, 0])
 
         self.assistant_vertical_splitter.addWidget(transcript_panel)
         self.assistant_vertical_splitter.addWidget(interaction_panel)
-        self.assistant_vertical_splitter.setStretchFactor(0, 1)
+        self.assistant_vertical_splitter.setStretchFactor(0, 0)
         self.assistant_vertical_splitter.setStretchFactor(1, 0)
-        self.assistant_vertical_splitter.setSizes([620, 150])
+        self.assistant_vertical_splitter.setSizes([72, 50])
 
         assistant_page_layout.addWidget(assistant_panel, 1)
         self.workspace_tab_index = self.content_tabs.insertTab(1, workspace_panel, "Context")
@@ -1080,14 +1129,15 @@ class CodexAssistant(ToolInstance):
         self.tool_window.manage(placement="side")
         self._sync_control_widgets()
         self.handlers = [
-            self.session.triggers.add_handler("selection changed", self._queue_workspace_refresh),
-            self.session.triggers.add_handler("command finished", self._queue_workspace_refresh),
+            self.session.triggers.add_handler("selection changed", self._queue_workspace_light_refresh),
+            self.session.triggers.add_handler("command finished", self._queue_workspace_command_refresh),
         ]
         self._set_result_detail("No recent result.")
         self._refresh_workspace()
         self._set_selection_panel_visible(False)
         self._set_workspace_visible(False)
         self._set_command_terminal_visible(False)
+        self._enforce_compact_assistant_heights()
         self._apply_dock_fraction()
         self._show_assistant_tab()
         self._append_system(
@@ -1258,7 +1308,18 @@ class CodexAssistant(ToolInstance):
         self._clear_error_banner()
         self._append_system("cleared")
 
-    def _queue_workspace_refresh(self, *_args, **_kwargs):
+    def _queue_workspace_command_refresh(self, _trigger_name=None, command=None, *_args):
+        if _is_selection_only_command_text(command):
+            self._queue_workspace_light_refresh()
+            return
+        self._queue_workspace_refresh(delay_ms=150)
+
+    def _queue_workspace_light_refresh(self, *_args, **_kwargs):
+        if not (self._workspace_visible or self._selection_panel_visible):
+            return
+        self._queue_workspace_refresh(delay_ms=300)
+
+    def _queue_workspace_refresh(self, *_args, delay_ms=150, **_kwargs):
         if self._workspace_refresh_pending:
             return
         self._workspace_refresh_pending = True
@@ -1266,7 +1327,12 @@ class CodexAssistant(ToolInstance):
         def refresh():
             self._refresh_workspace()
 
-        self.session.ui.thread_safe(refresh)
+        try:
+            from Qt.QtCore import QTimer
+
+            QTimer.singleShot(int(delay_ms), lambda: self.session.ui.thread_safe(refresh))
+        except Exception:
+            self.session.ui.thread_safe(refresh)
 
     def _refresh_workspace(self):
         self._workspace_refresh_pending = False
@@ -1374,6 +1440,7 @@ class CodexAssistant(ToolInstance):
             self.backend_setup_button,
             self.quick_menu_button,
             self.analysis_menu_button,
+            self.quick_rapidock_button,
         )
         label_alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         fixed_control_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
@@ -1428,6 +1495,7 @@ class CodexAssistant(ToolInstance):
             fixed_control(self.backend_setup_button, 130)
             fixed_control(self.quick_menu_button, 135)
             fixed_control(self.analysis_menu_button, 135)
+            fixed_control(self.quick_rapidock_button, 116)
             for label in labels:
                 label.setMinimumWidth(88)
                 label.setMaximumWidth(88)
@@ -1444,6 +1512,7 @@ class CodexAssistant(ToolInstance):
             grid.addWidget(self.backend_setup_button, 5, 1, 1, 1, fixed_control_alignment)
             grid.addWidget(self.quick_menu_button, 6, 1, 1, 1, fixed_control_alignment)
             grid.addWidget(self.analysis_menu_button, 7, 1, 1, 1, fixed_control_alignment)
+            grid.addWidget(self.quick_rapidock_button, 8, 1, 1, 1, fixed_control_alignment)
             grid.setColumnStretch(0, 0)
             grid.setColumnStretch(1, 1)
             grid.setColumnMinimumWidth(0, 88)
@@ -1457,6 +1526,7 @@ class CodexAssistant(ToolInstance):
             flexible_control(self.backend_setup_button, 64)
             flexible_control(self.quick_menu_button, 62)
             flexible_control(self.analysis_menu_button, 64)
+            flexible_control(self.quick_rapidock_button, 88)
             self.effort_label.setText("Reason")
             fixed_label(self.engine_label, 44)
             fixed_label(self.model_label, 38)
@@ -1481,6 +1551,7 @@ class CodexAssistant(ToolInstance):
                 (self.speed_combo, 2),
                 (self.quick_menu_button, 2),
                 (self.analysis_menu_button, 2),
+                (self.quick_rapidock_button, 2),
             )
             grid.setColumnStretch(0, 1)
         else:
@@ -1494,6 +1565,7 @@ class CodexAssistant(ToolInstance):
             flexible_control(self.backend_setup_button, 72)
             flexible_control(self.quick_menu_button, 72)
             flexible_control(self.analysis_menu_button, 78)
+            flexible_control(self.quick_rapidock_button, 92)
             fixed_label(self.engine_label, 52)
             fixed_label(self.model_label, 48)
             fixed_label(self.effort_label, 54)
@@ -1517,6 +1589,7 @@ class CodexAssistant(ToolInstance):
                 (self.speed_combo, 2),
                 (self.quick_menu_button, 2),
                 (self.analysis_menu_button, 2),
+                (self.quick_rapidock_button, 2),
             )
             grid.setColumnStretch(0, 1)
         try:
@@ -1532,22 +1605,28 @@ class CodexAssistant(ToolInstance):
         if grid is None:
             return
         self._clear_grid_layout(grid)
+        try:
+            self.refresh_button.hide()
+            self.refresh_button.setVisible(False)
+        except Exception:
+            pass
         if compact:
-            grid.addWidget(self.refresh_button, 0, 0)
-            grid.addWidget(self.toggle_workspace_button, 0, 1)
-            grid.addWidget(self.toggle_terminal_button, 1, 0)
-            grid.addWidget(self.open_action_pad_button, 1, 1)
-            grid.addWidget(self.toggle_selection_button, 2, 0)
-            grid.addWidget(self.open_display_controls_button, 2, 1)
+            grid.addWidget(self.toggle_workspace_button, 0, 0)
+            grid.addWidget(self.toggle_terminal_button, 0, 1)
+            grid.addWidget(self.toggle_selection_button, 0, 2)
+            grid.addWidget(self.open_action_pad_button, 1, 0)
+            grid.addWidget(self.open_display_controls_button, 1, 1)
+            grid.addWidget(self.open_sequence_panel_button, 1, 2)
             grid.setColumnStretch(0, 1)
             grid.setColumnStretch(1, 1)
+            grid.setColumnStretch(2, 1)
         else:
-            grid.addWidget(self.refresh_button, 0, 0)
-            grid.addWidget(self.toggle_workspace_button, 0, 1)
-            grid.addWidget(self.toggle_terminal_button, 0, 2)
+            grid.addWidget(self.toggle_workspace_button, 0, 0)
+            grid.addWidget(self.toggle_terminal_button, 0, 1)
+            grid.addWidget(self.toggle_selection_button, 0, 2)
             grid.addWidget(self.open_action_pad_button, 1, 0)
-            grid.addWidget(self.toggle_selection_button, 1, 1)
-            grid.addWidget(self.open_display_controls_button, 1, 2)
+            grid.addWidget(self.open_display_controls_button, 1, 1)
+            grid.addWidget(self.open_sequence_panel_button, 1, 2)
             for column in range(3):
                 grid.setColumnStretch(column, 1)
 
@@ -1578,12 +1657,14 @@ class CodexAssistant(ToolInstance):
             (self.quick_catalytic_button, "ai-site.svg"),
             (self.quick_membrane_button, "ai-membrane.svg"),
             (self.quick_pisa_button, "pisa-logo.svg"),
+            (self.quick_metal_button, "ai-metal.svg"),
             (self.quick_similar_web_button, "foldseek-logo.png"),
             (self.quick_foldmason_button, "foldmason-logo.png"),
             (self.quick_folddisco_button, "folddisco-logo.png"),
             (self.quick_nucdock_button, "hdock-logo.png"),
             (self.quick_afcomplex_button, "alphafold-logo.png"),
             (self.quick_boltz_button, "boltz-logo.svg"),
+            (self.quick_rapidock_button, "rapidock-logo.svg"),
             (self.quick_dali_button, "dali-logo.png"),
             (self.quick_vast_button, "vast-logo.png"),
             (self.quick_pdbefold_button, "pdbefold-logo.png"),
@@ -1597,6 +1678,7 @@ class CodexAssistant(ToolInstance):
             self.quick_catalytic_button,
             self.quick_membrane_button,
             self.quick_pisa_button,
+            self.quick_metal_button,
             self.quick_blast_button,
             self.quick_hhpred_button,
             self.quick_alphafold_button,
@@ -1626,20 +1708,19 @@ class CodexAssistant(ToolInstance):
         if grid is None:
             return
         self._clear_grid_layout(grid)
-        if compact:
-            grid.addWidget(self.quick_sequence_bar_button, 0, 0)
-            grid.addWidget(self.quick_sequence_button, 0, 1)
-            grid.addWidget(self.quick_motif_button, 1, 0)
-            grid.addWidget(self.quick_motif_view_button, 1, 1)
-            grid.setColumnStretch(0, 1)
-            grid.setColumnStretch(1, 1)
-        else:
-            grid.addWidget(self.quick_sequence_bar_button, 0, 0)
-            grid.addWidget(self.quick_sequence_button, 0, 1)
-            grid.addWidget(self.quick_motif_button, 0, 2)
-            grid.addWidget(self.quick_motif_view_button, 0, 3)
-            for column in range(4):
-                grid.setColumnStretch(column, 1)
+        for btn in (
+            getattr(self, "quick_sequence_bar_button", None),
+            getattr(self, "quick_sequence_button", None),
+            getattr(self, "quick_motif_button", None),
+            getattr(self, "quick_motif_view_button", None),
+        ):
+            if btn is None:
+                continue
+            try:
+                btn.hide()
+                btn.setVisible(False)
+            except Exception:
+                pass
 
     def _toggle_workspace_visibility(self):
         self._set_workspace_visible(not self._workspace_visible)
@@ -1677,11 +1758,12 @@ class CodexAssistant(ToolInstance):
         self._command_terminal_visible = bool(visible)
         self.terminal_panel.setVisible(self._command_terminal_visible)
         if self._command_terminal_visible:
-            self.prompt_panel.setMaximumHeight(170)
-            self.interaction_vertical_splitter.setSizes([135, 120])
+            self.prompt_panel.setMaximumHeight(160)
+            self.interaction_vertical_splitter.setSizes([130, 80])
         else:
-            self.prompt_panel.setMaximumHeight(170)
-            self.interaction_vertical_splitter.setSizes([135, 0])
+            self.prompt_panel.setMaximumHeight(160)
+            self.interaction_vertical_splitter.setSizes([130, 0])
+        self._enforce_compact_assistant_heights()
         self.toggle_terminal_button.setText("Hide Term" if self._command_terminal_visible else "Terminal")
 
     def _workspace_text(self):
@@ -1834,14 +1916,77 @@ class CodexAssistant(ToolInstance):
         self._populate_analysis_menu(menu)
         return menu
 
+    def _add_icon_action(self, menu, text, callback, icon_name):
+        from Qt.QtGui import QIcon
+
+        action = menu.addAction(text, callback)
+        path = self._icon_path(icon_name)
+        if os.path.exists(path):
+            action.setIcon(QIcon(path))
+        return action
+
     def _populate_analysis_menu(self, menu):
         local_menu = menu.addMenu("Local / scene analysis")
-        local_menu.addAction("Sequence report", self._quick_sequence_summary)
-        local_menu.addAction("Motif report", self._quick_motif_summary)
-        local_menu.addAction("Highlight motifs", self._quick_motif_view)
-        local_menu.addAction("Catalytic residue triage", self._quick_catalytic)
-        local_menu.addAction("Membrane view", self._quick_membrane)
-        local_menu.addAction("PISA-like interfaces", self._quick_pisa)
+        self._add_icon_action(
+            local_menu,
+            "Sequence report",
+            self._quick_sequence_summary,
+            "sequence-bar.svg",
+        )
+        self._add_icon_action(
+            local_menu,
+            "Motif report",
+            self._quick_motif_summary,
+            "folddisco-logo.png",
+        )
+        self._add_icon_action(
+            local_menu,
+            "Highlight motifs",
+            self._quick_motif_view,
+            "ai-site.svg",
+        )
+        self._add_icon_action(
+            local_menu,
+            "Catalytic residue triage",
+            self._quick_catalytic,
+            "ai-catalytic.svg",
+        )
+        self._add_icon_action(
+            local_menu,
+            "Metal sites",
+            self._quick_metal,
+            "ai-metal.svg",
+        )
+        self._add_icon_action(
+            local_menu,
+            "Place metal",
+            self._quick_metal_place,
+            "ai-metal.svg",
+        )
+        self._add_icon_action(
+            local_menu,
+            "Fold metal evidence",
+            self._quick_metal_evidence,
+            "ai-metal.svg",
+        )
+        self._add_icon_action(
+            local_menu,
+            "Clear predicted metals",
+            self._quick_metal_clear,
+            "ai-metal.svg",
+        )
+        self._add_icon_action(
+            local_menu,
+            "Membrane view",
+            self._quick_membrane,
+            "ai-membrane.svg",
+        )
+        self._add_icon_action(
+            local_menu,
+            "PISA-like interfaces",
+            self._quick_pisa,
+            "pisa-logo.svg",
+        )
 
         sequence_menu = menu.addMenu("Sequence / modeling web tools")
         sequence_menu.addAction("BLAST", self._quick_blast)
@@ -1851,6 +1996,7 @@ class CodexAssistant(ToolInstance):
         sequence_menu.addAction("AlphaFold Server", self._quick_alphafold)
         sequence_menu.addAction("AF Complex", self._quick_afcomplex)
         sequence_menu.addAction("Boltz", self._quick_boltz)
+        sequence_menu.addAction("RAPiDock", self._quick_rapidock)
 
         structure_menu = menu.addMenu("Structure search / alignment")
         structure_menu.addAction("Foldseek similar", self._quick_similar_web)
@@ -1902,7 +2048,7 @@ class CodexAssistant(ToolInstance):
             sequence_bar.display(True)
             sequence_bar.refresh()
             sequence_bar._set_selection_click_mode(mode)
-            self.quick_sequence_bar_button.setText("Hide Seq")
+            self._set_sequence_bar_button_labels(True)
             self._set_result_status(f"Top sequence click mode: {mode}.")
         except Exception as err:
             self._set_result_status(str(err) if str(err) else err.__class__.__name__, tone="error")
@@ -2018,6 +2164,20 @@ class CodexAssistant(ToolInstance):
             controls.display(True)
             self._append_system("display controls opened")
 
+    def _set_sequence_bar_button_labels(self, shown):
+        quick = getattr(self, "quick_sequence_bar_button", None)
+        if quick is not None:
+            quick.setText("Hide Seq" if shown else "Show Seq")
+        panel = getattr(self, "open_sequence_panel_button", None)
+        if panel is not None:
+            panel.setText("Sequence")
+            try:
+                panel.blockSignals(True)
+                panel.setChecked(bool(shown))
+                panel.blockSignals(False)
+            except Exception:
+                pass
+
     def _toggle_sequence_bar(self):
         try:
             from .sequence_bar import CodexSequenceBar
@@ -2025,14 +2185,14 @@ class CodexAssistant(ToolInstance):
             sequence_bar = CodexSequenceBar.get_singleton(self.session, create=False, display=False)
             if sequence_bar is not None and sequence_bar.displayed():
                 sequence_bar.display(False)
-                self.quick_sequence_bar_button.setText("Show Seq")
+                self._set_sequence_bar_button_labels(False)
                 self._append_system("top sequence bar hidden")
                 return
             sequence_bar = CodexSequenceBar.get_singleton(self.session, create=True, display=True)
             if sequence_bar is not None:
                 sequence_bar.display(True)
                 sequence_bar.refresh()
-                self.quick_sequence_bar_button.setText("Hide Seq")
+                self._set_sequence_bar_button_labels(True)
                 self._append_system("top sequence bar shown")
         except Exception as err:
             self._show_error(str(err) if str(err) else err.__class__.__name__)
@@ -2045,7 +2205,7 @@ class CodexAssistant(ToolInstance):
             if sequence_bar is not None:
                 sequence_bar.display(True)
                 sequence_bar.refresh()
-                self.quick_sequence_bar_button.setText("Hide Seq")
+                self._set_sequence_bar_button_labels(True)
         except Exception as err:
             self._show_error(str(err) if str(err) else err.__class__.__name__)
 
@@ -2242,7 +2402,7 @@ class CodexAssistant(ToolInstance):
                 for part in command:
                     self._run_command_thread_safe(part)
                 if verb == "show" and rep == "sticks":
-                    apply_stick_context_colors(self.session, spec)
+                    show_sticks_with_cartoon_anchor(self.session, spec)
         except Exception as err:
             self._show_error(str(err) if str(err) else err.__class__.__name__)
             return
@@ -2319,7 +2479,7 @@ class CodexAssistant(ToolInstance):
             visible = bool(sequence_bar is not None and sequence_bar.displayed())
         except Exception:
             visible = False
-        self.quick_sequence_bar_button.setText("Hide Seq" if visible else "Show Seq")
+        self._set_sequence_bar_button_labels(visible)
 
     def _sequence_status_text(self):
         return self._sequence_status_payload()[0]
@@ -2457,6 +2617,43 @@ class CodexAssistant(ToolInstance):
                 "}"
             )
         self.result_detail_edit.setPlainText(str(text or "").strip())
+        self._enforce_compact_assistant_heights()
+
+    def _enforce_compact_assistant_heights(self):
+        try:
+            from Qt.QtWidgets import QSizePolicy
+        except Exception:
+            return
+        try:
+            self.result_detail_edit.setFixedHeight(36)
+            self.result_detail_edit.setMaximumHeight(36)
+            self.result_detail_edit.setMinimumHeight(36)
+            self.result_detail_edit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        except Exception:
+            pass
+        try:
+            self.transcript_panel.setMaximumHeight(150)
+            self.transcript_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        except Exception:
+            pass
+        try:
+            # Interaction panel needs to fit prompt panel (≥112) + a bit of
+            # spacing for the optional terminal panel collapse target.
+            self.interaction_panel.setMaximumHeight(220)
+            self.interaction_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        except Exception:
+            pass
+        try:
+            self.terminal_edit.setMaximumHeight(140)
+            self.terminal_edit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        except Exception:
+            pass
+        try:
+            self.prompt_panel.setMinimumHeight(112)
+            self.prompt_panel.setMaximumHeight(160)
+            self.prompt_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        except Exception:
+            pass
 
     def _show_error_banner(self, text):
         message = " ".join(str(text or "").split())
@@ -2611,13 +2808,13 @@ class CodexAssistant(ToolInstance):
             numeric = float(value)
         except Exception:
             numeric = 0.30
-        return max(0.10, min(0.50, numeric))
+        return max(0.10, min(0.95, numeric))
 
     def _dock_width_slider_changed(self, value):
         self._set_dock_fraction(float(value) / 100.0)
 
     def _set_dock_fraction(self, fraction):
-        self.session._codex_bridge_dock_fraction = max(0.10, min(0.50, float(fraction)))
+        self.session._codex_bridge_dock_fraction = max(0.10, min(0.95, float(fraction)))
         self._apply_dock_fraction()
         self._sync_control_widgets()
         self._update_session_status()
@@ -2632,6 +2829,7 @@ class CodexAssistant(ToolInstance):
         self._dock_drag_origin_x = global_x
         self._dock_drag_origin_width = max(dock_widget.width(), 220)
         self._dock_constrained_widgets = self._right_side_dock_widgets()
+        self._clear_dock_width_constraints(self._dock_constrained_widgets)
 
     def _resize_dock_by_position(self, global_x):
         if global_x is None or self._dock_drag_origin_x is None or self._dock_drag_origin_width is None:
@@ -2643,11 +2841,12 @@ class CodexAssistant(ToolInstance):
         overall_width = max(main_window.width(), 900)
         delta_x = int(global_x - self._dock_drag_origin_x)
         target_width = int(self._dock_drag_origin_width - delta_x)
-        target_width = max(int(overall_width * 0.10), min(int(overall_width * 0.50), target_width))
+        target_width = max(int(overall_width * 0.10), target_width)
         self.session._codex_bridge_dock_fraction = float(target_width) / float(overall_width)
         self._apply_dock_width(target_width, keep_constraints=True)
 
     def _end_dock_resize(self):
+        self._clear_dock_width_constraints(self._dock_constrained_widgets)
         for dock_widget in self._dock_constrained_widgets:
             try:
                 dock_widget.setMinimumWidth(0)
@@ -2691,6 +2890,34 @@ class CodexAssistant(ToolInstance):
             widgets.append(candidate)
         return widgets or [dock_widget]
 
+    def _clear_dock_width_constraints(self, dock_widgets):
+        try:
+            from Qt.QtWidgets import QWidget
+        except Exception:
+            return
+        for dock_widget in tuple(dict.fromkeys(dock_widgets or [])):
+            widgets = [dock_widget]
+            root = None
+            try:
+                root = dock_widget.widget()
+            except Exception:
+                root = None
+            if root is not None:
+                widgets.append(root)
+                try:
+                    widgets.extend(root.findChildren(QWidget))
+                except Exception:
+                    pass
+            for widget in tuple(dict.fromkeys(widgets)):
+                try:
+                    widget.setMaximumWidth(16777215)
+                except Exception:
+                    pass
+                try:
+                    widget.setMinimumWidth(0)
+                except Exception:
+                    pass
+
     def _apply_dock_width(self, target_width, keep_constraints=False):
         from Qt.QtCore import Qt
 
@@ -2698,6 +2925,7 @@ class CodexAssistant(ToolInstance):
         if not dock_widgets:
             return
         main_window = self.session.ui.main_window
+        self._clear_dock_width_constraints(dock_widgets)
         if keep_constraints:
             for dock_widget in dock_widgets:
                 try:
@@ -2993,7 +3221,271 @@ class CodexAssistant(ToolInstance):
         if not mode:
             self._append_error("no recommended figure mode is available right now")
             return
-        self._apply_suggestion_payload({"kind": "figure", "mode": mode, "label": f"figure {mode}"})
+        options = self._prompt_figure_options(mode)
+        if options is None:
+            self._append_system("Figure: cancelled")
+            return
+        mode = options.get("mode") or mode
+        color_mode = options.get("color_mode") or "preserve"
+        if color_mode == "domain":
+            mode = "domains"
+        self.session._codex_figure_color_mode = color_mode
+        # Interface mode needs an explicit enzyme + ligand target so the user
+        # controls which side is which (otherwise we fall back to the
+        # best_interface_pair heuristic, which can pick the wrong pair).
+        if mode == "interface":
+            targets = self._prompt_interface_targets()
+            if targets is None:
+                self._append_system("Figure: interface cancelled")
+                return
+            self.session._codex_interface_enzyme_spec = targets["enzyme_spec"]
+            self.session._codex_interface_ligand_spec = targets["ligand_spec"]
+            self.session._codex_interface_cutoff = targets["cutoff"]
+        else:
+            # Clear any stale picker state from a previous interface run so
+            # other figure modes don't accidentally inherit it.
+            for attr in (
+                "_codex_interface_enzyme_spec",
+                "_codex_interface_ligand_spec",
+                "_codex_interface_cutoff",
+            ):
+                if hasattr(self.session, attr):
+                    try:
+                        delattr(self.session, attr)
+                    except Exception:
+                        pass
+        self._apply_suggestion_payload(
+            {
+                "kind": "figure",
+                "mode": mode,
+                "label": f"figure {mode}",
+                "color_mode": color_mode,
+            }
+        )
+
+    def _prompt_figure_options(self, default_mode):
+        try:
+            from Qt.QtWidgets import (
+                QComboBox,
+                QDialog,
+                QDialogButtonBox,
+                QFormLayout,
+                QVBoxLayout,
+            )
+            from .builtin_actions import _recommended_figure_modes
+        except Exception:
+            return {"mode": default_mode, "color_mode": "preserve"}
+
+        try:
+            modes = list(_recommended_figure_modes(self.session))
+        except Exception:
+            modes = []
+        if default_mode and default_mode not in modes:
+            modes.insert(0, default_mode)
+        modes = modes or ["publication"]
+
+        mode_labels = {
+            "publication": "Publication",
+            "clean": "Clean",
+            "domains": "Domains",
+            "roles": "Roles",
+            "assembly": "Assembly",
+            "pocket": "Pocket",
+            "interface": "Interface",
+            "composite": "Composite",
+            "explode-composite": "Explode composite",
+            "selection": "Selection",
+            "selection-pocket": "Selection pocket",
+            "selection-motif": "Selection motif",
+            "selection-interface": "Selection interface",
+            "selection-composite": "Selection composite",
+        }
+        color_labels = [
+            ("Preserve current colors", "preserve"),
+            ("Neutral scaffold + highlights", "neutral"),
+            ("Color by chain", "bychain"),
+            ("Domain-safe chunk colors", "domain"),
+        ]
+
+        parent = getattr(getattr(self.session, "ui", None), "main_window", None)
+        dialog = QDialog(parent)
+        dialog.setWindowTitle("Figure")
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+        mode_combo = QComboBox(dialog)
+        color_combo = QComboBox(dialog)
+
+        for mode in modes:
+            label = mode_labels.get(mode, mode.replace("-", " ").title())
+            mode_combo.addItem(label, mode)
+        default_index = modes.index(default_mode) if default_mode in modes else 0
+        mode_combo.setCurrentIndex(default_index)
+
+        remembered = str(getattr(self.session, "_codex_figure_color_mode", "preserve") or "preserve").lower()
+        remembered = remembered if remembered in {value for _label, value in color_labels} else "preserve"
+        for label, value in color_labels:
+            color_combo.addItem(label, value)
+        color_combo.setCurrentIndex([value for _label, value in color_labels].index(remembered))
+
+        form.addRow("Figure", mode_combo)
+        form.addRow("Color", color_combo)
+        layout.addLayout(form)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            Qt.Orientation.Horizontal,
+            dialog,
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return {
+            "mode": mode_combo.currentData(),
+            "color_mode": color_combo.currentData(),
+        }
+
+    def _prompt_interface_targets(self):
+        """Two-dropdown picker: enzyme chain + ligand chain/HETATM + cutoff.
+
+        Enumerates open AtomicStructures and lets the user choose which side
+        is the enzyme (any chain) and which is the ligand (any chain OR any
+        single non-polymer residue). Returns
+        ``{"enzyme_spec": str, "ligand_spec": str, "cutoff": float}`` on OK,
+        or ``None`` if the user cancelled.
+        """
+        try:
+            from Qt.QtWidgets import (
+                QComboBox,
+                QDialog,
+                QDialogButtonBox,
+                QDoubleSpinBox,
+                QFormLayout,
+                QVBoxLayout,
+            )
+            from chimerax.atomic import AtomicStructure
+            from chimerax.atomic import Residue
+        except Exception:
+            return None
+
+        enzyme_items = []  # list of (label, spec)
+        ligand_items = []
+        try:
+            for model in self.session.models.list(type=AtomicStructure):
+                model_spec = f"#{model.id_string}"
+                model_name = str(getattr(model, "name", "") or "").strip()
+                for chain in getattr(model, "chains", ()) or ():
+                    chain_id = str(getattr(chain, "chain_id", "") or "").strip()
+                    if not chain_id:
+                        continue
+                    ptype = getattr(chain, "polymer_type", None)
+                    spec = f"{model_spec}/{chain_id}"
+                    if ptype in (Residue.PT_AMINO, Residue.PT_PROTEIN):
+                        enzyme_items.append((f"{spec}  ({model_name} chain {chain_id})", spec))
+                    # Every chain (protein or otherwise) is a valid ligand candidate
+                    # when the user wants chain-chain interface analysis.
+                    ligand_items.append((f"{spec}  ({model_name} chain {chain_id})", spec))
+                for residue in getattr(model, "residues", ()) or ():
+                    if getattr(residue, "polymer_type", Residue.PT_NONE) != Residue.PT_NONE:
+                        continue
+                    rname = str(getattr(residue, "name", "") or "").strip()
+                    if not rname or rname in {"HOH", "WAT", "DOD"}:
+                        continue
+                    rchain = str(getattr(residue, "chain_id", "") or "").strip() or "?"
+                    rnum = getattr(residue, "number", None)
+                    if rnum is None:
+                        continue
+                    spec = f"{model_spec}/{rchain}:{int(rnum)}"
+                    ligand_items.append((f"{spec}  ({rname})", spec))
+        except Exception:
+            pass
+
+        if not enzyme_items or not ligand_items:
+            try:
+                self.session.logger.warning(
+                    "Interface picker: no models with chains found — open a structure first."
+                )
+            except Exception:
+                pass
+            return None
+
+        parent = getattr(getattr(self.session, "ui", None), "main_window", None)
+        dialog = QDialog(parent)
+        dialog.setWindowTitle("Interface targets")
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+
+        enzyme_combo = QComboBox(dialog)
+        for label, spec in enzyme_items:
+            enzyme_combo.addItem(label, spec)
+        remembered_enzyme = str(getattr(self.session, "_codex_interface_enzyme_spec", "") or "")
+        if remembered_enzyme:
+            idx = enzyme_combo.findData(remembered_enzyme)
+            if idx >= 0:
+                enzyme_combo.setCurrentIndex(idx)
+
+        ligand_combo = QComboBox(dialog)
+        for label, spec in ligand_items:
+            ligand_combo.addItem(label, spec)
+        remembered_ligand = str(getattr(self.session, "_codex_interface_ligand_spec", "") or "")
+        if remembered_ligand:
+            idx = ligand_combo.findData(remembered_ligand)
+            if idx >= 0:
+                ligand_combo.setCurrentIndex(idx)
+        elif len(ligand_items) > 1 and enzyme_items:
+            # Default to a non-enzyme entry so we don't show A-vs-A as the
+            # opening selection.
+            default_enzyme = enzyme_combo.currentData()
+            for i, (_label, spec) in enumerate(ligand_items):
+                if spec != default_enzyme:
+                    ligand_combo.setCurrentIndex(i)
+                    break
+
+        cutoff_spin = QDoubleSpinBox(dialog)
+        cutoff_spin.setRange(2.5, 8.0)
+        cutoff_spin.setSingleStep(0.1)
+        cutoff_spin.setDecimals(1)
+        cutoff_spin.setSuffix(" Å")
+        remembered_cutoff = getattr(self.session, "_codex_interface_cutoff", 4.5)
+        try:
+            cutoff_spin.setValue(float(remembered_cutoff))
+        except Exception:
+            cutoff_spin.setValue(4.5)
+
+        form.addRow("Enzyme", enzyme_combo)
+        form.addRow("Ligand", ligand_combo)
+        form.addRow("Cutoff", cutoff_spin)
+        layout.addLayout(form)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            Qt.Orientation.Horizontal,
+            dialog,
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        enzyme_spec = enzyme_combo.currentData()
+        ligand_spec = ligand_combo.currentData()
+        if not enzyme_spec or not ligand_spec:
+            return None
+        if enzyme_spec == ligand_spec:
+            try:
+                self.session.logger.warning(
+                    "Interface picker: enzyme and ligand are the same selection; pick distinct targets."
+                )
+            except Exception:
+                pass
+            return None
+        return {
+            "enzyme_spec": enzyme_spec,
+            "ligand_spec": ligand_spec,
+            "cutoff": float(cutoff_spin.value()),
+        }
 
     def _run_quick_slash(self, command):
         try:
@@ -3091,6 +3583,23 @@ class CodexAssistant(ToolInstance):
     def _quick_pisa(self):
         self._run_quick_builtin_async("PISA", "/pisa view")
 
+    def _quick_metal(self):
+        from .toolbar_actions import run_toolbar_action
+
+        run_toolbar_action(self.session, "ai-analysis-metal")
+
+    def _quick_metal_place(self):
+        from .toolbar_actions import run_toolbar_action
+
+        self.session._codex_metal_force_mode = "ask_place"
+        run_toolbar_action(self.session, "ai-analysis-metal")
+
+    def _quick_metal_evidence(self):
+        self._run_quick_builtin_async("Fold metal evidence", "/metal evidence")
+
+    def _quick_metal_clear(self):
+        self._run_quick_builtin_async("Metal clear", "/metal clear")
+
     def _quick_similar_web(self):
         def worker():
             from .toolbar_actions import launch_similar_open_aligned
@@ -3125,6 +3634,22 @@ class CodexAssistant(ToolInstance):
 
     def _quick_boltz(self):
         self._run_quick_builtin_async("Boltz", "/boltz")
+
+    def _quick_rapidock(self):
+        try:
+            from .toolbar_actions import _prompt_peptide_sequence, launch_rapidock_prediction
+        except Exception as err:
+            self._show_error(str(err) if str(err) else err.__class__.__name__)
+            return
+        peptide = _prompt_peptide_sequence(self.session)
+        if peptide is None:
+            self._append_system("RAPiDock: cancelled")
+            return
+
+        def worker():
+            return launch_rapidock_prediction(self.session, peptide=peptide, mode="global")
+
+        self._run_quick_external("RAPiDock", worker)
 
     def _quick_dali(self):
         self._run_quick_builtin_async("DALI", "/daliweb")
@@ -3171,7 +3696,10 @@ class CodexAssistant(ToolInstance):
         if not deduped:
             return None
 
-        current = int(getattr(self.session, "_codex_bridge_quick_view_index", -1))
+        try:
+            current = int(getattr(self.session, "_codex_bridge_quick_view_index", -1))
+        except (TypeError, ValueError):
+            current = -1
         index = (current + 1) % len(deduped)
         self.session._codex_bridge_quick_view_index = index
         return deduped[index]
@@ -3202,7 +3730,10 @@ class CodexAssistant(ToolInstance):
         if not modes:
             fallback = recommended_figure_mode(self.session)
             return fallback
-        current = int(getattr(self.session, "_codex_bridge_quick_figure_index", -1))
+        try:
+            current = int(getattr(self.session, "_codex_bridge_quick_figure_index", -1))
+        except (TypeError, ValueError):
+            current = -1
         index = (current + 1) % len(modes)
         self.session._codex_bridge_quick_figure_index = index
         return modes[index]
@@ -3228,7 +3759,10 @@ class CodexAssistant(ToolInstance):
                 event.set()
 
         self.session.ui.thread_safe(runner)
-        event.wait()
+        if not event.wait(120):
+            raise TimeoutError(
+                f"tool UI bounce did not complete within 120s: {command!r}"
+            )
         if "error" in result_box:
             raise result_box["error"]
         return result_box.get("result")

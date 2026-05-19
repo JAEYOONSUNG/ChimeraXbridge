@@ -10,7 +10,7 @@ from .semantic import (
     format_complex_report,
     format_domains_report,
     format_ligand_report,
-    format_metal_report,
+    format_metal_report as format_existing_metal_report,
     format_models_report,
     format_motif_report,
     format_research_brief,
@@ -20,6 +20,11 @@ from .semantic import (
     format_sequence_report,
 )
 from .membrane import format_membrane_report
+from .metal_placement import (
+    format_metal_evidence_report,
+    format_metal_report as format_predicted_metal_report,
+    run_metal_placement_pipeline,
+)
 from .pisa import format_pisa_report
 
 
@@ -54,6 +59,8 @@ ANALYSIS_REPORTS = (
     "annotation",
     "ligand",
     "metal",
+    "metal_candidates",
+    "metal_evidence",
     "catalytic",
     "catalytic_workflow",
     "membrane",
@@ -151,6 +158,25 @@ def openai_agent_tool_definitions():
         },
         {
             "type": "function",
+            "name": "predict_and_place_metal",
+            "description": "Run the bundled metal-coordination pipeline against the current ChimeraX AtomicStructure models. Use place=false for prediction/review; use place=true only when the user explicitly asks to insert/add/place/optimize a metal marker.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target": {"type": "string"},
+                    "top_n": {"type": "integer"},
+                    "place": {"type": "boolean"},
+                    "show_all": {"type": "boolean"},
+                    "clear_existing": {"type": "boolean"},
+                    "use_kvfinder": {"type": "boolean"},
+                },
+                "required": ["target", "top_n", "place", "show_all", "clear_existing", "use_kvfinder"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+        {
+            "type": "function",
             "name": "get_chimerax_docs",
             "description": "Retrieve compact official ChimeraX command-documentation snippets and likely command aliases for a natural-language query.",
             "parameters": {
@@ -218,6 +244,31 @@ def dispatch_openai_agent_tool(session, name, arguments, *, executor, scene_cont
                 return _json_result("error", error=f"Unsupported analysis report: {report}")
             return _json_result("ok", report=report, target=target or "", result=_analysis_report(session, report, target))
 
+        if name == "predict_and_place_metal":
+            target = str(args.get("target", "")).strip() or None
+            try:
+                top_n = max(1, min(20, int(args.get("top_n", 1))))
+            except Exception:
+                top_n = 1
+            place = bool(args.get("place", False))
+            show_all = bool(args.get("show_all", False))
+            clear_existing = bool(args.get("clear_existing", True))
+            use_kvfinder = bool(args.get("use_kvfinder", True))
+            preview = bool(args.get("preview", not place))
+            _emit(progress, "[tool] predict_and_place_metal")
+            result = run_metal_placement_pipeline(
+                session,
+                model_hint=target,
+                top_n=top_n,
+                place=place,
+                preview=preview,
+                show_all=show_all,
+                clear_existing=clear_existing,
+                use_kvfinder=use_kvfinder,
+                executor=executor,
+            )
+            return _json_result("ok", result=result)
+
         if name == "get_chimerax_docs":
             query = str(args.get("query", "")).strip()
             snippets = format_docs_snippets(query, limit=8)
@@ -243,7 +294,11 @@ def _analysis_report(session, report, target):
     if report == "ligand":
         return format_ligand_report(session, target)
     if report == "metal":
-        return format_metal_report(session, target)
+        return _combined_metal_report(session, target)
+    if report == "metal_candidates":
+        return format_predicted_metal_report(session, model_hint=target)
+    if report == "metal_evidence":
+        return format_metal_evidence_report(session, model_hint=target)
     if report == "catalytic":
         return format_catalytic_report(session, target)
     if report == "catalytic_workflow":
@@ -265,6 +320,17 @@ def _analysis_report(session, report, target):
     if report == "motif":
         return format_motif_report(session, target)
     return ""
+
+
+def _combined_metal_report(session, target):
+    existing = format_existing_metal_report(session, target)
+    predicted = format_predicted_metal_report(session, model_hint=target)
+    return "\n\n".join(
+        [
+            "Existing metal-ion coordination:\n" + existing,
+            "Predicted virtual metal-site candidates:\n" + predicted,
+        ]
+    )
 
 
 def _single_command(command):

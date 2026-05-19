@@ -10,10 +10,15 @@
       <stop offset="1" stop-color="#bfc6cc"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="16" fill="#0f1113"/>
-  <path d="M32 6 54 18.5v25L32 56 10 43.5v-25L32 6Z" fill="#181c20" stroke="url(#g)" stroke-width="2.4"/>
-  <path d="M36.5 9.5 22 34h10l-4.5 20.5L43 27H32.5l4-17.5Z" fill="url(#bolt)"/>
-  <path d="M18 44c7.5-8 19.5-11 29-7" fill="none" stroke="#6d767e" stroke-width="2.2" stroke-linecap="round"/>
-  <circle cx="20" cy="44" r="2.4" fill="#dfe4e8"/>
-  <circle cx="47" cy="37" r="2.4" fill="#dfe4e8"/>
+  <!-- transparent margin: scale all content to 80% and centre, so the visible
+       rounded rectangle no longer fills the 64x64 viewBox edge-to-edge and
+       matches the negative-space convention of the neighbouring icons -->
+  <g transform="translate(6.4 6.4) scale(0.8)">
+    <rect width="64" height="64" rx="16" fill="#0f1113"/>
+    <path d="M32 6 54 18.5v25L32 56 10 43.5v-25L32 6Z" fill="#181c20" stroke="url(#g)" stroke-width="2.4"/>
+    <path d="M36.5 9.5 22 34h10l-4.5 20.5L43 27H32.5l4-17.5Z" fill="url(#bolt)"/>
+    <path d="M18 44c7.5-8 19.5-11 29-7" fill="none" stroke="#6d767e" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="20" cy="44" r="2.4" fill="#dfe4e8"/>
+    <circle cx="47" cy="37" r="2.4" fill="#dfe4e8"/>
+  </g>
 </svg>

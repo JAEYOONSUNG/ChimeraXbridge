@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- Half water drop (hydrophilic, cyan) + half oil drop (hydrophobic, tan)
+       — visualises the MLP cyan/tan palette. Same outline weight and
+       y-extent (~y=10..54) as the other AI Sequence-section icons. -->
+
+  <!-- Hydrophilic side (left): water drop -->
+  <path d="M 22 12 C 14 22 12 30 12 36 C 12 46 17 52 22 52 C 22 52 22 12 22 12 Z"
+        fill="#7fd6e4" stroke="#0a4a55" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Highlight on water -->
+  <path d="M 18 28 C 17 32 17 36 18 40"
+        stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Hydrophobic side (right): oil drop -->
+  <path d="M 22 12 C 30 22 32 30 32 36 C 32 46 27 52 22 52 C 22 52 22 12 22 12 Z"
+        fill="#e8c779" stroke="#6b4513" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Highlight on oil -->
+  <path d="M 26 28 C 27 32 27 36 26 40"
+        stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- "MLP" tag below -->
+  <text x="42" y="34" font-family="Helvetica, Arial, sans-serif"
+        font-size="11" font-weight="700" fill="#0a0c0f">M</text>
+  <text x="42" y="44" font-family="Helvetica, Arial, sans-serif"
+        font-size="11" font-weight="700" fill="#0a0c0f">L</text>
+  <text x="42" y="54" font-family="Helvetica, Arial, sans-serif"
+        font-size="11" font-weight="700" fill="#0a0c0f">P</text>
+</svg>

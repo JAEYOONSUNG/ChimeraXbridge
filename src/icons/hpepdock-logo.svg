@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="HPEPDOCK">
+  <defs>
+    <linearGradient id="hpgrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3a4047"/>
+      <stop offset="100%" stop-color="#171a1d"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="48" height="48" rx="10" fill="url(#hpgrad)" stroke="#7ad9c1" stroke-width="2.5"/>
+  <!-- Cloud arc representing web service -->
+  <path d="M14 33c0-4 3-7 7-7 1-3 4-5 8-5s7 2 8 5h1c4 0 7 3 7 7s-3 7-7 7H21c-4 0-7-3-7-7z" fill="none" stroke="#7ad9c1" stroke-width="2.4" stroke-linejoin="round"/>
+  <!-- Peptide chain -->
+  <circle cx="22" cy="46" r="2.6" fill="#ffd166"/>
+  <circle cx="32" cy="48" r="2.6" fill="#ff9d5a"/>
+  <circle cx="42" cy="46" r="2.6" fill="#ffd166"/>
+  <path d="M22 46l10 2 10-2" stroke="#ffd166" stroke-width="1.6" fill="none"/>
+  <text x="32" y="20" font-family="Helvetica" font-size="6" font-weight="bold" text-anchor="middle" fill="#7ad9c1">WEB</text>
+</svg>

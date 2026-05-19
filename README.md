@@ -51,6 +51,9 @@ CODEX_BRIDGE_CLI=/path/to/codex \
 
 ## Install
 
+For a reproducible setup on another machine, follow
+[`INSTALL_REPRODUCIBLE.md`](INSTALL_REPRODUCIBLE.md). The short version is:
+
 Clone the repository:
 
 ```bash
@@ -68,7 +71,7 @@ devel install /path/to/ChimeraXbridge
 On macOS, this usually looks like:
 
 ```chimerax
-devel install /Users/yourname/ChimeraXbridge
+devel install $HOME/ChimeraXbridge
 ```
 
 Or install from a shell:
@@ -88,15 +91,17 @@ runscript /path/to/ChimeraXbridge/scripts/reload_codex_ui.py
 
 ### Wheel install
 
-A prebuilt wheel is included under `dist/`. This is useful when you want a
-copy-style install instead of a development install:
+A prebuilt wheel may be included under `dist/`. Use it only when it has been
+rebuilt from the same commit you are sharing. For active development and for
+matching another user's exact local tree, prefer `devel install` from the clone:
 
 ```chimerax
 toolshed install /path/to/ChimeraXbridge/dist/chimerax_codexbridge-0.1.0-py3-none-any.whl
 ```
 
 If ChimeraX reports that `toolshed install` cannot install local wheel paths in
-your version, use `devel install` instead.
+your version, or if `python3 scripts/check_release_ready.py` reports that the
+wheel is stale, use `devel install` instead.
 
 ## Quick Start
 

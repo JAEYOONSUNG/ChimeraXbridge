@@ -37,6 +37,68 @@ The AI Assistant panel exposes quick actions for sequence reports, motif
 highlighting, catalytic-residue triage, membrane views, PISA-style interface
 analysis, and structure-search launchers.
 
+## Feature Overview
+
+### AI assistant and natural-language control
+
+- `ai <request>` executes natural-language requests against the active backend.
+- `codex tool` opens the AI Assistant with live ChimeraX context, viewport-aware prompts, an in-app command terminal, transcript history, and backend/model/reasoning controls.
+- `codex ask <prompt>` asks the active backend without opening the full tool.
+- `codex backend`, `codex model`, `codex effort`, `codex routing`, and `codex auto` control backend selection, model overrides, reasoning profile, routing mode, and command-line fallback.
+- Backends include local Codex CLI, Claude CLI, Gemini CLI, and an OpenAI Responses API backend with tool-calling support.
+
+### Sequence and structure alignment
+
+- `codex seqbar` opens a clickable sequence panel synchronized with the 3D view.
+- The sequence panel tracks selected residues, displayed side chains, model colors, transparency, metals, and aligned structures.
+- Pairwise and multi-structure views can show structure-derived sequence alignments with gap handling, residue hover labels, selection highlights, and displayed-residue emphasis.
+- `codex structalign` exports an ESPript-like structural MSA report with conservation, core/loop, and metal-near tracks.
+- Toolbar launchers include Blast, UniProt profile search, HHpred, SignalP, ConSurf-lite, 3D conservation comparison, and hydrophobicity/MLP coloring.
+
+### Model display and selection workflow
+
+- `codex actions` opens a PyMOL-style Action Pad with action/show/hide/label/color controls for models, chains, residues, and selections.
+- The right-click 3D context menu adds structure-aware actions such as show/hide sticks, chain cleanup, water hiding, model deletion, and residue display controls.
+- Shift-click residue picking supports additive residue selection in the 3D view.
+- Display Controls provide model color, transparency, cartoon/surface/stick visibility, named selections, and rainbow palette tools.
+- Model-order tools let the model list be reordered while preserving colors and transparency.
+- Camera Bookmarks save and restore figure angles for repeated screenshot export.
+
+### Figure and publication helpers
+
+- Quick toolbar actions clean up the current structure view, focus likely sites, cycle figure-ready views, zoom to catalytic motifs, and apply restrained display settings.
+- Figure actions preserve user colors where possible and avoid destructive scene changes unless requested.
+- The plugin can produce high-resolution ChimeraX-ready structural comparison views and helps maintain consistent angles through camera bookmarks.
+
+### Functional site analysis
+
+- Catalytic tools rank and highlight likely catalytic residues using sequence motifs, geometry, ligand/metal context, and conservation-style evidence.
+- Metal tools review existing metals, predict plausible metal-binding candidates, place virtual metal ions, and draw coordination guides.
+- PISA/interface tools measure and highlight chain-chain interface buried surface area.
+- Cavity and pocket tools identify likely binding pockets and overlay translucent cavity surfaces.
+- FoldDisco launcher exports selected structural motifs for motif search.
+
+### Modeling and docking launchers
+
+- AlphaFold and AF Complex launchers prepare protein or protein-nucleic-acid modeling workflows.
+- Boltz launcher supports current protein, DNA, and RNA chains when a local Boltz executable is available.
+- RAPiDock prepares peptide docking jobs with native, Docker, and HPEPDOCK fallback engines.
+- HPEPDOCK launcher submits receptor-peptide jobs to the web service.
+- NucDock prepares DNA/RNA docking through HDOCK.
+- Optional OpenMM-based MD setup is available when OpenMM is installed in the ChimeraX Python environment.
+
+### Channels, membrane, and structure search
+
+- CAVER tools prepare tunnel/channel analysis, import CAVER results, display tunnels, and select lining residues.
+- Membrane tools create virtual membrane slabs and run hydrophobicity-oriented display workflows.
+- Structure search launchers export current structures to Foldseek Similar Structures, FoldMason, DALI, VAST, PDBeFold/SSM, and US-align.
+- US-align can align open structures in ChimeraX and use a local US-align executable when available.
+
+### Nucleotide tools
+
+- The Nucleotides toolbar exposes NucDock, AF Complex, Boltz, FoldDisco, and FoldMason shortcuts for protein-DNA/RNA workflows.
+- Sequence prompts can prepare current protein chains plus pasted DNA/RNA input for external modeling or docking services.
+
 ## Requirements
 
 - ChimeraX 1.10.x

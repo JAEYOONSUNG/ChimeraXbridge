@@ -41,13 +41,13 @@ class _RainbowRamp(QWidget):
         self._color_callback = color_callback
         self._hue = 0.12
         self._saturation = 0.78
-        self.setMinimumHeight(22)
-        self.setMaximumHeight(28)
+        self.setMinimumHeight(18)
+        self.setMaximumHeight(22)
         self.setMouseTracking(True)
         self.setToolTip("Click or drag across the rainbow ramp. Release to apply the color.")
 
     def _ramp_rect(self):
-        return self.rect().adjusted(6, 4, -6, -4)
+        return self.rect().adjusted(5, 3, -5, -3)
 
     def _event_x(self, event):
         if hasattr(event, "position"):
@@ -115,15 +115,15 @@ class _RainbowRamp(QWidget):
             gradient.setColorAt(hue, QColor.fromHsvF(hue, float(self._saturation), 0.95))
         painter.setPen(QPen(QColor("#2a2f35"), 1))
         painter.setBrush(gradient)
-        painter.drawRoundedRect(rect, 9, 9)
+        painter.drawRoundedRect(rect, 7, 7)
 
         x = float(rect.left()) + float(rect.width()) * float(self._hue)
         painter.setPen(QPen(QColor("#0a0d10"), 1))
         painter.setBrush(QColor(self.color_code()))
-        painter.drawEllipse(int(x) - 6, int(rect.center().y()) - 6, 12, 12)
+        painter.drawEllipse(int(x) - 5, int(rect.center().y()) - 5, 10, 10)
         painter.setPen(QPen(QColor("#f0f3f6"), 1))
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawEllipse(int(x) - 6, int(rect.center().y()) - 6, 12, 12)
+        painter.drawEllipse(int(x) - 5, int(rect.center().y()) - 5, 10, 10)
 
 
 class _SliderBlock(QWidget):
@@ -156,11 +156,11 @@ class _SliderBlock(QWidget):
         if is_horizontal:
             outer = QHBoxLayout()
             outer.setContentsMargins(0, 0, 0, 0)
-            outer.setSpacing(6)
+            outer.setSpacing(4)
         else:
             outer = QVBoxLayout()
-            outer.setContentsMargins(2, 2, 2, 2)
-            outer.setSpacing(5)
+            outer.setContentsMargins(1, 1, 1, 1)
+            outer.setSpacing(3)
         self.setLayout(outer)
 
         self.title_label = QLabel(title, self)
@@ -173,6 +173,7 @@ class _SliderBlock(QWidget):
             self.title_label.setWordWrap(True)
         if title_min_width > 0:
             self.title_label.setMinimumWidth(title_min_width)
+            self.title_label.setMaximumWidth(max(title_min_width + 18, 34))
         outer.addWidget(self.title_label, 0)
 
         self.slider = QSlider(orientation, self)
@@ -214,6 +215,7 @@ class _SliderBlock(QWidget):
                 spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
             if value_min_width > 0:
                 spin.setMinimumWidth(value_min_width)
+                spin.setMaximumWidth(value_min_width + 10)
             if use_double:
                 scale = self._scale
                 decimals = self._decimals
@@ -237,6 +239,7 @@ class _SliderBlock(QWidget):
                 self.value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             if value_min_width > 0:
                 self.value_label.setMinimumWidth(value_min_width)
+                self.value_label.setMaximumWidth(value_min_width + 10)
             outer.addWidget(self.value_label, 0)
 
     def value(self):
@@ -303,25 +306,38 @@ class DisplayControlsWidget(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(6, 5, 6, 5)
-        layout.setSpacing(4)
+        layout.setContentsMargins(5, 4, 5, 4)
+        layout.setSpacing(3)
         self.setLayout(layout)
         self.setObjectName("DisplayControlsRoot")
         self.setMinimumWidth(0)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.setStyleSheet(
-            "QWidget#DisplayControlsRoot { background: #15181b; color: #e5e8ec; }"
+            "QWidget#DisplayControlsRoot {"
+            " background: #15181b;"
+            " color: #e5e8ec;"
+            " font-size: 12px;"
+            "}"
+            "QWidget#DisplayControlsRoot QLabel,"
+            "QWidget#DisplayControlsRoot QPushButton,"
+            "QWidget#DisplayControlsRoot QComboBox,"
+            "QWidget#DisplayControlsRoot QLineEdit,"
+            "QWidget#DisplayControlsRoot QCheckBox,"
+            "QWidget#DisplayControlsRoot QSpinBox,"
+            "QWidget#DisplayControlsRoot QDoubleSpinBox {"
+            " font-size: 12px;"
+            "}"
             "QLabel { color: #d9dde2; background: transparent; border: none; }"
             "QLabel#SectionTitle {"
-            " font-size: 11px;"
+            " font-size: 10px;"
             " font-weight: 700;"
             " color: #aeb6bf;"
-            " letter-spacing: 0.08em;"
-            " padding: 2px 0px;"
+            " letter-spacing: 0.05em;"
+            " padding: 1px 0px;"
             "}"
             "QLabel#MutedCaption {"
             " color: #8d959f;"
-            " font-size: 11px;"
+            " font-size: 10px;"
             " letter-spacing: 0.02em;"
             "}"
             "QLabel#InlineSliderTitle {"
@@ -357,9 +373,11 @@ class DisplayControlsWidget(QWidget):
             " background: #1d2126;"
             " color: #eef1f4;"
             " border: 1px solid #2a2f35;"
-            " border-radius: 9px;"
-            " padding: 5px 12px;"
+            " border-radius: 7px;"
+            " padding: 3px 8px;"
             " font-weight: 600;"
+            " min-height: 20px;"
+            " max-height: 24px;"
             "}"
             "QPushButton:hover { background: #262a30; border-color: #44494f; }"
             "QPushButton:pressed { background: #11141a; border-color: #2a2f35; }"
@@ -367,8 +385,10 @@ class DisplayControlsWidget(QWidget):
             " background: #0e1114;"
             " color: #eef1f4;"
             " border: 1px solid #2a2f35;"
-            " border-radius: 9px;"
-            " padding: 4px 10px;"
+            " border-radius: 7px;"
+            " padding: 3px 7px;"
+            " min-height: 20px;"
+            " max-height: 24px;"
             "}"
             "QComboBox:hover, QLineEdit:hover { border-color: #44494f; }"
             "QComboBox:focus, QLineEdit:focus { border-color: #6e757d; }"
@@ -384,13 +404,13 @@ class DisplayControlsWidget(QWidget):
             "QCheckBox {"
             " color: #e6ebf0;"
             " font-weight: 600;"
-            " spacing: 6px;"
+            " spacing: 4px;"
             "}"
             "QCheckBox::indicator {"
-            " width: 14px;"
-            " height: 14px;"
+            " width: 12px;"
+            " height: 12px;"
             " border: 1px solid #2a2f35;"
-            " border-radius: 4px;"
+            " border-radius: 3px;"
             " background: #0e1114;"
             "}"
             "QCheckBox::indicator:hover { border-color: #44494f; }"
@@ -402,9 +422,11 @@ class DisplayControlsWidget(QWidget):
             " background: #0e1114;"
             " color: #f0f4f8;"
             " border: 1px solid #2a2f35;"
-            " border-radius: 9px;"
-            " padding: 4px 10px;"
+            " border-radius: 7px;"
+            " padding: 2px 7px;"
             " font-weight: 600;"
+            " min-height: 20px;"
+            " max-height: 24px;"
             "}"
             "QSpinBox:hover, QDoubleSpinBox:hover { border-color: #44494f; }"
             "QSpinBox:focus, QDoubleSpinBox:focus { border-color: #6e757d; }"
@@ -433,19 +455,19 @@ class DisplayControlsWidget(QWidget):
             "QSlider::groove:horizontal {"
             " background: #0a0d10;"
             " border: 1px solid #2a2f35;"
-            " height: 6px;"
-            " border-radius: 3px;"
+            " height: 4px;"
+            " border-radius: 2px;"
             "}"
             "QSlider::sub-page:horizontal {"
             " background: #6e757d;"
-            " border-radius: 3px;"
+            " border-radius: 2px;"
             "}"
             "QSlider::handle:horizontal {"
             " background: #c0c7cf;"
             " border: 1px solid #14171a;"
-            " width: 18px;"
-            " margin: -7px 0;"
-            " border-radius: 9px;"
+            " width: 14px;"
+            " margin: -6px 0;"
+            " border-radius: 7px;"
             "}"
             "QSlider::handle:horizontal:hover { background: #ffffff; }"
             "QMenu {"
@@ -472,7 +494,7 @@ class DisplayControlsWidget(QWidget):
         layout.addWidget(sel_title)
 
         sel_row = QHBoxLayout()
-        sel_row.setSpacing(6)
+        sel_row.setSpacing(4)
         layout.addLayout(sel_row)
 
         self.selection_transparency = _SliderBlock(
@@ -486,15 +508,15 @@ class DisplayControlsWidget(QWidget):
             editable=True,
             suffix="%",
             orientation=Qt.Orientation.Horizontal,
-            title_min_width=72,
-            value_min_width=64,
+            title_min_width=56,
+            value_min_width=52,
         )
         sel_row.addWidget(self.selection_transparency, 1)
 
         self.clear_transparency_button = QPushButton("Opaque", self)
         self.clear_transparency_button.setToolTip("Reset Sel trans to 0% on the current selection.")
         self.clear_transparency_button.clicked.connect(lambda: self._set_selection_transparency(0))
-        self.clear_transparency_button.setMaximumWidth(78)
+        self.clear_transparency_button.setMaximumWidth(66)
         sel_row.addWidget(self.clear_transparency_button, 0)
 
         # ---- LAYERS section: independent visibility + transparency for
@@ -518,7 +540,7 @@ class DisplayControlsWidget(QWidget):
         )
 
         cartoon_title_row = QHBoxLayout()
-        cartoon_title_row.setSpacing(6)
+        cartoon_title_row.setSpacing(4)
         layout.addLayout(cartoon_title_row)
         cartoon_title = QLabel("CARTOON  STYLE", self)
         cartoon_title.setObjectName("SectionTitle")
@@ -527,13 +549,13 @@ class DisplayControlsWidget(QWidget):
         self.reset_cartoon_button = QPushButton("Reset", self)
         self.reset_cartoon_button.setToolTip("Reset cartoon width/thickness to ChimeraX defaults.")
         self.reset_cartoon_button.clicked.connect(self._reset_cartoon)
-        self.reset_cartoon_button.setMaximumWidth(64)
+        self.reset_cartoon_button.setMaximumWidth(56)
         cartoon_title_row.addWidget(self.reset_cartoon_button, 0)
 
         self.refresh_button = QPushButton("Refresh", self)
         self.refresh_button.setToolTip("Re-read the current selection state.")
         self.refresh_button.clicked.connect(self.refresh)
-        self.refresh_button.setMaximumWidth(72)
+        self.refresh_button.setMaximumWidth(62)
         cartoon_title_row.addWidget(self.refresh_button, 0)
 
         self.protein_width, self.protein_thickness = self._build_cartoon_row(layout, "All", "protein")
@@ -541,7 +563,7 @@ class DisplayControlsWidget(QWidget):
         self.strand_width, self.strand_thickness = self._build_cartoon_row(layout, "Sheet", "strand")
 
         sil_row = QHBoxLayout()
-        sil_row.setSpacing(6)
+        sil_row.setSpacing(4)
         layout.addLayout(sil_row)
 
         self.silhouette_check = QCheckBox("Silhouette", self)
@@ -563,7 +585,7 @@ class DisplayControlsWidget(QWidget):
             scale=0.1,
             orientation=Qt.Orientation.Horizontal,
             title_min_width=0,
-            value_min_width=68,
+            value_min_width=58,
         )
         sil_row.addWidget(self.silhouette_width, 1)
 
@@ -589,12 +611,13 @@ class DisplayControlsWidget(QWidget):
 
     def _build_cartoon_row(self, layout, group_label, group_key):
         row = QHBoxLayout()
-        row.setSpacing(6)
+        row.setSpacing(4)
         layout.addLayout(row)
 
         label = QLabel(group_label, self)
         label.setObjectName("InlineSliderTitle")
-        label.setMinimumWidth(40)
+        label.setMinimumWidth(32)
+        label.setMaximumWidth(46)
         row.addWidget(label, 0)
 
         width_block = _SliderBlock(
@@ -610,8 +633,8 @@ class DisplayControlsWidget(QWidget):
             decimals=1,
             scale=0.1,
             orientation=Qt.Orientation.Horizontal,
-            title_min_width=14,
-            value_min_width=64,
+            title_min_width=10,
+            value_min_width=52,
         )
         row.addWidget(width_block, 1)
 
@@ -628,8 +651,8 @@ class DisplayControlsWidget(QWidget):
             decimals=1,
             scale=0.1,
             orientation=Qt.Orientation.Horizontal,
-            title_min_width=14,
-            value_min_width=64,
+            title_min_width=10,
+            value_min_width=52,
         )
         row.addWidget(thick_block, 1)
 
@@ -643,12 +666,13 @@ class DisplayControlsWidget(QWidget):
         command in ``_apply_layer_transparency``.
         """
         row = QHBoxLayout()
-        row.setSpacing(6)
+        row.setSpacing(4)
         layout.addLayout(row)
 
         label = QLabel(label_text, self)
         label.setObjectName("InlineSliderTitle")
-        label.setMinimumWidth(60)
+        label.setMinimumWidth(50)
+        label.setMaximumWidth(68)
         row.addWidget(label, 0)
 
         show_check = QCheckBox("Show", self)
@@ -656,7 +680,7 @@ class DisplayControlsWidget(QWidget):
         show_check.toggled.connect(
             lambda on, key=layer_key: self._on_layer_visibility_toggled(key, on)
         )
-        show_check.setMaximumWidth(72)
+        show_check.setMaximumWidth(58)
         row.addWidget(show_check, 0)
 
         slider = _SliderBlock(
@@ -671,7 +695,7 @@ class DisplayControlsWidget(QWidget):
             suffix="%",
             orientation=Qt.Orientation.Horizontal,
             title_min_width=0,
-            value_min_width=60,
+            value_min_width=52,
         )
         row.addWidget(slider, 1)
 
@@ -690,7 +714,9 @@ class DisplayControlsWidget(QWidget):
         self.color_scope_combo.addItem("Selection", "sel")
         self.color_scope_combo.addItem("All", "all")
         self.color_scope_combo.setToolTip("Color selected atoms/residues/models or all open models.")
-        control_row.addWidget(self.color_scope_combo, 1)
+        self.color_scope_combo.setMinimumWidth(78)
+        self.color_scope_combo.setMaximumWidth(110)
+        control_row.addWidget(self.color_scope_combo, 0)
 
         self.color_target_combo = QComboBox(self)
         self.color_target_combo.addItem("All reps", "abcsp")
@@ -699,21 +725,28 @@ class DisplayControlsWidget(QWidget):
         self.color_target_combo.addItem("Surface", "s")
         self.color_target_combo.addItem("Models", "m")
         self.color_target_combo.setToolTip("ChimeraX color target letters: a atoms, b bonds, c cartoon, s surface, p pseudobonds, m models.")
-        control_row.addWidget(self.color_target_combo, 1)
+        self.color_target_combo.setMinimumWidth(102)
+        self.color_target_combo.setMaximumWidth(134)
+        control_row.addWidget(self.color_target_combo, 0)
 
         self.color_hex_edit = QLineEdit("#d9d3c7", self)
         self.color_hex_edit.setMaxLength(9)
         self.color_hex_edit.setPlaceholderText("#RRGGBB")
         self.color_hex_edit.returnPressed.connect(self._apply_color_from_text)
-        control_row.addWidget(self.color_hex_edit, 1)
+        self.color_hex_edit.setMinimumWidth(82)
+        self.color_hex_edit.setMaximumWidth(96)
+        control_row.addWidget(self.color_hex_edit, 0)
 
         self.pick_color_button = QPushButton("Pick", self)
         self.pick_color_button.clicked.connect(self._pick_color)
+        self.pick_color_button.setMaximumWidth(54)
         control_row.addWidget(self.pick_color_button)
 
         self.apply_color_button = QPushButton("Apply", self)
         self.apply_color_button.clicked.connect(self._apply_color_from_text)
+        self.apply_color_button.setMaximumWidth(58)
         control_row.addWidget(self.apply_color_button)
+        control_row.addStretch(1)
 
         self.rainbow_ramp = _RainbowRamp(self._rainbow_color_changed, self)
         self.rainbow_ramp.setToolTip("Drag along the rainbow ramp; release to apply the color.")
@@ -748,7 +781,7 @@ class DisplayControlsWidget(QWidget):
         self.color_transparency_value_label.editingFinished.connect(self._apply_current_color_with_transparency)
 
         scheme_row = QHBoxLayout()
-        scheme_row.setSpacing(6)
+        scheme_row.setSpacing(4)
         layout.addLayout(scheme_row)
 
         self.by_chain_button = QPushButton("By chain", self)
@@ -765,12 +798,13 @@ class DisplayControlsWidget(QWidget):
 
     def _make_horizontal_slider(self, title, minimum, maximum, value, formatter, changed_callback, layout, editable=False, suffix="%"):
         row = QHBoxLayout()
-        row.setSpacing(6)
+        row.setSpacing(4)
         layout.addLayout(row)
 
         label = QLabel(title, self)
         label.setObjectName("InlineSliderTitle")
-        label.setMinimumWidth(72)
+        label.setMinimumWidth(56)
+        label.setMaximumWidth(78)
         row.addWidget(label, 0)
 
         slider = QSlider(Qt.Orientation.Horizontal, self)
@@ -787,7 +821,8 @@ class DisplayControlsWidget(QWidget):
             spin.setValue(value)
             if suffix:
                 spin.setSuffix(suffix)
-            spin.setMinimumWidth(64)
+            spin.setMinimumWidth(52)
+            spin.setMaximumWidth(62)
             spin.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
             spin.setKeyboardTracking(False)
@@ -1411,7 +1446,7 @@ class CodexDisplayControls(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 17
+    UI_LAYOUT_VERSION = 18
     help = "help:user/tools/codex_assistant.html"
 
     @classmethod

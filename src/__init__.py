@@ -195,6 +195,28 @@ def _ensure_action_pad_models_tab(session, raise_action=False):
     return action_pad
 
 
+def _ensure_display_controls_tab(session, raise_controls=False):
+    if not getattr(session.ui, "is_gui", False):
+        return None
+    try:
+        from .display_controls import CodexDisplayControls
+
+        display_controls = CodexDisplayControls.get_singleton(session, create=True, display=True)
+        if display_controls is not None:
+            try:
+                display_controls.display(True)
+            except Exception:
+                pass
+    except Exception:
+        return None
+
+    _schedule_helper_dock_layout(
+        session,
+        raise_tool="display controls" if raise_controls else "models",
+    )
+    return display_controls
+
+
 # Title tokens (lowercased substring) for each bottom helper tool dock. Log is
 # intentionally excluded: the right dock layout is Log on top, with all helper
 # tools tabified below it.
@@ -367,6 +389,7 @@ def _apply_startup_layout(session, assistant=None):
             pass
 
     _ensure_action_pad_models_tab(session)
+    _ensure_display_controls_tab(session)
     _tabify_helper_tools(session, raise_tool="ai assistant" if assistant is not None else "models")
 
     assistant_dock = _find_dock_widget(session, ("ai assistant",))
@@ -945,6 +968,7 @@ def _auto_open_workspace(session):
                     pass
         except Exception:
             pass
+        _ensure_display_controls_tab(session)
         _ensure_sequence_bar_visible(session)
         if main_window is not None:
             try:

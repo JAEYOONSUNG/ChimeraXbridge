@@ -811,7 +811,7 @@ class CodexActionPad(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_action_pad.html"
-    UI_LAYOUT_VERSION = 15
+    UI_LAYOUT_VERSION = 16
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):
@@ -851,6 +851,12 @@ class CodexActionPad(ToolInstance):
             self.tool_window.manage(placement=self._placement_tool)
         else:
             self.tool_window.manage(placement="side")
+        try:
+            from . import _schedule_helper_dock_layout
+
+            _schedule_helper_dock_layout(self.session, raise_tool="action pad")
+        except Exception:
+            pass
 
     def delete(self):
         self.widget.cleanup()

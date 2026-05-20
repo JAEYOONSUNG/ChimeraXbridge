@@ -357,28 +357,18 @@ def _prompt_rmsd_options(session):
 
 
 def _tabify_helper_into_models_strip(session, *, raise_tool=None):
-    """Bring the just-opened helper tool into the shared Models dock tab strip.
+    """Bring the just-opened helper tool into the shared lower-right tab strip.
 
-    Tries once immediately, then again after short delays because docks
-    are wired into the main window asynchronously and the first call
-    often runs before the new dock widget exists.
+    Tries once immediately, then again after short delays because docks are
+    wired into the main window asynchronously and the first call often runs
+    before the new dock widget exists.
     """
     try:
-        from . import _tabify_helper_tools
+        from . import _schedule_helper_dock_layout
     except Exception:
         return
     try:
-        _tabify_helper_tools(session, raise_tool=raise_tool)
-    except Exception:
-        pass
-    try:
-        from Qt.QtCore import QTimer
-
-        for delay in (120, 400, 1200):
-            QTimer.singleShot(
-                delay,
-                lambda ses=session, name=raise_tool: _tabify_helper_tools(ses, raise_tool=name),
-            )
+        _schedule_helper_dock_layout(session, raise_tool=raise_tool)
     except Exception:
         pass
 

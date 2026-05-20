@@ -244,6 +244,12 @@ class CameraBookmarks(ToolInstance):
         parent.setLayout(outer)
         self._refresh_list()
         self.tool_window.manage(placement="side")
+        try:
+            from . import _schedule_helper_dock_layout
+
+            _schedule_helper_dock_layout(self.session, raise_tool="camera bookmarks")
+        except Exception:
+            pass
 
     # ---------------------------------------------------------------- helpers
 

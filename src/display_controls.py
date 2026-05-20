@@ -1411,7 +1411,7 @@ class CodexDisplayControls(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 16
+    UI_LAYOUT_VERSION = 17
     help = "help:user/tools/codex_assistant.html"
 
     @classmethod
@@ -1442,6 +1442,12 @@ class CodexDisplayControls(ToolInstance):
         self.widget = DisplayControlsWidget(self.session, parent=parent)
         layout.addWidget(self.widget)
         self.tool_window.manage(placement="side")
+        try:
+            from . import _schedule_helper_dock_layout
+
+            _schedule_helper_dock_layout(self.session, raise_tool="display controls")
+        except Exception:
+            pass
 
     def displayed(self):
         dock_widget = getattr(self.tool_window, "_dock_widget", None)

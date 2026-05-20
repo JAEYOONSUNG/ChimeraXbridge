@@ -188,41 +188,53 @@ def _ensure_action_pad_models_tab(session, raise_action=False):
     except Exception:
         return None
 
-    action_dock = getattr(getattr(action_pad, "tool_window", None), "_dock_widget", None)
-    models_dock = _find_dock_widget(session, ("models", "model panel"))
-    if action_dock is None or models_dock is None or action_dock is models_dock:
-        return action_pad
-    try:
-        main_window.tabifyDockWidget(models_dock, action_dock)
-        if raise_action:
-            action_dock.raise_()
-        else:
-            models_dock.raise_()
-    except Exception:
-        pass
+    _schedule_helper_dock_layout(
+        session,
+        raise_tool="action pad" if raise_action else "models",
+    )
     return action_pad
 
 
-# Title tokens (lowercased substring) for each Codex helper tool dock. Used to
-# tabify them all together with the Models / Action Pad dock so the user sees
-# one tab strip instead of half a dozen overlapping panels.
+# Title tokens (lowercased substring) for each bottom helper tool dock. Log is
+# intentionally excluded: the right dock layout is Log on top, with all helper
+# tools tabified below it.
 _HELPER_DOCK_TOKENS = (
     ("models",            ("models", "model panel")),
-    ("action pad",        ("action pad",)),
     ("ai assistant",      ("ai assistant",)),
     ("display controls",  ("display controls", "display ctrl")),
+    ("action pad",        ("action pad",)),
     ("camera bookmarks",  ("camera bookmarks", "bookmarks")),
 )
 
 
-def _tabify_helper_tools(session, *, raise_tool=None):
-    """Tabify Codex helper tools (Models, Action Pad, AI Assistant, Display
-    Ctrl, Bookmarks) into a single dock tab strip.
+def _schedule_helper_dock_layout(session, *, raise_tool=None):
+    """Retry right-side tab layout after dock widgets finish constructing."""
+    try:
+        _tabify_helper_tools(session, raise_tool=raise_tool)
+    except Exception:
+        pass
+    try:
+        from Qt.QtCore import QTimer
+    except Exception:
+        return
+    for delay in (80, 250, 700, 1500):
+        try:
+            QTimer.singleShot(
+                delay,
+                lambda ses=session, tool=raise_tool: _tabify_helper_tools(ses, raise_tool=tool),
+            )
+        except Exception:
+            pass
 
-    Called whenever a helper tool is opened so it lands as a new tab next
-    to the existing ones instead of floating as a separate panel. Safe to
-    call repeatedly -- tabifyDockWidget is idempotent for already-tabbed
-    docks.
+
+def _tabify_helper_tools(session, *, raise_tool=None):
+    """Tabify helper tools below Log in the right dock.
+
+    The desired layout is:
+
+      right dock, upper row: ChimeraX Log
+      right dock, lower row: Models / AI Assistant / Display Ctrl /
+                            Action Pad / Bookmarks as tabs
 
     ``raise_tool`` is a substring of a dock title; the matching dock is
     raised to the front after tabifying so the caller's tool comes up
@@ -233,21 +245,58 @@ def _tabify_helper_tools(session, *, raise_tool=None):
     main_window = getattr(session.ui, "main_window", None)
     if main_window is None:
         return
+    try:
+        from Qt.QtCore import Qt
+    except Exception:
+        return
+
     found = []
+    seen_ids = set()
     for key, tokens in _HELPER_DOCK_TOKENS:
         dock = _find_dock_widget(session, tokens)
-        if dock is not None:
+        if dock is not None and id(dock) not in seen_ids:
+            seen_ids.add(id(dock))
             found.append((key, dock))
-    if len(found) < 2:
+    if not found:
         return
+
     anchor = found[0][1]
-    for _key, dock in found[1:]:
+    right_area = Qt.DockWidgetArea.RightDockWidgetArea
+
+    def _dock_to_right(dock):
+        if dock is None:
+            return
+        try:
+            if dock.isFloating():
+                dock.setFloating(False)
+        except Exception:
+            pass
+        try:
+            if main_window.dockWidgetArea(dock) != right_area:
+                main_window.addDockWidget(right_area, dock)
+        except Exception:
+            pass
+
+    log_dock = _find_dock_widget(session, ("log",))
+    if log_dock is not None:
+        _dock_to_right(log_dock)
+    for _key, dock in found:
+        _dock_to_right(dock)
+
+    if log_dock is not None and log_dock is not anchor:
+        try:
+            main_window.splitDockWidget(log_dock, anchor, Qt.Orientation.Vertical)
+        except Exception:
+            pass
+
+    for _key, dock in found:
         if dock is anchor:
             continue
         try:
             main_window.tabifyDockWidget(anchor, dock)
         except Exception:
             pass
+
     raise_dock = None
     if raise_tool:
         needle = raise_tool.strip().lower()
@@ -261,6 +310,33 @@ def _tabify_helper_tools(session, *, raise_tool=None):
         raise_dock.raise_()
     except Exception:
         pass
+
+    right_docks = _right_side_docks(session)
+    if right_docks:
+        target_width = max(380, int(max(main_window.width(), 900) * 0.30))
+        try:
+            main_window.resizeDocks(
+                right_docks,
+                [target_width] * len(right_docks),
+                Qt.Orientation.Horizontal,
+            )
+        except Exception:
+            pass
+        _release_dock_constraints(right_docks)
+
+    if log_dock is not None and log_dock is not anchor:
+        available_height = max(main_window.height(), 800)
+        log_height = max(150, int(available_height * 0.24))
+        helper_height = max(380, int(available_height * 0.76))
+        try:
+            main_window.resizeDocks(
+                [log_dock, anchor],
+                [log_height, helper_height],
+                Qt.Orientation.Vertical,
+            )
+        except Exception:
+            pass
+        _release_dock_constraints([log_dock, anchor])
 
 
 def _apply_startup_layout(session, assistant=None):
@@ -291,33 +367,9 @@ def _apply_startup_layout(session, assistant=None):
             pass
 
     _ensure_action_pad_models_tab(session)
+    _tabify_helper_tools(session, raise_tool="ai assistant" if assistant is not None else "models")
 
-    right_docks = _right_side_docks(session)
-    if right_docks:
-        target_width = max(360, int(max(main_window.width(), 900) * 0.30))
-        try:
-            main_window.resizeDocks(right_docks, [target_width] * len(right_docks), Qt.Orientation.Horizontal)
-        except Exception:
-            pass
-        _release_dock_constraints(right_docks)
-
-    log_dock = _find_dock_widget(session, ("log",))
-    models_dock = _find_dock_widget(session, ("models", "model panel"))
     assistant_dock = _find_dock_widget(session, ("ai assistant",))
-    vertical_docks = [dock for dock in (log_dock, models_dock) if dock is not None]
-    if len(vertical_docks) >= 2:
-        available_height = max(main_window.height(), 800)
-        height_targets = []
-        for dock in vertical_docks:
-            if dock is models_dock:
-                height_targets.append(int(available_height * 0.10))
-            else:
-                height_targets.append(int(available_height * 0.09))
-        try:
-            main_window.resizeDocks(vertical_docks, height_targets, Qt.Orientation.Vertical)
-        except Exception:
-            pass
-        _release_dock_constraints(vertical_docks)
     if assistant_dock is not None:
         _release_dock_constraints([assistant_dock])
 
@@ -909,12 +961,8 @@ def _auto_open_workspace(session):
         # later retries put it back.
         for delay in (250, 1000, 2500, 5000):
             QTimer.singleShot(delay, lambda ses=session: _ensure_sequence_bar_visible(ses))
-        # Tabify whatever helper tools are already up so they share one
-        # dock tab strip with Models. Run at a few delays because docks
-        # are created asynchronously and the first call usually finds only
-        # Models + Assistant.
-        for delay in (300, 1200, 2800):
-            QTimer.singleShot(delay, lambda ses=session: _tabify_helper_tools(ses, raise_tool="models"))
+        # Keep the right dock as Log on top and helper tools as tabs below it.
+        _schedule_helper_dock_layout(session, raise_tool="models")
 
     QTimer.singleShot(150, open_later)
 

@@ -180,7 +180,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 58
+    UI_LAYOUT_VERSION = 59
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1140,6 +1140,12 @@ class CodexAssistant(ToolInstance):
         self._enforce_compact_assistant_heights()
         self._apply_dock_fraction()
         self._show_assistant_tab()
+        try:
+            from . import _schedule_helper_dock_layout
+
+            _schedule_helper_dock_layout(self.session, raise_tool="ai assistant")
+        except Exception:
+            pass
         self._append_system(
             f"engine {self._backend_label()} · mode {self._mode} · speed {self._speed_text(self._mode)}"
         )
@@ -2162,6 +2168,12 @@ class CodexAssistant(ToolInstance):
         controls = CodexDisplayControls.get_singleton(self.session, create=True, display=True)
         if controls is not None:
             controls.display(True)
+            try:
+                from . import _schedule_helper_dock_layout
+
+                _schedule_helper_dock_layout(self.session, raise_tool="display controls")
+            except Exception:
+                pass
             self._append_system("display controls opened")
 
     def _set_sequence_bar_button_labels(self, shown):

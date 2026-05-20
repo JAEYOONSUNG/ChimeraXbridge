@@ -25,13 +25,11 @@ ChimeraX session.
 - Analyze/chat replies keep suggested ChimeraX commands separate instead of auto-running them by default
 
 ## Interface Preview
+<img width="1920" height="1049" alt="스크린샷 2026-05-20 09 57 13" src="https://github.com/user-attachments/assets/cf2934ec-f0f5-405d-baa9-3aaccb773377" />
 
-![ChimeraXbridge workspace running inside UCSF ChimeraX](docs/images/chimeraxbridge-main.png)
 
 ChimeraXbridge adds a top sequence bar, AI toolbar entry, model/action controls,
 and a right-side AI Assistant workspace inside ChimeraX.
-
-![AI Assistant quick actions for sequence, catalytic, membrane, PISA, and structure-search tools](docs/images/chimeraxbridge-ai-panel.png)
 
 The AI Assistant panel exposes quick actions for sequence reports, motif
 highlighting, catalytic-residue triage, membrane views, PISA-style interface

@@ -390,7 +390,10 @@ def _apply_startup_layout(session, assistant=None):
 
     _ensure_action_pad_models_tab(session)
     _ensure_display_controls_tab(session)
-    _tabify_helper_tools(session, raise_tool="ai assistant" if assistant is not None else "models")
+    # Startup should expose the model list first. Display Controls and AI are
+    # still opened and tabified below Log, but they should not steal the first
+    # visible helper tab.
+    _tabify_helper_tools(session, raise_tool="models")
 
     assistant_dock = _find_dock_widget(session, ("ai assistant",))
     if assistant_dock is not None:

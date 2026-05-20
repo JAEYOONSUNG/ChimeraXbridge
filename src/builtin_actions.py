@@ -3296,7 +3296,9 @@ def _run_setup_tool(session, arg, executor=None):
             "  boltz      — auto: pip install boltz into ~/boltz2_latest venv",
             "  foldmason  — manual: brew install foldmason (or build from source)",
             "  folddisco  — manual: see https://github.com/steineggerlab/folddisco",
+            "  usalign    — manual: install US-align/TMalign binary; web fallback works without it",
             "  caver      — manual: download CAVER 3 JAR from https://www.caver.cz",
+            "  openmm     — manual: optional MD dependency; not auto-installed into ChimeraX Python",
             "Examples:",
             "  /setup rapidock --gpu auto",
             "  /setup boltz",
@@ -3308,11 +3310,13 @@ def _run_setup_tool(session, arg, executor=None):
         return _run_rapidock_setup_tool(session, " ".join(extras), executor=executor)
     if tool == "boltz":
         return _run_boltz_setup(session, executor=executor)
-    if tool in ("foldmason", "folddisco", "caver"):
+    if tool in ("foldmason", "folddisco", "usalign", "caver", "openmm"):
         return {
             "foldmason": "Install foldmason: `brew install foldmason` (macOS) or build from https://github.com/steineggerlab/foldmason",
             "folddisco": "Install FoldDisco: `git clone https://github.com/steineggerlab/folddisco && cd folddisco && cargo build --release`",
+            "usalign":   "Install US-align/TMalign as `USalign` or `usalign` on PATH, or keep using the built-in US-align web launcher.",
             "caver":     "Install CAVER 3 JAR from https://www.caver.cz/download (Java required). Or use CAVER Web (auto-handled).",
+            "openmm":    "OpenMM MD is optional and not auto-installed to avoid contaminating ChimeraX Python. Advanced users can install OpenMM into the ChimeraX Python environment, or run MD in a separate conda/venv workflow.",
         }[tool]
     return f"Unknown tool '{tool}'. Run /setup with no args for the list."
 

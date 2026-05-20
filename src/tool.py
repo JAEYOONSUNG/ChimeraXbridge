@@ -1,8 +1,10 @@
 import os
 import json
 import shlex
+import shutil
 import subprocess
 import threading
+from pathlib import Path
 
 from Qt.QtCore import Qt
 from Qt.QtWidgets import QWidget
@@ -1859,12 +1861,164 @@ class CodexAssistant(ToolInstance):
                 continue
             action = menu.addAction(f"Setup {get_backend_label(backend_id)}")
             action.triggered.connect(lambda _checked=False, b=backend_id: self._setup_backend(b))
+        menu.addSeparator()
+        header = menu.addAction("Optional tool setup")
+        header.setEnabled(False)
+        for spec in self._optional_setup_specs():
+            status = self._optional_setup_status(spec["id"])
+            action = menu.addAction(f"{spec['label']}: {status}")
+            action.setToolTip(spec["detail"])
+            action.triggered.connect(lambda _checked=False, s=spec: self._setup_optional_tool(s))
 
     def _refresh_engine_status(self):
         self._populate_backend_combo()
         self._populate_model_controls()
         self._sync_control_widgets()
         self._set_result_status("Engine status refreshed.")
+
+    def _optional_setup_specs(self):
+        return [
+            {
+                "id": "rapidock",
+                "label": "RAPiDock local",
+                "setup_arg": "rapidock --gpu auto",
+                "auto": True,
+                "detail": "Auto clone + venv + PyTorch/deps + model checkpoints. Expect roughly 2-6 GB depending on CPU/GPU wheels.",
+                "confirm": (
+                    "RAPiDock setup will clone RAPiDock, create ~/RAPiDock/.venv, "
+                    "install PyTorch/MDAnalysis/e3nn/ESM/RDKit/PyG dependencies, and download "
+                    "about 110 MB of checkpoints. Total disk use is commonly 2-6 GB."
+                ),
+            },
+            {
+                "id": "boltz",
+                "label": "Boltz CLI",
+                "setup_arg": "boltz",
+                "auto": True,
+                "detail": "Auto create ~/boltz2_latest venv and pip install boltz. Expect roughly 1-4 GB depending on dependencies.",
+                "confirm": (
+                    "Boltz setup will create ~/boltz2_latest and pip install boltz into that "
+                    "separate environment. Total disk use is commonly 1-4 GB."
+                ),
+            },
+            {
+                "id": "foldmason",
+                "label": "FoldMason",
+                "setup_arg": "foldmason",
+                "auto": False,
+                "detail": "Manual install instructions; local executable enables direct FoldMason runs, otherwise web fallback is used.",
+            },
+            {
+                "id": "folddisco",
+                "label": "FoldDisco",
+                "setup_arg": "folddisco",
+                "auto": False,
+                "detail": "Manual install instructions; local executable enables direct motif searches, otherwise web fallback is used.",
+            },
+            {
+                "id": "usalign",
+                "label": "US-align",
+                "setup_arg": "usalign",
+                "auto": False,
+                "detail": "Manual install instructions; local executable adds pairwise report files, web launch still works without it.",
+            },
+            {
+                "id": "caver",
+                "label": "CAVER local",
+                "setup_arg": "caver",
+                "auto": False,
+                "detail": "Manual Java + CAVER 3 JAR setup. CAVER Web remains available without local install.",
+            },
+            {
+                "id": "openmm",
+                "label": "OpenMM MD",
+                "setup_arg": "openmm",
+                "auto": False,
+                "detail": "Manual install guidance for optional MD; not auto-installed to avoid contaminating ChimeraX Python.",
+            },
+        ]
+
+    def _optional_setup_status(self, tool_id):
+        try:
+            if tool_id == "rapidock":
+                repo = Path(os.environ.get("RAPIDOCK_REPO") or Path.home() / "RAPiDock").expanduser()
+                if (repo / ".venv" / "bin" / "python").exists():
+                    return "installed"
+                if repo.exists():
+                    return "partial"
+                return "not installed"
+            if tool_id == "boltz":
+                if shutil.which("boltz") or (Path.home() / "boltz2_latest" / "bin" / "boltz").exists():
+                    return "installed"
+                return "not installed"
+            if tool_id == "foldmason":
+                return "installed" if shutil.which("foldmason") else "web/manual"
+            if tool_id == "folddisco":
+                return "installed" if shutil.which("folddisco") else "web/manual"
+            if tool_id == "usalign":
+                for name in ("USalign", "usalign", "TMalign", "tmalign"):
+                    if shutil.which(name):
+                        return "installed"
+                return "web/manual"
+            if tool_id == "caver":
+                java = shutil.which(os.environ.get("CAVER_JAVA", "java"))
+                try:
+                    from .caver import _resolve_caver_home_and_jar
+
+                    _home, jar = _resolve_caver_home_and_jar()
+                except Exception:
+                    jar = None
+                if java and jar:
+                    return "installed"
+                if java or jar:
+                    return "partial"
+                return "web/manual"
+            if tool_id == "openmm":
+                try:
+                    import openmm  # noqa: F401
+
+                    return "installed"
+                except Exception:
+                    return "manual"
+        except Exception:
+            return "unknown"
+        return "unknown"
+
+    def _setup_optional_tool(self, spec):
+        setup_arg = spec.get("setup_arg") or spec.get("id")
+        if spec.get("auto"):
+            if not self._confirm_optional_setup(spec):
+                return
+        ok = run_builtin_slash(
+            self.session,
+            "/setup",
+            setup_arg,
+            self._append_system,
+            executor=self._run_command_thread_safe,
+        )
+        if ok:
+            self._set_result_status(f"Setup started: {spec['label']}" if spec.get("auto") else f"Setup notes shown: {spec['label']}")
+        else:
+            self._set_result_status(f"Setup helper unavailable for {spec['label']}.", tone="warn")
+
+    def _confirm_optional_setup(self, spec):
+        try:
+            from Qt.QtWidgets import QMessageBox
+        except Exception:
+            return True
+        message = spec.get("confirm") or spec.get("detail") or ""
+        box = QMessageBox(getattr(self.tool_window, "ui_area", None))
+        box.setWindowTitle(f"Setup {spec['label']}")
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setText(f"Start setup for {spec['label']}?")
+        box.setInformativeText(
+            message + "\n\nThis runs in a separate environment and can take several minutes."
+        )
+        box.setStandardButtons(
+            QMessageBox.StandardButton.Cancel | QMessageBox.StandardButton.Ok
+        )
+        box.setDefaultButton(QMessageBox.StandardButton.Cancel)
+        return box.exec() == QMessageBox.StandardButton.Ok
 
     def _setup_backend(self, backend_id):
         spec = get_backend_spec(backend_id)

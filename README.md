@@ -109,6 +109,24 @@ CODEX_BRIDGE_CLI=/path/to/codex \
   /Applications/ChimeraX-1.10.1.app/Contents/bin/ChimeraX
 ```
 
+### Optional Tool Setup
+
+The bundle itself is small and does not auto-install large scientific stacks.
+Heavy or optional tools are exposed from the AI Assistant `Setup` menu and from
+the in-app `/setup` command:
+
+- `rapidock` can be installed into a separate `~/RAPiDock` checkout and venv after confirmation. Expect roughly 2-6 GB depending on CPU/GPU wheels.
+- `boltz` can be installed into a separate `~/boltz2_latest` venv after confirmation. Expect roughly 1-4 GB.
+- `foldmason`, `folddisco`, `usalign`, `caver`, and `openmm` show manual setup guidance; web or ChimeraX-native fallbacks remain available where supported.
+
+Examples inside the AI Assistant terminal:
+
+```text
+/setup
+/setup rapidock --gpu auto
+/setup boltz
+```
+
 ## Install
 
 For a reproducible setup on another machine, follow
@@ -229,7 +247,7 @@ In the tool window:
 - A live workspace pane tracks session context, selection focus, and recommended figure flow
 - The AI tool header shows the currently resolved protein chain, sequence length, and default motif hits
 - Interactive suggestions can be double-clicked or applied directly back into ChimeraX
-- The AI control bar disables unavailable engines and exposes `Setup` actions for CLI login or OpenAI API-key setup
+- The AI control bar disables unavailable engines and exposes `Setup` actions for CLI login, OpenAI API-key setup, and optional scientific tool installs
 - The visible `Model` and `Reasoning` controls are real overrides passed to Codex CLI, OpenAI Responses API, Claude, or Gemini when supported
 - The main AI panel keeps only sequence-focused quick buttons, while analysis launchers live in the grouped `Analysis` menu and ChimeraX `AI` toolbar
 - The AI header includes a grouped `Analysis` menu for local reports, sequence/modeling tools, and structure-search launchers

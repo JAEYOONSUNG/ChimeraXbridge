@@ -44,7 +44,12 @@ from .sequence_colors import (chemistry_color, CHARGE_LEGEND_HTML, BASE_PALETTE_
 
 
 class SequenceColorSettings(Settings):
-    AUTO_SAVE = {"aa_charge": True, "nucleotides": True, "base_palette": "muted"}
+    AUTO_SAVE = {"aa_charge": False, "nucleotides": True, "base_palette": "muted"}
+
+    def __init__(self, session, tool_name, version="1"):
+        super().__init__(session, tool_name, version=version)
+        from .first_run_defaults import preserve_legacy_defaults
+        preserve_legacy_defaults(self, {"aa_charge": True})
 
 
 def _sequence_color_settings(session):

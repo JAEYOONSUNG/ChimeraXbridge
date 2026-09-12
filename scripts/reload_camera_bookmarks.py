@@ -14,7 +14,7 @@ def reload_camera_bookmarks():
     if build.exists():
         targets.append(build)
     for target in targets:
-        for filename in ("__init__.py", "camera_bookmarks.py", "camera_bookmark_state.py", "image_export.py", "panel_scroll.py", "ui_theme.py"):
+        for filename in ("__init__.py", "camera_bookmarks.py", "camera_bookmark_state.py", "image_export.py", "panel_scroll.py", "ui_theme.py", "first_run_defaults.py"):
             if (target / filename).resolve() != (source / filename).resolve():
                 shutil.copy2(source / filename, target / filename)
 

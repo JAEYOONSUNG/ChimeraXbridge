@@ -1986,6 +1986,8 @@ def _openai_create_response(
     text_schema=None,
     parallel_tool_calls=None,
 ):
+    from .backends import validate_api_key
+    api_key = validate_api_key(api_key)
     body = {
         "model": model,
         "input": input_items,
@@ -2021,10 +2023,15 @@ def _openai_create_response(
         with urlopen(request, timeout=300) as response:
             return json.loads(response.read().decode("utf-8"))
     except HTTPError as err:
-        detail = err.read().decode("utf-8", errors="replace")
-        raise CodexBridgeError(f"OpenAI API error {err.code}: {detail[:1200]}") from err
+        detail = err.read(16384).decode("utf-8", errors="replace")
+        err.close()
+        detail = detail.replace(api_key, "[redacted]").replace(
+            json.dumps(api_key)[1:-1], "[redacted]")
+        raise CodexBridgeError(f"OpenAI API error {err.code}: {detail[:1200]}") from None
     except URLError as err:
-        raise CodexBridgeError(f"OpenAI API request failed: {err}") from err
+        detail = str(err).replace(api_key, "[redacted]").replace(
+            json.dumps(api_key)[1:-1], "[redacted]")
+        raise CodexBridgeError(f"OpenAI API request failed: {detail}") from None
 
 
 def _openai_input_items(prompt, *, image_paths=None):

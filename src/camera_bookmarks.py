@@ -24,7 +24,12 @@ class BookmarkSettings(Settings):
 
 class ImageExportSettings(Settings):
     AUTO_SAVE = {"format": "PNG", "width": 0, "height": 0, "dpi": 300,
-                 "lock_ratio": True, "transparent": False, "directory": ""}
+                 "lock_ratio": True, "transparent": True, "directory": ""}
+
+    def __init__(self, session, tool_name, version="1"):
+        super().__init__(session, tool_name, version=version)
+        from .first_run_defaults import preserve_legacy_defaults
+        preserve_legacy_defaults(self, {"transparent": False})
 
 
 def _image_export_settings(session):

@@ -4,6 +4,35 @@ import shutil
 from pathlib import Path
 
 
+# In-app API credentials are process-memory only, never environment/config data.
+# Preserve this store when a developer reloads the UI in the same application.
+if "_runtime_api_keys" not in globals():
+    _runtime_api_keys = {}
+
+
+def set_runtime_api_key(backend_id, value):
+    if backend_id not in BACKEND_SPECS or BACKEND_SPECS[backend_id].get("transport") != "api":
+        raise ValueError("This backend does not use an API key.")
+    _runtime_api_keys[backend_id] = validate_api_key(value)
+
+
+def validate_api_key(value):
+    if not isinstance(value, str):
+        raise ValueError("Enter an API key.")
+    value = value.strip()
+    if not value or len(value) > 4096 or any(not 33 <= ord(c) <= 126 for c in value):
+        raise ValueError("Enter a key without spaces or line breaks.")
+    return value
+
+
+def clear_runtime_api_key(backend_id):
+    _runtime_api_keys.pop(backend_id, None)
+
+
+def runtime_api_key_available(backend_id):
+    return bool(_runtime_api_keys.get(backend_id))
+
+
 BACKEND_SPECS = {
     "openai": {
         "label": "OpenAI API",
@@ -428,6 +457,8 @@ def resolve_backend_cli(backend_id, strict=True):
 
 def resolve_backend_api_key(backend_id, strict=True):
     spec = BACKEND_SPECS[backend_id]
+    if backend_id in _runtime_api_keys:
+        return _runtime_api_keys[backend_id]
     env_names = spec.get("api_key_envs") or ()
     for env_name in env_names:
         value = os.environ.get(env_name)
@@ -456,9 +487,10 @@ def backend_availability(backend_id):
 
     api_key = resolve_backend_api_key(backend_id, strict=False)
     if api_key:
-        return True, "ready", "API key available"
+        source = "for this app session" if runtime_api_key_available(backend_id) else "from environment"
+        return True, "key set", f"API key available {source}; use Setup to check the connection."
     env_hint = ", ".join(spec.get("api_key_envs") or ())
-    return False, "missing API key", f"Set {env_hint} before launching ChimeraX."
+    return False, "missing API key", f"Enter a key in Setup, or set {env_hint} before launching ChimeraX."
 
 
 def backend_status_lines(session):

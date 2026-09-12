@@ -1,8 +1,7 @@
-# Install and reproduce ChimeraXbridge 0.2.0
+# Install and reproduce ChimeraXbridge 0.2.1
 
-Use this guide to install the published plugin on another computer and share a
-workspace configuration. Copying another user's installed package directory or
-AI account files is unnecessary.
+Install the wheel and restart ChimeraX to get the shared workspace defaults on a
+new computer. Existing saved preferences are retained when upgrading.
 
 ## Requirements
 
@@ -20,27 +19,28 @@ every ChimeraX version. ChimeraX dependency ranges are declared in
 ## Recommended: install the release wheel
 
 1. Open [the latest release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest),
-   or pin [v0.2.0](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.0).
-2. Download **[ChimeraX_CodexBridge-0.2.0-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.0/ChimeraX_CodexBridge-0.2.0-py3-none-any.whl)** from **Assets**.
+   or pin [v0.2.1](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.1).
+2. Download **[ChimeraX_CodexBridge-0.2.1-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.1/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl)** from **Assets**.
    You do not need Git or the **Source code** archives for a wheel installation.
 3. In the ChimeraX command line, run:
 
    ```chimerax
-   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.0-py3-none-any.whl"
+   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl"
    ```
 
 4. Restart ChimeraX. If installation was deferred because the old plugin was in
    use, restarting completes the update.
 
-Installation is complete at this point. The plugin's local tools work without
-running `codex profile`, signing in to Codex, or downloading any account profile.
+Installation is complete at this point. The sequence panel, tabbed sidebar,
+muted nucleotide fills and transparent 300 DPI PNG defaults are ready on a fresh
+installation. No additional setup command or AI login is required for local tools.
 
 The quoted path must identify the wheel on your computer. `~` expands to your
 home folder in the ChimeraX installer. Use a quoted absolute path if your
 download folder is elsewhere, for example:
 
 ```chimerax
-toolshed install "C:/Downloads/ChimeraX_CodexBridge-0.2.0-py3-none-any.whl"
+toolshed install "C:/Downloads/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl"
 ```
 
 Use the filename exactly as downloaded; if a browser adds `(1)`, choose the
@@ -48,22 +48,9 @@ original filename or rename the duplicate before installing. Do not use a
 GitHub web-page URL as the local wheel path, and do not install the bundle into
 system Python with `pip`.
 
-## Optional: apply the shared UI preset
+## Defaults and first-run check
 
-`codex profile` is a custom **ChimeraXbridge setting command**, not an OpenAI
-Codex account profile or an installation method. The preset is already included
-in the wheel. Skip this section to keep your current UI preferences.
-
-To match JaeYoon's panel, color and image-export preferences, inspect and
-explicitly apply the bundled preset inside ChimeraX:
-
-```chimerax
-codex profile
-codex profile jaeyoon apply true
-```
-
-Inspection alone does not change settings. Installation does not automatically
-apply the profile. The **jaeyoon** profile sets:
+A fresh 0.2.1 installation uses these defaults automatically:
 
 | Setting | Value |
 | --- | --- |
@@ -71,13 +58,13 @@ apply the profile. The **jaeyoon** profile sets:
 | Sequence | Visible, All chains; existing 10-position guides |
 | Sequence fill colors | Amino-acid charge off; nucleotides on, muted palette |
 | Image export | PNG, 300 DPI, aspect lock on, transparent background on |
-| Width / height | Reset to use this computer's current graphics viewport |
+| Width / height | Use this computer's current graphics viewport |
 | Bookmark capture | Camera, display, colors and lighting on; selection off |
 
-The profile leaves molecular coordinates, 3D colors, selection and camera intact.
-It does not transfer login credentials, API keys, executable paths, output
-directories, open structures or saved bookmark data. To share a particular
-molecular scene and its bookmarks, save and share a ChimeraX `.cxs` session too.
+Existing settings files retain their saved choices, including older color and
+export defaults. The release does not replace your preferences on every launch.
+To share a molecular scene and its bookmarks, share a ChimeraX `.cxs` session too;
+the plugin installation does not transfer molecular data or another user's accounts.
 
 Expected local UI behavior:
 
@@ -102,10 +89,21 @@ was unavailable and clearly labels any fallback evidence.
 
 ## Optional AI connection
 
-Open `codex tool` and use the backend selector and **Setup** menu. Each user signs
-in to their own service. Use the **Model** and **Reasoning** controls to select
-options supported by that backend/account. These commands inspect the current
-choices without requiring a hard-coded model name:
+Open `codex tool` and use the backend selector and **Setup** menu. Each user
+connects their own account or API key. The plugin connects an existing account;
+it does not purchase subscriptions, activate paid plans or change billing.
+
+| Route | Where you finish setup | Who retains the credential |
+| --- | --- | --- |
+| Codex, Claude or Gemini account | The installed CLI's terminal/browser login, launched from Setup | That CLI, according to its own login settings |
+| OpenAI API | The masked key dialog inside ChimeraX | ChimeraXbridge memory for this app session only |
+
+Codex supports ChatGPT sign-in for subscription access and API-key sign-in for
+usage-based access. OpenAI API keys use the OpenAI Platform's API billing instead
+of included ChatGPT plan credits. [OpenAI authentication documentation](https://learn.chatgpt.com/docs/auth).
+
+Use **Model** and **Reasoning** to choose options supported by your backend/account.
+These commands inspect the current choices without hard-coded model names:
 
 ```chimerax
 codex backend
@@ -115,10 +113,30 @@ codex effort
 
 ### Installed CLI backends
 
-For Codex, Claude or Gemini, install the desired CLI and complete its own login
-flow. ChimeraX must be able to find that executable. The Setup menu provides
-connection guidance. If needed, set an explicit executable path **in your shell
-before launching ChimeraX**:
+1. Install the desired Codex, Claude or Gemini CLI if it is not already present.
+   ChimeraX must be able to find its executable.
+2. Select the backend in the Assistant, then choose its **Setup** entry. On macOS
+   this starts its login in Terminal. Follow the CLI/browser instructions using
+   your own account. On other systems, Setup copies the login command for you
+   to run in your own terminal.
+3. Return to the Assistant and refresh engine status, then submit a request.
+
+The login commands used by current supported CLIs are:
+
+| CLI | Terminal command / interaction |
+| --- | --- |
+| Codex | `codex login`, then complete browser sign-in |
+| Claude | `claude auth login`, then complete account sign-in |
+| Gemini | `gemini`, then choose **Sign in with Google** in the interactive CLI |
+
+These are terminal commands, not ChimeraX commands. If Terminal cannot be opened,
+run the indicated command yourself. CLI authentication is not the session-only
+OpenAI key described below; the CLI controls how its login is stored.
+Engine status detects the installed executable; the CLI verifies login and account
+access when an AI request runs.
+
+If ChimeraX cannot locate an installed CLI, set its executable path **in your
+shell before launching ChimeraX**:
 
 ```bash
 export CODEX_BRIDGE_CLI="/absolute/path/to/codex"
@@ -139,16 +157,41 @@ Substitute `claude` or `gemini` for the other CLI backends.
 
 ### OpenAI API backend
 
-Configure your own `OPENAI_API_KEY` or `CODEX_BRIDGE_OPENAI_API_KEY` in the launch
-environment, or use the Assistant's API-key setup flow. Then run:
+1. Select **OpenAI API** in the Assistant and choose **Setup** to open
+   **Connect OpenAI API**.
+2. Enter your API key in the masked input. The dialog uses it only for this
+   ChimeraX app session; it is not written to a settings file or shell environment,
+   added to logs, or copied to the clipboard by the plugin.
+3. Optionally click **Check connection**. This makes an explicit, background
+   request to OpenAI's model-list endpoint; it does not send a molecular scene or
+   run a model prompt. Opening the dialog does not contact the API. Checking a
+   draft key does not save it or change the selected backend.
+4. Click **Use key** to activate it and select the OpenAI API backend, then choose
+   your model in the Assistant. A connection check is not required first.
+
+Connection checking confirms that the key can access the model-list endpoint.
+It does not guarantee that a selected model is permitted, that a later request
+fits your limits, or that the account has usable credits. An error appears in
+the dialog so you can correct the key or connection.
+
+Use **Clear session key** to remove a key previously activated in this app.
+Quitting ChimeraX also removes it, so you must enter it again after restarting.
+The dialog never fills a configured key back into the input; it shows only that
+a key is available. **Close** discards an unactivated draft. Clearing a session
+key does not edit environment variables you configured outside the app; an
+environment key, if present, becomes available again.
+
+Advanced users can still provide `OPENAI_API_KEY` or `CODEX_BRIDGE_OPENAI_API_KEY`
+in the launch environment instead of entering a key each app session. To select
+the backend by command:
 
 ```chimerax
 codex backend openai
 codex tool
 ```
 
-Keep keys out of repository files and shared shell examples. A configured CLI
-login and an API key are separate connections; choose the backend you intend to use.
+The direct OpenAI backend does not use a Codex CLI subscription login. Keep keys
+out of repository files and shared examples, and choose the route you intend to use.
 
 ### Try a request
 
@@ -210,7 +253,7 @@ sequence/display/export workflows. See [RAPiDock setup](RAPIDOCK_SETUP.md).
 In a shell:
 
 ```bash
-git clone --branch v0.2.0 https://github.com/JAEYOONSUNG/ChimeraXbridge.git
+git clone --branch v0.2.1 https://github.com/JAEYOONSUNG/ChimeraXbridge.git
 cd ChimeraXbridge
 git rev-parse HEAD
 ```
@@ -223,7 +266,7 @@ devel install "/absolute/path/to/ChimeraXbridge"
 
 Restart ChimeraX. The main command line is not a shell: use the actual clone path
 instead of `$HOME` or shell command substitution. To work on the latest source
-instead of a release, omit `--branch v0.2.0` when cloning.
+instead of a release, omit `--branch v0.2.1` when cloning.
 
 ## Updating and reinstalling
 
@@ -233,12 +276,12 @@ analysis notes when reproducibility matters.
 
 For a source checkout on a branch, run `git pull --ff-only` in that checkout,
 repeat `devel install` with its absolute path, and restart. A checkout pinned to
-`v0.2.0` stays at that version until you deliberately switch tags/branches.
+`v0.2.1` stays at that version until you deliberately switch tags/branches.
 
 If reinstalling the **same version**, ChimeraX accepts:
 
 ```chimerax
-toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.0-py3-none-any.whl" reinstall true
+toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl" reinstall true
 ```
 
 For a stubborn same-version repair, close ChimeraX, start it in safe mode
@@ -246,6 +289,23 @@ For a stubborn same-version repair, close ChimeraX, start it in safe mode
 command, then restart normally. An in-use bundle can defer installation, so a
 successful command in the old session does not mean its already-loaded Python
 classes have changed.
+
+### Optional: reset an existing UI to the shared defaults
+
+Fresh installations need no profile command. If you deliberately want to replace
+an existing installation's UI preferences with the shared defaults, this
+compatibility command is still available inside ChimeraX:
+
+```chimerax
+codex profile jaeyoon
+codex profile jaeyoon apply true
+```
+
+The first command shows the settings; only `apply true` changes them.
+`codex profile` is a custom ChimeraXbridge settings command, not an OpenAI account
+profile or an installation method. It changes the listed UI/export preferences
+while preserving molecular coordinates, 3D colors, selection, camera, saved
+bookmark data, executable paths, output directories and credentials.
 
 ## Maintainer checks without desktop interruption
 

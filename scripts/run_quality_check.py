@@ -16,6 +16,8 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 # (script basename, required success marker, plain Python instead of ChimeraX)
 SUITES = {
+    "install_defaults": [("check_install_defaults.py", "INSTALL_DEFAULTS_OK", False)],
+    "ai_connection": [("check_ai_connection.py", "AI_CONNECTION_OK", False)],
     "shared_profile": [("check_shared_profile.py", "SHARED_PROFILE_OK", False)],
     "usability_export": [("check_usability_export.py", "USABILITY_EXPORT_OK", False)],
     "usability_sequence": [("check_usability_sequence.py", "USABILITY_SEQUENCE_OK", False)],
@@ -56,7 +58,7 @@ def run_check(filename, marker, plain):
             command = [sys.executable, str(script)]
         else:
             driver = Path(folder) / "check.py"
-            config_guard = ("" if filename in ("check_sequence_coloring.py", "check_shared_profile.py") else
+            config_guard = ("" if filename in ("check_sequence_coloring.py", "check_shared_profile.py", "check_install_defaults.py") else
                 "from chimerax.core.configfile import ConfigFile\n"
                 "ConfigFile.save = lambda *args, **kwargs: None\n")
             source_isolation = (

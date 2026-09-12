@@ -1,6 +1,6 @@
 # ChimeraXbridge
 
-**Version 0.2.0 · UCSF ChimeraX 1.10.x · tested on macOS with ChimeraX 1.10.1**
+**Version 0.2.1 · UCSF ChimeraX 1.10.x · tested on macOS with ChimeraX 1.10.1**
 
 ChimeraXbridge adds a searchable sequence panel, compact molecular controls,
 camera bookmarks, publication image export, six local Quick actions, and an
@@ -13,31 +13,40 @@ AI에게 자연어로 작업을 맡기려면 사용하는 서비스의 본인 �
 ## 설치: 다른 컴퓨터에서도 같은 플러그인 사용하기
 
 1. [최신 릴리스](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest)에서
-   **[ChimeraX_CodexBridge-0.2.0-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.0/ChimeraX_CodexBridge-0.2.0-py3-none-any.whl)**을 다운로드합니다.
+   **[ChimeraX_CodexBridge-0.2.1-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.1/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl)**을 다운로드합니다.
    GitHub의 **Source code** 압축파일 대신 `.whl` 파일을 받으면 빌드할 필요가 없습니다.
 2. ChimeraX 명령창에서 다운로드한 파일의 경로로 설치합니다.
 
    ```chimerax
-   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.0-py3-none-any.whl"
+   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl"
    ```
 
    다운로드 폴더가 다르면 실제 경로로 바꾸세요. 공백이 있는 경로는 따옴표로 감쌉니다.
-3. ChimeraX를 다시 시작하면 설치가 끝납니다. 서열 패널·북마크·이미지 저장·Quick 버튼을 바로 사용할 수 있습니다.
+3. ChimeraX를 다시 시작하면 설치가 끝납니다. 새 설치에서는 서열 패널 자동 열림,
+   탭형 우측 패널, 차분한 DNA/RNA 색상, 투명 PNG·300 DPI가 기본으로 준비됩니다.
 
-설치 파일은 일반 ChimeraX 플러그인용 `.whl`입니다. Codex에서 계정이나 프로필을
-받는 과정은 없습니다. 화면 설정까지 JaeYoon 프리셋으로 맞추고 싶을 때만 아래의
-[선택적 UI 설정](#optional-share-the-same-ui-settings)을 적용하세요.
+**설치 → 재시작만 하면 됩니다.** 추가 설정 명령이나 Codex 계정은 필요하지 않습니다.
+업데이트할 때는 사용자가 이미 저장한 화면 설정을 유지합니다.
 
-[v0.2.0 릴리스](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.0) ·
+[v0.2.1 릴리스](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.1) ·
 [설치·업데이트·AI 연결 상세 안내](INSTALL_REPRODUCIBLE.md)
 
-The wheel contains the plugin code, toolbar icons, built-in help and portable
-workspace profile. Install it through **ChimeraX**, rather than system Python.
+The wheel contains the plugin code, toolbar icons, built-in help and workspace
+defaults. Install it through **ChimeraX**, rather than system Python.
 Local sequence, display, bookmark, export and Quick workflows need no AI login.
 Geometric cavity analysis requires optional `pyKVFinder`; without it, the result
 explains the fallback used and does not invent cavity measurements.
 
-## What is new in 0.2.0
+## What is new in 0.2.1
+
+- A fresh installation starts with the shared UI defaults after restarting;
+  existing saved preferences are preserved when upgrading.
+- **Setup** now accepts an OpenAI API key directly in a masked dialog, with
+  optional connection checking and a key kept only for the current app session.
+- CLI setup uses the supported Codex/Claude login commands and Gemini's
+  interactive sign-in flow.
+
+## Workspace features
 
 - The sequence panel opens at startup, with guides every 10 residues, muted
   nucleotide palettes, and a persistent search count, including overlapping motifs.
@@ -57,8 +66,9 @@ explains the fallback used and does not invent cavity measurements.
 
 ![AI toolbar with Analyze, View, Pocket, Cavity, Figure and Zoom](docs/images/release-0.2.0-toolbar.png)
 
-The panel examples below use synthetic data rendered offscreen. They illustrate
-the controls and feedback; the displayed candidates are not scientific results.
+The sequence/report/export examples below were rendered offscreen for 0.2.0
+using synthetic data. These controls also apply to 0.2.1; the displayed candidates
+are not scientific results.
 
 | Sequence search and palette controls | Filtered candidate and preview status | Image size, DPI and bookmarks |
 | --- | --- | --- |
@@ -159,22 +169,12 @@ hide, label and color to the indicated model, chain, residue or selection.
 named selections and rainbow palettes. Empty targets are explained next to the
 controls, and valid hidden representations remain editable.
 
-## Optional: share the same UI settings
+## Default workspace settings
 
-`codex profile`은 **이 플러그인에 추가한 선택적 UI 설정 명령**입니다.
-OpenAI Codex의 계정 프로필이나 다운로드 기능이 아니며, 설치에 필요한 단계도 아닙니다.
-`.whl`에 함께 들어 있는 **jaeyoon** 설정 프리셋을 적용할 때만 사용합니다.
+These are the defaults for a fresh 0.2.1 installation. No profile command is
+needed. Upgrades preserve saved choices, including older color/export defaults.
 
-The `codex` prefix belongs to this plugin's existing ChimeraX commands. This
-optional command applies a bundled UI preset; it does not download a Codex
-profile, require a Codex login, or install the plugin:
-
-```chimerax
-codex profile jaeyoon
-codex profile jaeyoon apply true
-```
-
-| Preference | Shared value |
+| Preference | Initial value |
 | --- | --- |
 | Toolbar / right helper panels | Original icons / tabbed layout |
 | Sequence | Visible, All chains, guides every 10 positions |
@@ -183,13 +183,20 @@ codex profile jaeyoon apply true
 | Initial export size | The recipient's current graphics viewport |
 | Bookmark capture options | Camera, display, colors and lighting on; selection off |
 
-The profile changes these UI preferences; it does not change the open structure's
-coordinates, colors, selection or camera. It does not transfer saved bookmarks,
-output directories, executable paths, AI logins or API keys. Installing the plugin
-does not automatically apply the profile. Share a `.cxs` session separately when
-you also want collaborators to open a particular molecular scene.
+Saved bookmarks, output directories, molecular data and AI credentials are
+personal to each installation. Share a `.cxs` session separately when you also
+want collaborators to open a particular molecular scene.
+
+To deliberately reset an existing installation to these UI defaults later, the
+compatibility command `codex profile jaeyoon apply true` remains available.
+It is an optional ChimeraXbridge setting command, not an account or download step.
+It leaves molecular coordinates, 3D colors, selection and camera intact.
 
 ## Optional AI assistant
+
+AI 연결은 아래 명령으로 패널을 연 뒤 **Setup**에서 시작합니다.
+설치한 CLI의 계정 로그인 또는 OpenAI API 키 입력을 선택하세요.
+구독 구매·결제 관리는 각 서비스에서 진행하며, OpenAI API 사용료는 ChatGPT 구독과 별개입니다.
 
 ```chimerax
 codex tool
@@ -197,11 +204,26 @@ codex backend
 codex model
 ```
 
-The AI Assistant's backend selector and **Setup** menu show available connections.
-Use your own installed/logged-in Codex, Claude or Gemini CLI, or configure your own
-OpenAI API key. Choose **Model** and **Reasoning** in the UI, or use `codex model`
-and `codex effort`; available models depend on the selected service and account.
-`codex model default` clears a model override.
+The AI Assistant's backend selector and **Setup** menu provide two connection routes:
+
+- **Account/CLI login:** choose Codex, Claude or Gemini and use **Setup** to start
+  that installed CLI's sign-in flow. Authentication finishes in its terminal/browser;
+  the CLI manages its own saved login. Refresh engine status after signing in.
+- **OpenAI API key:** choose **OpenAI API** and open **Setup**. Enter your own key
+  in the masked field, then click **Use key**. **Check connection** is optional;
+  checking alone does not save or activate the key. **Clear session key** removes
+  a key activated in this app. The plugin does not save it to disk, shell
+  environment, logs or the clipboard; quitting ChimeraX removes it.
+
+Codex's ChatGPT sign-in uses the account's subscription access. The direct OpenAI
+API route uses separate API billing; ChatGPT plan credits do not cover API-key
+usage. Setup does not purchase a subscription or change billing.
+See [OpenAI's authentication documentation](https://learn.chatgpt.com/docs/auth).
+
+Choose **Model** and **Reasoning** in the UI, or use `codex model` and `codex effort`;
+available models depend on the selected service and account. `codex model default`
+clears a model override. [Detailed connection steps](INSTALL_REPRODUCIBLE.md#optional-ai-connection)
+explain key lifetime, checking, clearing and CLI setup.
 
 After configuring an available backend, these are example **ChimeraX commands**:
 
@@ -259,7 +281,7 @@ the terminal's `/setup` explain available setup routes. See
 For the exact release source:
 
 ```bash
-git clone --branch v0.2.0 https://github.com/JAEYOONSUNG/ChimeraXbridge.git
+git clone --branch v0.2.1 https://github.com/JAEYOONSUNG/ChimeraXbridge.git
 cd ChimeraXbridge
 ```
 

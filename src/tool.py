@@ -3,6 +3,7 @@ import json
 import shlex
 import shutil
 import subprocess
+import sys
 import threading
 from pathlib import Path
 
@@ -1702,12 +1703,21 @@ class CodexAssistant(ToolInstance):
     def _setup_backend(self, backend_id):
         spec = get_backend_spec(backend_id)
         if spec.get("transport") == "api":
-            env_names = ", ".join(spec.get("api_key_envs") or ())
-            self._copy_text_to_clipboard(f"{spec.get('api_key_envs', ('OPENAI_API_KEY',))[0]}=YOUR_API_KEY")
-            self._set_result_status(
-                f"{get_backend_label(backend_id)} uses an API key. Copied env template; set {env_names} before launching ChimeraX.",
-                tone="warn",
-            )
+            from .ai_connection import OpenAIConnectionDialog
+            previous = getattr(self, "_api_setup_dialog", None)
+            try:
+                if previous is not None and not previous._disposed:
+                    previous.show()
+                    previous.raise_()
+                    return
+            except RuntimeError:
+                pass
+            def connected():
+                set_current_backend_id(self.session, backend_id)
+                self._refresh_engine_status()
+            self._api_setup_dialog = OpenAIConnectionDialog(
+                self.tool_window.ui_area, on_use=connected, on_clear=self._refresh_engine_status)
+            self._api_setup_dialog.show()
             return
 
         cli_path = resolve_backend_cli(backend_id, strict=False)
@@ -1721,12 +1731,18 @@ class CodexAssistant(ToolInstance):
 
         login_args = {
             "codex": "login",
-            "claude": "login",
-            "gemini": "auth login",
+            "claude": "auth login",
+            "gemini": "",
         }.get(backend_id, "login")
-        command = f"{shlex.quote(cli_path)} {login_args}"
+        command = f"{shlex.quote(cli_path)} {login_args}".rstrip()
+        if sys.platform != "darwin":
+            self._copy_text_to_clipboard(command)
+            self._set_result_status(
+                f"Login command copied for {get_backend_label(backend_id)}. Run it in a terminal, then refresh engine status.",
+                tone="warn")
+            return
         try:
-            script = f'tell application "Terminal" to do script {json.dumps(command)}\ntell application "Terminal" to activate'
+            script = f'tell application "Terminal" to do script {json.dumps(command, ensure_ascii=False)}\ntell application "Terminal" to activate'
             subprocess.Popen(["osascript", "-e", script])
             self._set_result_status(f"Opened Terminal for {get_backend_label(backend_id)} login. Refresh engine status after login.", tone="warn")
         except Exception as err:

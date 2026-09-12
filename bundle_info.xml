@@ -3,7 +3,7 @@ ChimeraX bundle names must start with "ChimeraX-".
 -->
 
 <BundleInfo name="ChimeraX-CodexBridge"
-    version="0.2.0" package="chimerax.codex_bridge"
+    version="0.2.1" package="chimerax.codex_bridge"
     minSessionVersion="1" maxSessionVersion="1"
     customInit="true">
 

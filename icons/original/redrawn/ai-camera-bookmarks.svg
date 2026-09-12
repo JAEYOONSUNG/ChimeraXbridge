@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <title>Camera bookmarks</title>
+  <desc>A polished silver camera with a blue glass lens carries an amber bookmark ribbon for a saved molecular view.</desc>
+  <defs>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F4F8FC"/><stop offset=".4" stop-color="#DDE7EF"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+    <radialGradient id="cyan" cx="30%" cy="24%" r="78%"><stop offset="0" stop-color="#D2F1F6"/><stop offset=".43" stop-color="#65BDD0"/><stop offset="1" stop-color="#26829C"/></radialGradient>
+    <radialGradient id="blue" cx="30%" cy="24%" r="78%"><stop offset="0" stop-color="#D8E7FC"/><stop offset=".43" stop-color="#82AEEA"/><stop offset="1" stop-color="#486DB3"/></radialGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF0C6"/><stop offset=".4" stop-color="#F6CB72"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+  </defs>
+  <g stroke="#253544" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M28 34V27C28 25 30 23 32 23H40V35" fill="url(#silver)"/>
+    <path d="M16 44C16 39 20 35 25 35H41L49 23H76L84 35H105C110 35 114 39 114 44V94C114 99 110 103 105 103H25C20 103 16 99 16 94Z" fill="url(#silver)"/>
+    <path d="M22 46H44M80 46H108M22 95H42" stroke="#F4F8FC" stroke-width="2.5" opacity=".8"/>
+    <circle cx="59" cy="69" r="25" fill="url(#silver)"/>
+    <circle cx="59" cy="69" r="17" fill="url(#blue)"/>
+    <circle cx="59" cy="69" r="9" fill="url(#cyan)" stroke-width="3.5"/>
+    <path d="M49 62C51 57 56 54 61 55" stroke="#D8E7FC" stroke-width="3"/>
+    <path d="M88 34H108V80L98 72L88 80Z" fill="url(#amber)"/>
+    <path d="M92 39V64" stroke="#FFF0C6" stroke-width="2.5" opacity=".8"/>
+    <path d="M55 29H69" stroke="#8195A6" stroke-width="3.5"/>
+  </g>
+</svg>

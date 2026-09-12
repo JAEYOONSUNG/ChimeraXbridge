@@ -49,7 +49,8 @@ def set_cavity_candidates(
 ):
     records = _normalize_candidates(candidates)
     session._codex_cavity_candidates = records
-    session._codex_cavity_selected_ranks = _normalize_rank_list(selected_ranks) or (
+    session._codex_cavity_selected_ranks = (
+        _normalize_rank_list(selected_ranks) if selected_ranks is not None else
         [records[0]["rank"]] if records else []
     )
     if transparency is not None:
@@ -136,7 +137,7 @@ def apply_cavity_display(
 class CodexCavityBrowser(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 1
+    UI_LAYOUT_VERSION = 3
     help = "help:user/tools/codex_assistant.html"
 
     @classmethod
@@ -184,6 +185,7 @@ class CodexCavityBrowser(ToolInstance):
             "QPushButton { background: #20262d; color: #eef1f4; border: 1px solid #344150; border-radius: 7px; padding: 5px 9px; }"
             "QPushButton:hover { background: #29313a; border-color: #5c6a78; }"
             "QSpinBox { background: #101417; color: #eef1f4; border: 1px solid #344150; border-radius: 7px; padding: 4px 7px; }"
+            "QPushButton:disabled, QSpinBox:disabled { color: #78828c; background: #1b2025; border-color: #28323d; }"
         )
 
         title = QLabel("Cavity candidates", parent)
@@ -199,8 +201,10 @@ class CodexCavityBrowser(ToolInstance):
 
         controls = QHBoxLayout()
         layout.addLayout(controls)
-        controls.addWidget(QLabel("Surface", parent))
+        controls.addWidget(QLabel("Transparency", parent))
         self.transparency_spin = QSpinBox(parent)
+        self.transparency_spin.setAccessibleName("Cavity surface transparency")
+        self.transparency_spin.setToolTip("0% is opaque; 100% is fully transparent.")
         self.transparency_spin.setRange(0, 100)
         self.transparency_spin.setSingleStep(5)
         self.transparency_spin.setSuffix(" %")
@@ -216,6 +220,8 @@ class CodexCavityBrowser(ToolInstance):
         controls.addWidget(self.hide_all_button)
 
         self.list_widget = QListWidget(parent)
+        self.list_widget.setMinimumHeight(100)
+        self.list_widget.setToolTip("Click to show one cavity. Ctrl/Command-click or Shift-click to show several.")
         self.list_widget.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.list_widget.itemSelectionChanged.connect(self._selection_changed)
         layout.addWidget(self.list_widget, 1)
@@ -230,13 +236,21 @@ class CodexCavityBrowser(ToolInstance):
         self.refresh_button.clicked.connect(self.reload_from_session)
         bottom.addWidget(self.refresh_button)
 
+        from .panel_scroll import wrap_panel
+        self.scroll_area = wrap_panel(parent)
         self.tool_window.manage(placement="side")
         self.reload_from_session()
 
     def reload_from_session(self):
         candidates = list(getattr(self.session, "_codex_cavity_candidates", []) or [])
-        selected = set(_normalize_rank_list(getattr(self.session, "_codex_cavity_selected_ranks", [])))
-        transparency = int(getattr(self.session, "_codex_cavity_transparency", 65) or 65)
+        stored_selection = getattr(self.session, "_codex_cavity_selected_ranks", None)
+        selected = set(_normalize_rank_list(stored_selection))
+        if stored_selection is None and candidates:
+            selected.add(int(candidates[0]["rank"]))
+        try:
+            transparency = int(getattr(self.session, "_codex_cavity_transparency", 65))
+        except (TypeError, ValueError):
+            transparency = 65
         strategy = str(getattr(self.session, "_codex_cavity_strategy_label", "") or "")
         self._updating = True
         try:
@@ -249,15 +263,16 @@ class CodexCavityBrowser(ToolInstance):
                 item = self.list_widget.item(self.list_widget.count() - 1)
                 if rank in selected:
                     item.setSelected(True)
-            if candidates and not self.list_widget.selectedItems():
-                self.list_widget.item(0).setSelected(True)
-                self.session._codex_cavity_selected_ranks = [self._rank_by_row[0]]
+            self.session._codex_cavity_selected_ranks = self._selected_ranks()
             self.transparency_spin.setValue(max(0, min(100, transparency)))
-            self.summary_label.setText(
-                f"{strategy}: {len(candidates)} candidate(s). Click a row to show only that cavity surface."
-                if strategy
-                else f"{len(candidates)} candidate(s). Click a row to show only that cavity surface."
-            )
+            if not candidates:
+                summary = "No cavity candidates. Run the Cavity action to find candidates."
+            else:
+                prefix = f"{strategy}: " if strategy else ""
+                state = "All hidden. " if not self._selected_ranks() else ""
+                summary = f"{prefix}{len(candidates)} candidate(s). {state}Click a row to show that cavity."
+            self.summary_label.setText(summary)
+            self._sync_action_state()
         finally:
             self._updating = False
 
@@ -273,6 +288,7 @@ class CodexCavityBrowser(ToolInstance):
             return
         ranks = self._selected_ranks()
         self.session._codex_cavity_selected_ranks = ranks
+        self._sync_action_state()
         try:
             message = apply_cavity_display(
                 self.session,
@@ -298,6 +314,17 @@ class CodexCavityBrowser(ToolInstance):
             if self.list_widget.item(row).isSelected():
                 selected.append(self._rank_by_row[row])
         return selected
+
+    def _sync_action_state(self):
+        has_candidates = self.list_widget.count() > 0
+        has_selected = bool(self._selected_ranks())
+        self.show_all_button.setEnabled(has_candidates)
+        self.hide_all_button.setEnabled(has_selected)
+        self.transparency_spin.setEnabled(has_candidates)
+        self.select_lining_button.setEnabled(has_selected)
+        self.select_lining_button.setToolTip(
+            "Select the lining residues of the shown cavities." if has_selected else
+            "Choose a cavity or click Show All before selecting lining residues.")
 
     def show_all(self):
         self._updating = True

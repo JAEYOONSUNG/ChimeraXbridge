@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128">
+<title>Boltz molecular prediction</title>
+<desc>A faceted silver molecular cage encloses an amber energy bolt, with cyan atom nodes and a transparent open center.</desc>
+<defs>
+<linearGradient id="silver" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F1F6FA"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+<linearGradient id="cyan" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#A7E0E9"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+<linearGradient id="amber" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE3A0"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+</defs>
+<path d="M64 15L106 39V88L64 113L22 88V39Z M64 31L36 47V80L64 97L92 80V47Z" fill="url(#silver)" fill-rule="evenodd" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M64 15L106 39L92 47L64 31Z" fill="#EDF5FA" opacity="0.65"/>
+<path d="M106 39V88L92 80V47Z" fill="#8195A6" opacity="0.65"/>
+<path d="M22 88L64 113V97L36 80Z" fill="#8195A6" opacity="0.5"/>
+<path d="M64 15L106 39V88L64 113L22 88V39Z" fill="none" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M64 21L99 41M28 44V83" fill="none" stroke="#F7FBFD" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+<path d="M73 30L45 68H60L53 98L85 56H69Z" fill="url(#amber)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M68 40L52 63H63" fill="none" stroke="#FFF2C7" stroke-width="2.5" stroke-linecap="round"/>
+<circle cx="22" cy="39" r="7" fill="url(#cyan)" stroke="#253544" stroke-width="3.5"/><path d="M18.85 36.9q1.4 -2.45 3.85 -2.1" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/><circle cx="106" cy="88" r="7" fill="url(#cyan)" stroke="#253544" stroke-width="3.5"/><path d="M102.85 85.9q1.4 -2.45 3.85 -2.1" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+</svg>

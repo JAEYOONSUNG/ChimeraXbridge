@@ -93,74 +93,16 @@ def _right_side_docks(session):
 
 
 def _relax_dock_content_constraints(dock_widgets):
-    try:
-        from Qt.QtCore import QSize
-        from Qt.QtWidgets import QAbstractButton, QAbstractScrollArea, QComboBox, QLayout, QSizePolicy, QWidget
-    except Exception:
-        return
-
-    compact_tokens = ("models", "model panel", "action pad", "ai assistant", "log")
-    aggressive_tokens = ("models", "model panel", "action pad")
-    height_locked_tokens = ("ai assistant",)
-
+    # Release stale outer dock limits while preserving the size hints of
+    # inputs, icons and compact rows inside the panels.
     for dock_widget in tuple(dict.fromkeys(dock_widgets)):
-        title = _dock_title(dock_widget).lower()
-        if not any(token in title for token in compact_tokens):
-            continue
-        aggressive = any(token in title for token in aggressive_tokens)
-        height_locked = any(token in title for token in height_locked_tokens)
-        root = dock_widget.widget()
-        widgets = [dock_widget]
-        if root is not None:
-            widgets.append(root)
-            try:
-                widgets.extend(root.findChildren(QWidget))
-            except Exception:
-                pass
-
-        for widget in tuple(dict.fromkeys(widgets)):
-            protected_control = isinstance(widget, (QAbstractButton, QComboBox))
-            try:
-                widget.setMaximumWidth(16777215)
-                if not protected_control:
-                    widget.setMinimumWidth(0)
-                if protected_control:
-                    # Keep explicit button/combo heights; only prevent collapse.
-                    widget.setMinimumHeight(24)
-                else:
-                    widget.setMinimumSize(0, 0)
-                    widget.setMinimumHeight(0)
-                    if not height_locked:
-                        widget.setMaximumHeight(16777215)
-            except Exception:
-                pass
-
-            if aggressive and not protected_control:
-                try:
-                    policy = widget.sizePolicy()
-                    policy.setVerticalPolicy(QSizePolicy.Policy.Ignored)
-                    widget.setSizePolicy(policy)
-                except Exception:
-                    pass
-
-            try:
-                layout = widget.layout()
-                if layout is not None:
-                    layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
-            except Exception:
-                pass
-
-            if isinstance(widget, QAbstractScrollArea):
-                try:
-                    widget.setMinimumViewportSize(QSize(0, 0))
-                    widget.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored)
-                except Exception:
-                    pass
-                try:
-                    widget.viewport().setMinimumSize(0, 0)
-                    widget.viewport().setMinimumHeight(0)
-                except Exception:
-                    pass
+        for widget in (dock_widget, dock_widget.widget()):
+            if widget is None:
+                continue
+            widget.setMinimumWidth(0)
+            widget.setMaximumWidth(16777215)
+            widget.setMinimumHeight(0)
+            widget.setMaximumHeight(16777215)
 
 
 def _release_dock_constraints(dock_widgets):
@@ -217,20 +159,20 @@ def _ensure_display_controls_tab(session, raise_controls=False):
     return display_controls
 
 
-# Title tokens (lowercased substring) for each bottom helper tool dock. Log is
-# intentionally excluded: the right dock layout is Log on top, with all helper
-# tools tabified below it.
+# Helper tools are either independent bottom panels or a tabbed sidebar.
+# Log remains separate in both layouts.
 _HELPER_DOCK_TOKENS = (
     ("models",            ("models", "model panel")),
     ("ai assistant",      ("ai assistant",)),
     ("display controls",  ("display controls", "display ctrl")),
     ("action pad",        ("action pad",)),
     ("camera bookmarks",  ("camera bookmarks", "bookmarks")),
+    ("quick results",     ("quick results",)),
 )
 
 
 def _schedule_helper_dock_layout(session, *, raise_tool=None):
-    """Retry right-side tab layout after dock widgets finish constructing."""
+    """Retry the selected layout after dock widgets finish constructing."""
     try:
         _tabify_helper_tools(session, raise_tool=raise_tool)
     except Exception:
@@ -250,115 +192,9 @@ def _schedule_helper_dock_layout(session, *, raise_tool=None):
 
 
 def _tabify_helper_tools(session, *, raise_tool=None):
-    """Tabify helper tools below Log in the right dock.
-
-    The desired layout is:
-
-      right dock, upper row: ChimeraX Log
-      right dock, lower row: Models / AI Assistant / Display Ctrl /
-                            Action Pad / Bookmarks as tabs
-
-    ``raise_tool`` is a substring of a dock title; the matching dock is
-    raised to the front after tabifying so the caller's tool comes up
-    visible.
-    """
-    if not getattr(session.ui, "is_gui", False):
-        return
-    main_window = getattr(session.ui, "main_window", None)
-    if main_window is None:
-        return
-    try:
-        from Qt.QtCore import Qt
-    except Exception:
-        return
-
-    found = []
-    seen_ids = set()
-    for key, tokens in _HELPER_DOCK_TOKENS:
-        dock = _find_dock_widget(session, tokens)
-        if dock is not None and id(dock) not in seen_ids:
-            seen_ids.add(id(dock))
-            found.append((key, dock))
-    if not found:
-        return
-
-    anchor = found[0][1]
-    right_area = Qt.DockWidgetArea.RightDockWidgetArea
-
-    def _dock_to_right(dock):
-        if dock is None:
-            return
-        try:
-            if dock.isFloating():
-                dock.setFloating(False)
-        except Exception:
-            pass
-        try:
-            if main_window.dockWidgetArea(dock) != right_area:
-                main_window.addDockWidget(right_area, dock)
-        except Exception:
-            pass
-
-    log_dock = _find_dock_widget(session, ("log",))
-    if log_dock is not None:
-        _dock_to_right(log_dock)
-    for _key, dock in found:
-        _dock_to_right(dock)
-
-    if log_dock is not None and log_dock is not anchor:
-        try:
-            main_window.splitDockWidget(log_dock, anchor, Qt.Orientation.Vertical)
-        except Exception:
-            pass
-
-    for _key, dock in found:
-        if dock is anchor:
-            continue
-        try:
-            main_window.tabifyDockWidget(anchor, dock)
-        except Exception:
-            pass
-
-    raise_dock = None
-    if raise_tool:
-        needle = raise_tool.strip().lower()
-        for key, dock in found:
-            if needle in key:
-                raise_dock = dock
-                break
-    if raise_dock is None:
-        raise_dock = anchor
-    try:
-        raise_dock.raise_()
-    except Exception:
-        pass
-
-    right_docks = _right_side_docks(session)
-    if right_docks:
-        target_width = max(380, int(max(main_window.width(), 900) * 0.30))
-        try:
-            main_window.resizeDocks(
-                right_docks,
-                [target_width] * len(right_docks),
-                Qt.Orientation.Horizontal,
-            )
-        except Exception:
-            pass
-        _release_dock_constraints(right_docks)
-
-    if log_dock is not None and log_dock is not anchor:
-        available_height = max(main_window.height(), 800)
-        log_height = max(150, int(available_height * 0.24))
-        helper_height = max(380, int(available_height * 0.76))
-        try:
-            main_window.resizeDocks(
-                [log_dock, anchor],
-                [log_height, helper_height],
-                Qt.Orientation.Vertical,
-            )
-        except Exception:
-            pass
-        _release_dock_constraints([log_dock, anchor])
+    """Apply the user's helper-panel layout; retained for existing callers."""
+    from .panel_layout import apply_helper_layout
+    apply_helper_layout(session, raise_tool=raise_tool)
 
 
 def _apply_startup_layout(session, assistant=None):
@@ -380,9 +216,12 @@ def _apply_startup_layout(session, assistant=None):
     except Exception:
         return
 
-    session._codex_bridge_dock_fraction = 0.30
+    from .panel_layout import panel_layout_mode
+    tabbed = panel_layout_mode(session) == "tabs"
+    if tabbed:
+        session._codex_bridge_dock_fraction = 0.30
 
-    if assistant is not None:
+    if assistant is not None and tabbed:
         try:
             assistant._apply_dock_fraction()
         except Exception:
@@ -403,7 +242,7 @@ def _apply_startup_layout(session, assistant=None):
 def _install_runtime_toolbar_buttons(session, force_rebuild=False):
     if not getattr(session.ui, "is_gui", False):
         return
-    toolbar_version = 55
+    toolbar_version = 59
     toolbar = getattr(session, "toolbar", None)
     if toolbar is None:
         return
@@ -430,12 +269,16 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
         provider("ai-layout-channels", "AI", "Channels", after="Sites"),
         provider("ai-layout-structure", "AI", "Structure", after="Channels"),
         provider(
+            "ai-icon-theme", "AI", "Quick", display_name="Icons",
+            icon="ai-figure.svg", description="Switch original / new SVG toolbar icons",
+        ),
+        provider(
             "ai-quick-analyze",
             "AI",
             "Quick",
             display_name="Analyze",
             icon="ai-analyze.svg",
-            description="Run AI analysis on the current selection",
+            description="Analyze the selected structure: composition, ligand contacts, metals and evidence, without a setup dialog",
         ),
         provider(
             "ai-quick-view",
@@ -443,7 +286,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Quick",
             display_name="View",
             icon="ai-view.svg",
-            description="Apply the next AI-guided structure view",
+            description="Tidy the target structure while keeping its colors and camera angle; undo from Quick Results",
         ),
         provider(
             "ai-quick-site",
@@ -451,7 +294,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Quick",
             display_name="Pocket",
             icon="ai-site.svg",
-            description="Find and focus the most likely ligand-binding pocket",
+            description="Show the best ligand pocket or geometric candidate, then compare ranked alternatives in Quick Results",
         ),
         provider(
             "ai-quick-cavity",
@@ -459,7 +302,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Quick",
             display_name="Cavity",
             icon="ai-cavity.svg",
-            description="Detect substrate-binding cavity and overlay a translucent surface",
+            description="Calculate geometric cavities in the background and show the highest-ranked translucent volume",
         ),
         provider(
             "ai-quick-figure",
@@ -467,7 +310,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Quick",
             display_name="Figure",
             icon="ai-figure.svg",
-            description="Cycle figure-ready views",
+            description="Prepare a clean figure view with preserved chain colors and an image-export shortcut",
         ),
         provider(
             "ai-quick-triad-zoom",
@@ -475,14 +318,14 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Quick",
             display_name="Zoom",
             icon="ai-zoom.svg",
-            description="Fade scaffold cartoon to 80% transparency and zoom into the catalytic triad close-up",
+            description="Zoom to selected residues, an observed ligand neighborhood, or a clear model overview",
         ),
         provider(
             "ai-analysis-blast",
             "AI",
             "Sequence",
             display_name="Blast",
-            icon="blast-logo.png",
+            icon="ai-blast.svg",
             description="Run ChimeraX native Blast Protein for the current chain",
         ),
         provider(
@@ -490,7 +333,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Sequence",
             display_name="Profile",
-            icon="uniprot-logo.png",
+            icon="ai-profile.svg",
             description="Open UniProt BLAST with the current protein sequence",
         ),
         provider(
@@ -506,7 +349,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Sequence",
             display_name="SignalP",
-            icon="ai-signalp.png",
+            icon="ai-signalp.svg",
             description="Predict signal peptides, cleavage sites, and prodomain-like N-terminal regions",
         ),
         provider(
@@ -514,7 +357,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Sequence",
             display_name="Consurf",
-            icon="consurf-logo.png",
+            icon="consurf-logo.svg",
             description="Run local ConSurf-lite conservation view for the current structure",
         ),
         provider(
@@ -522,7 +365,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Sequence",
             display_name="Conserve",
-            icon="ai-conserve.png",
+            icon="ai-conserve.svg",
             description="Highlight sequence-unique residues across the structures currently open and aligned",
         ),
         provider(
@@ -538,7 +381,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Modeling",
             display_name="AlphaFold",
-            icon="alphafold-logo.png",
+            icon="ai-alphafold.svg",
             description="Run ChimeraX native AlphaFold match/search for the current chain",
         ),
         provider(
@@ -546,7 +389,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Modeling",
             display_name="AF Complex",
-            icon="ai-alphafold.svg",
+            icon="afcomplex-logo.svg",
             description="Paste DNA/RNA sequence and open AlphaFold Server with current protein chains",
         ),
         provider(
@@ -554,7 +397,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Modeling",
             display_name="NucDock",
-            icon="hdock-logo.png",
+            icon="hdock-logo.svg",
             description="Paste DNA/RNA sequence and dock it against the current receptor with HDOCK",
         ),
         provider(
@@ -626,7 +469,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Sites",
             display_name="FoldDisco",
-            icon="folddisco-logo.png",
+            icon="folddisco-logo.svg",
             description="Search a selected structural motif with FoldDisco",
         ),
         provider(
@@ -666,7 +509,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Structure",
             display_name="Similar",
-            icon="foldseek-logo.png",
+            icon="ai-similar.svg",
             description="Run Foldseek Similar Structures and align top hits",
         ),
         provider(
@@ -674,7 +517,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Structure",
             display_name="FoldMason",
-            icon="foldmason-logo.png",
+            icon="foldmason-logo.svg",
             description="Export open structures and launch FoldMason multiple structure alignment",
         ),
         provider(
@@ -698,7 +541,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "AI",
             "Structure",
             display_name="PDBeFold",
-            icon="pdbefold-logo.png",
+            icon="pdbefold-logo.svg",
             description="Export current/selected structure and open PDBeFold / SSM",
         ),
         provider(
@@ -730,7 +573,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Nucleotides",
             "AI Tools",
             display_name="NucDock",
-            icon="hdock-logo.png",
+            icon="hdock-logo.svg",
             description="Paste DNA/RNA sequence and open HDOCK with the current receptor structure",
         ),
         provider(
@@ -738,7 +581,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Nucleotides",
             "AI Tools",
             display_name="AF Complex",
-            icon="ai-alphafold.svg",
+            icon="afcomplex-logo.svg",
             description="Paste DNA/RNA sequence and open AlphaFold Server with current protein chains",
         ),
         provider(
@@ -754,7 +597,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Nucleotides",
             "AI Tools",
             display_name="FoldDisco",
-            icon="folddisco-logo.png",
+            icon="folddisco-logo.svg",
             description="Search a selected structural motif with FoldDisco",
         ),
         provider(
@@ -762,7 +605,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Nucleotides",
             "AI Tools",
             display_name="FoldMason",
-            icon="foldmason-logo.png",
+            icon="foldmason-logo.svg",
             description="Export open structures and launch FoldMason multiple structure alignment",
         ),
         provider(
@@ -778,7 +621,7 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             "Molecule Display",
             "Helper",
             display_name="Sequence",
-            icon="ai-sequence-bar.svg",
+            icon="sequence-bar.svg",
             description="Toggle the top Sequence display bar (clickable single-letter sequence)",
         ),
         provider(
@@ -897,41 +740,85 @@ def _install_runtime_toolbar_buttons(session, force_rebuild=False):
             session._codex_bridge_toolbar_runtime_version = toolbar_version
         else:
             from Qt.QtCore import QTimer
-
-            for delay in (750, 2000, 5000):
-                QTimer.singleShot(delay, lambda ses=session: _install_runtime_toolbar_buttons(ses, force_rebuild=True))
+            if not getattr(session, "_codex_bridge_toolbar_wait_scheduled", False):
+                session._codex_bridge_toolbar_wait_scheduled = True
+                def retry_when_available():
+                    # A hidden/disabled toolbar must not spawn an exponential
+                    # tree of retries that blocks all later GUI interaction.
+                    if get_toolbar_singleton(session, create=False) is not None:
+                        _install_runtime_toolbar_buttons(session, force_rebuild=True)
+                for delay in (750, 2000, 5000):
+                    QTimer.singleShot(delay, retry_when_available)
     except Exception:
         pass
 
 
 def _ensure_sequence_bar_visible(session):
-    """Idempotently open and display the Codex Sequence Bar.
-
-    Called from several delayed retries so the bar always ends up visible
-    on session start regardless of which UI event happens to fire first
-    (the "ready" trigger isn't always reliable across ChimeraX versions /
-    session-restore paths).
-    """
-    try:
-        if not session.ui.is_gui:
-            return
-    except Exception:
-        return
+    """Open the Sequence panel, returning whether it was shown successfully."""
+    if not getattr(session.ui, "is_gui", False):
+        return False
+    if getattr(session.ui, "main_window", None) is None:
+        return False
     try:
         from .sequence_bar import CodexSequenceBar
 
         sequence_bar = CodexSequenceBar.get_singleton(session, create=True, display=True)
         if sequence_bar is not None:
-            try:
-                sequence_bar.display(True)
-            except Exception:
-                pass
+            sequence_bar.display(True)
             try:
                 sequence_bar.refresh()
             except Exception:
                 pass
+            return True
     except Exception:
         pass
+    return False
+
+
+def _open_startup_sequence_bar(session):
+    if (getattr(session, "_codex_bridge_sequence_startup_done", False)
+            or getattr(session, "_codex_bridge_sequence_restoring", False)):
+        return
+    if _ensure_sequence_bar_visible(session):
+        session._codex_bridge_sequence_startup_done = True
+
+
+def _install_sequence_bar_startup(session):
+    """Show Sequence once at startup and preserve its visibility across restores."""
+    if not getattr(session.ui, "is_gui", False):
+        return
+    if hasattr(session, "_codex_bridge_sequence_startup_handlers"):
+        return
+
+    from Qt.QtCore import QTimer
+
+    def begin_restore(*_args):
+        # Session reset deletes this unsaved tool. Remember whether to put it
+        # back, even if loading the session takes longer than startup timers.
+        reopen = not getattr(session, "_codex_bridge_sequence_startup_done", False)
+        for tool in session.tools.list():
+            if getattr(tool, "tool_name", "") == "Sequence Bar":
+                reopen = reopen or tool.displayed()
+        session._codex_bridge_sequence_restore_visible = reopen
+        session._codex_bridge_sequence_restoring = True
+
+    def end_restore(*_args):
+        session._codex_bridge_sequence_restoring = False
+        if getattr(session, "_codex_bridge_sequence_restore_visible", False):
+            session._codex_bridge_sequence_startup_done = False
+            # Finish restoring the graphics widget before attaching the bar.
+            QTimer.singleShot(0, lambda: _open_startup_sequence_bar(session))
+
+    session._codex_bridge_sequence_startup_handlers = (
+        session.ui.triggers.add_handler(
+            "ready", lambda *_args: _open_startup_sequence_bar(session)),
+        session.triggers.add_handler("begin restore session", begin_restore),
+        session.triggers.add_handler("end restore session", end_restore),
+    )
+    # Also handle bundle initialization after UI ready. Retries stop changing
+    # visibility after the first successful open, so closing it stays effective.
+    for delay in (0, 300, 1200, 3000):
+        QTimer.singleShot(delay, lambda: _open_startup_sequence_bar(session))
 
 
 def _auto_open_workspace(session):
@@ -972,7 +859,7 @@ def _auto_open_workspace(session):
         except Exception:
             pass
         _ensure_display_controls_tab(session)
-        _ensure_sequence_bar_visible(session)
+        _open_startup_sequence_bar(session)
         if main_window is not None:
             try:
                 main_window.setUpdatesEnabled(True)
@@ -982,12 +869,6 @@ def _auto_open_workspace(session):
             QTimer.singleShot(delay, lambda ses=session, tool=assistant: _apply_startup_layout(ses, tool))
         for delay in (0, 300, 900, 2500, 5000):
             QTimer.singleShot(delay, lambda ses=session: _install_runtime_toolbar_buttons(ses, force_rebuild=True))
-        # Belt-and-braces: re-issue the sequence bar open at several later
-        # ticks too. If anything (session-restore, layout reshuffles,
-        # another tool's startup hook) hides it after our first open, the
-        # later retries put it back.
-        for delay in (250, 1000, 2500, 5000):
-            QTimer.singleShot(delay, lambda ses=session: _ensure_sequence_bar_visible(ses))
         # Keep the right dock as Log on top and helper tools as tabs below it.
         _schedule_helper_dock_layout(session, raise_tool="models")
 
@@ -1024,24 +905,14 @@ class _MyAPI(BundleAPI):
                 "ready",
                 lambda *_args, ses=session: _auto_open_workspace(ses),
             )
-        # Independent of the "ready" trigger, schedule a few QTimer ticks
-        # that force the Sequence Bar visible. Some session-restore paths
-        # don't emit "ready", in which case _auto_open_workspace never
-        # runs -- this guarantees the bar still ends up displayed.
-        if session.ui.is_gui:
-            try:
-                from Qt.QtCore import QTimer
-
-                for delay in (300, 1200, 3000):
-                    QTimer.singleShot(
-                        delay,
-                        lambda ses=session: _ensure_sequence_bar_visible(ses),
-                    )
-            except Exception:
-                pass
+        _install_sequence_bar_startup(session)
 
     @staticmethod
     def run_provider(session, name, mgr, **kw):
+        if name == "ai-icon-theme":
+            from .icon_theme import toggle_icon_theme
+            toggle_icon_theme(session)
+            return
         from .toolbar_actions import run_toolbar_action
 
         run_toolbar_action(session, name)
@@ -1075,6 +946,9 @@ class _MyAPI(BundleAPI):
         elif ci.name == "codex selftest":
             desc = cmd.codex_selftest_desc
             func = cmd.codex_selftest
+        elif ci.name == "codex profile":
+            desc = cmd.codex_profile_desc
+            func = cmd.codex_profile
         elif ci.name == "codex routing":
             desc = cmd.codex_routing_desc
             func = cmd.codex_routing
@@ -1124,7 +998,10 @@ class _MyAPI(BundleAPI):
             return CodexCaverTool.get_singleton(session)
         if ti.name == "Camera Bookmarks":
             from .camera_bookmarks import CameraBookmarks
-            return CameraBookmarks(session, ti.name)
+            return CameraBookmarks.get_singleton(session)
+        if ti.name == "Quick Results":
+            from .quick_results import QuickResults
+            return QuickResults.get_singleton(session)
         raise ValueError("trying to start unknown tool: %s" % ti.name)
 
     @staticmethod
@@ -1147,6 +1024,12 @@ class _MyAPI(BundleAPI):
         if class_name == "CameraBookmarks":
             from .camera_bookmarks import CameraBookmarks
             return CameraBookmarks
+        if class_name == "CameraBookmarkState":
+            from .camera_bookmark_state import CameraBookmarkState
+            return CameraBookmarkState
+        if class_name == "QuickResults":
+            from .quick_results import QuickResults
+            return QuickResults
         return None
 
 

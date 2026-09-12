@@ -14,9 +14,9 @@ BACKEND_SPECS = {
         "fast_reasoning_env": "CODEX_BRIDGE_OPENAI_FAST_REASONING",
         "precise_model_env": "CODEX_BRIDGE_OPENAI_PRECISE_MODEL",
         "precise_reasoning_env": "CODEX_BRIDGE_OPENAI_PRECISE_REASONING",
-        "fast_model_default": "gpt-5.5",
+        "fast_model_default": "gpt-6-astra",
         "fast_reasoning_default": "high",
-        "precise_model_default": "gpt-5.5",
+        "precise_model_default": "gpt-6-astra",
         "precise_reasoning_default": "high",
         "supports_schema": True,
         "supports_tools": True,
@@ -35,9 +35,9 @@ BACKEND_SPECS = {
         "fast_reasoning_env": "CODEX_BRIDGE_CODEX_FAST_REASONING",
         "precise_model_env": "CODEX_BRIDGE_CODEX_PRECISE_MODEL",
         "precise_reasoning_env": "CODEX_BRIDGE_CODEX_PRECISE_REASONING",
-        "fast_model_default": "gpt-5.5",
+        "fast_model_default": "gpt-6-astra",
         "fast_reasoning_default": "high",
-        "precise_model_default": "gpt-5.5",
+        "precise_model_default": "gpt-6-astra",
         "precise_reasoning_default": "high",
         "supports_schema": True,
         "supports_tools": False,
@@ -158,7 +158,8 @@ def _configured_models_for_backend(backend_id):
 
 def _pick_available_codex_model(preferred):
     available = _cached_codex_models()
-    if preferred and preferred[0] == "gpt-5.5":
+    # A stale local catalog must not silently downgrade the configured default.
+    if preferred and preferred[0] == "gpt-6-astra":
         return preferred[0]
     if not available:
         return preferred[0]
@@ -495,6 +496,7 @@ def suggested_models_for_backend(backend_id):
         return _dedupe_models(
             configured,
             [
+                "gpt-6-astra",
                 "gpt-5.5",
                 "gpt-5.4",
                 "gpt-5.4-mini",
@@ -506,6 +508,7 @@ def suggested_models_for_backend(backend_id):
         models = _cached_codex_models()
         return _dedupe_models(
             configured,
+            ["gpt-6-astra"],
             models,
             [
                 "gpt-5.5",

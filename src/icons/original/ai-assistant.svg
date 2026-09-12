@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AI Assistant">
+  <defs>
+    <linearGradient id="aiCase" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1d2329"/>
+      <stop offset="0.55" stop-color="#11161a"/>
+      <stop offset="1" stop-color="#070a0d"/>
+    </linearGradient>
+    <linearGradient id="aiGold" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#f4dca0"/>
+      <stop offset="0.5" stop-color="#d8b25a"/>
+      <stop offset="1" stop-color="#8a6a2c"/>
+    </linearGradient>
+    <radialGradient id="aiSpark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff5d4"/>
+      <stop offset="0.6" stop-color="#e6c478"/>
+      <stop offset="1" stop-color="#8a6a2c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- slab -->
+  <rect x="6" y="6" width="52" height="52" rx="10" fill="url(#aiCase)" stroke="#2a3138" stroke-width="1.2"/>
+  <!-- serif-style monogram "AI" in champagne gold (upright, native kerning) -->
+  <text x="32" y="44" font-size="32" font-weight="500" text-anchor="middle"
+        font-family="'Didot', 'Bodoni MT', 'Playfair Display', 'Times New Roman', serif"
+        letter-spacing="-1" fill="url(#aiGold)">AI</text>
+  <!-- four-point sparkle in upper right (subtle "intelligence" cue) -->
+  <g transform="translate(48 16)">
+    <circle r="5" fill="url(#aiSpark)" opacity="0.85"/>
+    <path d="M0 -4.2 L1 0 L0 4.2 L-1 0 Z" fill="#fff7df"/>
+    <path d="M-4.2 0 L0 -1 L4.2 0 L0 1 Z" fill="#fff7df"/>
+  </g>
+  <!-- subtle inner highlight curve at top edge -->
+  <path d="M10 12 Q32 8 54 12" stroke="#3b434c" stroke-width="0.8" fill="none" opacity="0.45"/>
+</svg>

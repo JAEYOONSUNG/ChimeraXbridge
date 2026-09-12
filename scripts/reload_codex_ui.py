@@ -23,59 +23,12 @@ def _dock_title(dock_widget):
 
 
 def _relax_dock_content_constraints(dock_widget):
-    title = _dock_title(dock_widget).lower()
-    aggressive = any(token in title for token in ("models", "model panel", "action pad"))
-    root = dock_widget.widget()
-    widgets = [dock_widget]
-    if root is not None:
-        widgets.append(root)
-        try:
-            widgets.extend(root.findChildren(QWidget))
-        except Exception:
-            pass
-
-    for widget in tuple(dict.fromkeys(widgets)):
-        protected_control = isinstance(widget, (QAbstractButton, QComboBox))
-        try:
-            widget.setMaximumWidth(16777215)
-            if not protected_control:
-                widget.setMinimumWidth(0)
-            if protected_control:
-                # Keep explicit button/combo heights; only prevent collapse.
-                widget.setMinimumHeight(24)
-            else:
-                widget.setMinimumSize(0, 0)
-                widget.setMinimumHeight(0)
-                widget.setMaximumHeight(16777215)
-        except Exception:
-            pass
-
-        if aggressive and not protected_control:
-            try:
-                policy = widget.sizePolicy()
-                policy.setVerticalPolicy(QSizePolicy.Policy.Ignored)
-                widget.setSizePolicy(policy)
-            except Exception:
-                pass
-
-        try:
-            layout = widget.layout()
-            if layout is not None:
-                layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
-        except Exception:
-            pass
-
-        if isinstance(widget, QAbstractScrollArea):
-            try:
-                widget.setMinimumViewportSize(QSize(0, 0))
-                widget.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored)
-            except Exception:
-                pass
-            try:
-                widget.viewport().setMinimumSize(0, 0)
-                widget.viewport().setMinimumHeight(0)
-            except Exception:
-                pass
+    # Child controls now own deliberate compact sizes. Only clear the old
+    # container constraints during reload, so new layouts remain intact.
+    for widget in (dock_widget, dock_widget.widget()):
+        if widget is not None:
+            widget.setMinimumSize(0, 0)
+            widget.setMaximumSize(16777215, 16777215)
 
 
 def _release_all_dock_constraints(session):
@@ -91,6 +44,35 @@ def _release_all_dock_constraints(session):
             _relax_dock_content_constraints(dock_widget)
         except Exception:
             pass
+
+
+def _capture_assistant_text(session):
+    for tool in session.tools.list():
+        if getattr(tool, "tool_name", "") != "AI Assistant":
+            continue
+        state = {}
+        for name in ("prompt_edit", "terminal_edit", "command_terminal_output",
+                     "command_terminal_input", "result_detail_edit"):
+            widget = getattr(tool, name, None)
+            if widget is not None:
+                getter = getattr(widget, "toPlainText", getattr(widget, "text", None))
+                if getter is not None:
+                    state[name] = getter()
+        state["_last_response_text"] = getattr(tool, "_last_response_text", "")
+        return state
+    return {}
+
+
+def _restore_assistant_text(assistant, state):
+    for name, text in state.items():
+        if name == "_last_response_text":
+            assistant._last_response_text = text
+            continue
+        widget = getattr(assistant, name, None)
+        if widget is not None:
+            setter = getattr(widget, "setPlainText", getattr(widget, "setText", None))
+            if setter is not None:
+                setter(text)
 
 
 def _close_old_tools(session):
@@ -366,57 +348,65 @@ def _load_repo_package():
     spec.loader.exec_module(module)
 
 
-_release_all_dock_constraints(session)
-_patch_legacy_sequence_bar_callbacks(session)
-_close_old_tools(session)
-importlib.invalidate_caches()
-synced_package_dirs = _sync_repo_source_to_installed_copies()
-_patch_legacy_sequence_bar_callbacks(session)
-_drop_codex_modules()
-_load_repo_package()
+def _reload_ui():
+    saved_assistant_text = _capture_assistant_text(session)
+    _release_all_dock_constraints(session)
+    _patch_legacy_sequence_bar_callbacks(session)
+    _close_old_tools(session)
+    importlib.invalidate_caches()
+    synced_package_dirs = _sync_repo_source_to_installed_copies()
+    _patch_legacy_sequence_bar_callbacks(session)
+    _drop_codex_modules()
+    _load_repo_package()
 
-from chimerax.codex_bridge import _apply_startup_layout, _install_runtime_toolbar_buttons
-from chimerax.codex_bridge.pick_mode import install_pick_modes
-from chimerax.codex_bridge.runtime_patches import apply_runtime_patches
-from chimerax.codex_bridge.tool import CodexAssistant
-from chimerax.codex_bridge.sequence_bar import CodexSequenceBar
+    from chimerax.codex_bridge import _apply_startup_layout, _install_runtime_toolbar_buttons
+    from chimerax.codex_bridge.pick_mode import install_pick_modes
+    from chimerax.codex_bridge.runtime_patches import apply_runtime_patches
+    from chimerax.codex_bridge.tool import CodexAssistant
+    from chimerax.codex_bridge.sequence_bar import CodexSequenceBar
 
-apply_runtime_patches(session)
-install_pick_modes(session)
+    apply_runtime_patches(session)
+    install_pick_modes(session)
 
-assistant = CodexAssistant.get_singleton(session, create=True, display=True)
-assistant.display(True)
-assistant._show_assistant_tab()
-assistant._focus_prompt()
-try:
-    assistant.prompt_edit.setReadOnly(False)
-    assistant._append_system("reload ok: fresh AI Assistant instance")
-    assistant._set_result_status("reload ok", tone="success")
-    assistant._set_result_detail("Reloaded Codex Bridge UI. Buttons and prompts are ready.")
-except Exception:
-    pass
+    assistant = CodexAssistant.get_singleton(session, create=True, display=True)
+    assistant.display(True)
+    assistant._show_assistant_tab()
+    assistant._focus_prompt()
+    try:
+        assistant.prompt_edit.setReadOnly(False)
+        assistant._append_system("reload ok: fresh AI Assistant instance")
+        assistant._set_result_status("reload ok", tone="success")
+        assistant._set_result_detail("Reloaded Codex Bridge UI. Buttons and prompts are ready.")
+    except Exception:
+        pass
 
-sequence_bar = CodexSequenceBar.get_singleton(session, create=True, display=True)
-sequence_bar.display(True)
-sequence_bar.refresh()
+    _restore_assistant_text(assistant, saved_assistant_text)
 
-_apply_startup_layout(session, assistant)
-_install_runtime_toolbar_buttons(session, force_rebuild=True)
-for delay in (250, 800):
-    QTimer.singleShot(
-        delay,
-        lambda ses=session, tool=assistant: (
-            _release_all_dock_constraints(ses),
-            _apply_startup_layout(ses, tool),
-            _install_runtime_toolbar_buttons(ses),
-        ),
+    sequence_bar = CodexSequenceBar.get_singleton(session, create=True, display=True)
+    sequence_bar.display(True)
+    sequence_bar.refresh()
+
+    _apply_startup_layout(session, assistant)
+    _install_runtime_toolbar_buttons(session, force_rebuild=True)
+    for delay in (250, 800):
+        QTimer.singleShot(
+            delay,
+            lambda ses=session, tool=assistant: (
+                _release_all_dock_constraints(ses),
+                _apply_startup_layout(ses, tool),
+                _install_runtime_toolbar_buttons(ses),
+            ),
+        )
+    QTimer.singleShot(1200, lambda ses=session: _release_all_dock_constraints(ses))
+
+    session.logger.info(
+        f"Reloaded Codex AI UI from {sys.modules['chimerax.codex_bridge.tool'].__file__}; "
+        f"repo_source={SOURCE_DIR}; "
+        f"synced_installed={synced_package_dirs}; "
+        f"UI_LAYOUT_VERSION={CodexAssistant.UI_LAYOUT_VERSION}; "
+        f"SEQUENCE_BAR_VERSION={CodexSequenceBar.UI_LAYOUT_VERSION}"
     )
-QTimer.singleShot(1200, lambda ses=session: _release_all_dock_constraints(ses))
 
-session.logger.info(
-    f"Reloaded Codex AI UI from {sys.modules['chimerax.codex_bridge.tool'].__file__}; "
-    f"repo_source={SOURCE_DIR}; "
-    f"synced_installed={synced_package_dirs}; "
-    f"UI_LAYOUT_VERSION={CodexAssistant.UI_LAYOUT_VERSION}; "
-    f"SEQUENCE_BAR_VERSION={CodexSequenceBar.UI_LAYOUT_VERSION}"
-)
+# Native macOS file-open events can still hold Cocoa references to menu
+# widgets. Rebuild on a later Qt turn, after that event has returned.
+QTimer.singleShot(0, _reload_ui)

@@ -2,10 +2,12 @@ import threading
 
 from Qt.QtCore import Qt, QTimer
 from Qt.QtGui import (
+    QActionGroup,
     QColor,
     QFont,
     QFontDatabase,
     QKeySequence,
+    QPalette,
     QShortcut,
     QTextCharFormat,
     QTextCursor,
@@ -21,16 +23,44 @@ from Qt.QtWidgets import (
     QPushButton,
     QScrollBar,
     QSizePolicy,
+    QStyle,
     QTextEdit,
     QToolButton,
     QVBoxLayout,
     QWidget,
+    QWidgetAction,
 )
 
 from chimerax.core.tools import ToolInstance, get_singleton
+from chimerax.core.settings import Settings
 
 from .display_color import restore_charge_colors
 from .integration import command_batch
+from .ui_theme import panel_stylesheet
+from .sequence_color_view import ResidueColorText
+from .sequence_colors import (chemistry_color, CHARGE_LEGEND_HTML, BASE_PALETTE_LABELS,
+                              CHARGE_TOOLTIP, BASE_TOOLTIP, base_legend_html,
+                              normalize_base_palette)
+
+
+class SequenceColorSettings(Settings):
+    AUTO_SAVE = {"aa_charge": True, "nucleotides": True, "base_palette": "muted"}
+
+
+def _sequence_color_settings(session):
+    settings = getattr(session, "_codex_sequence_color_settings", None)
+    if settings is None:
+        settings = SequenceColorSettings(session, "Codex Sequence Colors")
+        session._codex_sequence_color_settings = settings
+    elif isinstance(settings, Settings) and "base_palette" not in settings.PROPERTY_INFO:
+        # A live source reload can leave the old Settings schema in the session.
+        # Recreate it before writing the newly added palette preference.
+        previous = settings
+        settings = SequenceColorSettings(session, "Codex Sequence Colors")
+        settings.aa_charge = previous.aa_charge
+        settings.nucleotides = previous.nucleotides
+        session._codex_sequence_color_settings = settings
+    return settings
 
 
 AA3_TO_1 = {
@@ -94,21 +124,110 @@ METAL_DONOR_ELEMENT_NUMBERS = {7, 8, 15, 16}
 
 
 def _sequence_panel_font():
-    font = QFont("Courier New")
+    font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
     font.setStyleHint(QFont.StyleHint.Monospace)
     font.setFixedPitch(True)
     font.setKerning(False)
-    try:
-        base = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
-        point_size = base.pointSize()
-        if point_size > 0:
-            font.setPointSize(point_size)
-    except Exception:
-        pass
+    font.setPixelSize(12)
     return font
 
 
-class ClickableSequenceText(QPlainTextEdit):
+def _search_paint_order(count, active):
+    for index in range(count):
+        if index != active:
+            yield index
+    if 0 <= active < count:
+        yield active
+
+
+class _SequenceStatusLabel(QLabel):
+    """One stable status row; long descriptions never squeeze the controls."""
+
+    def __init__(self, text, parent=None):
+        super().__init__(parent)
+        self._full_text = ""
+        self.setObjectName("codex_sequence_status")
+        self.setTextFormat(Qt.TextFormat.PlainText)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.setMinimumWidth(0)
+        self.setFixedHeight(30)
+        self.setText(text)
+
+    def setText(self, text):
+        self._full_text = str(text or "")
+        self.setToolTip(self._full_text)
+        self._update_elision()
+
+    def _update_elision(self):
+        super().setText(self.fontMetrics().elidedText(
+            self._full_text, Qt.TextElideMode.ElideRight, max(0, self.contentsRect().width())))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_elision()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._update_elision()
+
+
+class _SequencePanelWidget(QWidget):
+    """Let controls wrap inside the available graphics width."""
+
+    def __init__(self, parent, resize_callback):
+        super().__init__(parent)
+        self._resize_callback = resize_callback
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._resize_callback(event.size().width())
+
+
+class _SequenceSearchEdit(QLineEdit):
+    """Keep the current hit visible without adding another header column."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.match_label = QLabel(self)
+        self.match_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.match_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.match_label.setStyleSheet("padding: 0 2px; color: palette(text);")
+        self.match_label.setAccessibleName("Sequence search matches")
+        self.match_label.hide()
+        self.textChanged.connect(self._layout_match_label)
+
+    def set_match_count(self, current, total, *, visible, description=""):
+        self.match_label.setText(f"{current:,}/{total:,}")
+        self.match_label.setToolTip(description)
+        self.match_label.setVisible(visible)
+        self.setAccessibleDescription(description if visible else "")
+        self._layout_match_label()
+
+    def _layout_match_label(self, *_args):
+        if self.match_label.isHidden():
+            self.setTextMargins(0, 0, 0, 0)
+            return
+        width = self.match_label.fontMetrics().horizontalAdvance(self.match_label.text()) + 8
+        # QLineEdit reserves its own clear-button margin in addition to these
+        # text margins. Leave that same button slot available beside the badge.
+        clear_width = self.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize) + 12
+        right = self.width() - clear_width - 4
+        self.match_label.setGeometry(max(2, right - width), 2, width, max(1, self.height() - 4))
+        self.setTextMargins(0, 0, width + 8, 0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._layout_match_label()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape and self.text():
+            self.clear()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
+class ClickableSequenceText(ResidueColorText):
     """A fixed-width sequence strip where every character maps to a residue."""
 
     def __init__(
@@ -189,7 +308,10 @@ class ClickableSequenceText(QPlainTextEdit):
         self._apply_highlights()
 
     def set_search_ranges(self, ranges, active=-1):
-        self._search_ranges = self._normalize_ranges(ranges)
+        # Adjacent and overlapping hits are distinct navigation destinations.
+        # Selection ranges still use their normal merged representation.
+        self._search_ranges = [normalized[0] for item in ranges or []
+                               if (normalized := self._normalize_ranges([item]))]
         if 0 <= int(active) < len(self._search_ranges):
             self._search_active = int(active)
         else:
@@ -469,7 +591,8 @@ class ClickableSequenceText(QPlainTextEdit):
         selections = []
         selections.extend(self._residue_style_selections(sequence_line_start))
         selections.extend(self._metal_token_selections(sequence_line_start))
-        for index, (start, end) in enumerate(self._search_ranges):
+        for index in _search_paint_order(len(self._search_ranges), self._search_active):
+            start, end = self._search_ranges[index]
             cursor = QTextCursor(self.document())
             cursor.setPosition(sequence_line_start + start)
             cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, end - start + 1)
@@ -510,7 +633,11 @@ class ClickableSequenceText(QPlainTextEdit):
         run_start = None
         run_style = None
         for index in range(self._sequence_length):
-            style = _sequence_text_style(styles[index] if index < len(styles) else None)
+            style = _sequence_text_style(
+                styles[index] if index < len(styles) else None,
+                self.palette().color(QPalette.ColorRole.Base),
+                charge=self._charge_colors, bases=self._base_colors,
+                base_palette=self._base_palette)
             if style is None:
                 if run_start is not None:
                     selections.append(self._style_selection(sequence_line_start, run_start, index - 1, run_style))
@@ -655,7 +782,7 @@ class ClickableMetalText(QPlainTextEdit):
         return self.mapToGlobal(event.pos())
 
 
-class ClickableAlignmentText(QPlainTextEdit):
+class ClickableAlignmentText(ResidueColorText):
     """A fixed-width alignment strip where columns can be selected."""
 
     def __init__(
@@ -735,6 +862,13 @@ class ClickableAlignmentText(QPlainTextEdit):
                 if row_name not in ("ruler", "match", "consensus")
             ]
         self._alignment_sequence_rows = sequence_rows or ["reference", "moving"]
+        # Build the inverse once when text changes. Paint events can then visit
+        # visible lines directly, without scanning every loaded chain.
+        self._residue_rows_by_line = {
+            self._alignment_row_lines[row]: row
+            for row in self._alignment_sequence_rows
+            if self._alignment_row_lines.get(row) is not None
+        }
         self._alignment_tooltips = list(tooltips or [])
         self.setPlainText(text)
         self._apply_alignment_styles()
@@ -1088,7 +1222,8 @@ class ClickableAlignmentText(QPlainTextEdit):
         format_search_active.setForeground(QColor("#000000"))
         format_search_active.setFontWeight(900)
         selections = []
-        for index, (row_name, start, end) in enumerate(self._search_ranges):
+        for index in _search_paint_order(len(self._search_ranges), self._search_active):
+            row_name, start, end = self._search_ranges[index]
             line_index = self._alignment_row_lines.get(row_name)
             if line_index is None or line_index >= len(self._line_starts):
                 continue
@@ -1138,7 +1273,11 @@ class ClickableAlignmentText(QPlainTextEdit):
         run_start = None
         run_style = None
         for index in range(self._alignment_length):
-            style = _sequence_text_style(styles[index] if index < len(styles) else None)
+            style = _sequence_text_style(
+                styles[index] if index < len(styles) else None,
+                self.palette().color(QPalette.ColorRole.Base),
+                charge=self._charge_colors, bases=self._base_colors,
+                base_palette=self._base_palette)
             if style is None:
                 if run_start is not None:
                     selections.append(self._style_selection(line_start, run_start, index - 1, run_style))
@@ -1178,12 +1317,97 @@ class ClickableAlignmentText(QPlainTextEdit):
         return selection
 
 
+class ClickableChainOverviewText(ClickableAlignmentText):
+    """Independent, unaligned chain rows with residue picking and scrolling."""
+
+    def __init__(self, click_callback, row_hover_callback, row_context_callback, parent=None):
+        super().__init__(click_callback, parent=parent)
+        self._row_hover_callback = row_hover_callback
+        self._row_context_callback = row_context_callback
+        self.entries_by_row = {}
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+    def set_chain_rows(self, entries):
+        horizontal = self.horizontalScrollBar().value()
+        vertical = self.verticalScrollBar().value()
+        self.entries_by_row = {entry["spec"]: entry for entry in entries}
+        label_width = max((len(entry["spec"]) for entry in entries), default=6)
+        rows = list(self.entries_by_row)
+        length = max((entry["length"] for entry in entries), default=0)
+        lines = [f"{'pos':<{label_width}}  {_tick_line(length)}"] if entries else []
+        lines.extend(f"{entry['spec']:<{label_width}}  {entry['sequence']}" for entry in entries)
+        self.set_alignment_text(
+            "\n".join(lines),
+            max((entry["length"] for entry in entries), default=0),
+            {entry["spec"]: entry.get("residue_styles") for entry in entries},
+            {"offset": label_width + 2,
+             "row_lines": {row: index + 1 for index, row in enumerate(rows)},
+             "sequence_rows": rows},
+        )
+        self.horizontalScrollBar().setValue(horizontal)
+        self.verticalScrollBar().setValue(vertical)
+
+    def _alignment_column_and_row_at(self, pos):
+        cursor = self.cursorForPosition(pos)
+        line = cursor.blockNumber()
+        for row, line_index in self._alignment_row_lines.items():
+            entry = self.entries_by_row.get(row)
+            if line_index != line or entry is None:
+                continue
+            column = cursor.position() - self._line_starts[line] - self._alignment_offset
+            if 0 <= column < entry["length"]:
+                return column, row
+        return None, None
+
+    def _normalized_preview_range(self, start, end):
+        entry = self.entries_by_row.get(getattr(self, "_drag_row", None))
+        if entry is None or start is None or end is None:
+            return None
+        last = entry["length"] - 1
+        return tuple(sorted((max(0, min(int(start), last)), max(0, min(int(end), last)))))
+
+    def scroll_to_row_column(self, row, column):
+        entry = self.entries_by_row.get(row)
+        line = self._alignment_row_lines.get(row)
+        if not entry or line is None or not entry["length"]:
+            return
+        column = max(0, min(int(column), entry["length"] - 1))
+        cursor = QTextCursor(self.document())
+        cursor.setPosition(self._line_starts[line] + self._alignment_offset + column)
+        self.setTextCursor(cursor)
+        self.ensureCursorVisible()
+
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+        column, row = self._alignment_column_and_row_at(event.pos())
+        entry = self.entries_by_row.get(row)
+        tips = entry.get("tooltips", []) if entry else []
+        self.setToolTip(f"{row} · {tips[column]}" if column is not None and column < len(tips) else "")
+        self._row_hover_callback(column, row)
+
+    def mousePressEvent(self, event):
+        context_click = event.button() == Qt.MouseButton.RightButton or (
+            event.button() == Qt.MouseButton.LeftButton
+            and bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier))
+        if context_click:
+            column, row = self._alignment_column_and_row_at(event.pos())
+            if column is not None:
+                self._row_context_callback(column, row, self._event_global_pos(event))
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self._row_hover_callback(None, None)
+
+
 class CodexSequenceBar(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 40
+    UI_LAYOUT_VERSION = 49
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -1199,6 +1423,7 @@ class CodexSequenceBar(ToolInstance):
     def __init__(self, session, tool_name):
         super().__init__(session, tool_name)
         self._ui_layout_version = self.UI_LAYOUT_VERSION
+        self._closed = False
         self._entries = []
         self._current_entry = None
         self._selected_ranges = []
@@ -1207,9 +1432,14 @@ class CodexSequenceBar(ToolInstance):
         self._selection_refresh_pending = False
         self._suppress_selection_refresh = False
         self._alignment_payload = None
+        self._alignment_natural_height = 0
         self._alignment_base_status = ""
         self._sequence_base_status = ""
         self._alignment_selected_columns = {}
+        self._all_chains_enabled = True
+        self._all_chains_base_status = ""
+        self._color_settings = _sequence_color_settings(session)
+        self._base_palette = normalize_base_palette(getattr(self._color_settings, "base_palette", "muted"))
         self._wrapper = None
         self._previous_main_view = None
         self.bar_widget = None
@@ -1219,143 +1449,110 @@ class CodexSequenceBar(ToolInstance):
         self._build_ui()
 
     def _build_ui(self):
-        parent = QWidget(self.session.ui.main_window)
+        from .panel_layout import create_layout_button
+
+        parent = _SequencePanelWidget(self.session.ui.main_window, self._reflow_header)
         parent.setObjectName("codex_sequence_bar")
         self.bar_widget = parent
         layout = QVBoxLayout()
-        layout.setContentsMargins(6, 3, 6, 4)
-        layout.setSpacing(3)
+        layout.setContentsMargins(8, 7, 8, 5)
+        layout.setSpacing(6)
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
         parent.setLayout(layout)
-        parent.setMinimumHeight(134)
-        parent.setMaximumHeight(220)
+        parent.setMinimumHeight(158)
+        parent.setMaximumHeight(320)
         parent.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         parent.setStyleSheet(
-            "QWidget#codex_sequence_bar { background: #15181b; }"
-            "QLabel { color: #d9dde2; background: transparent; }"
-            "QComboBox {"
-            " background: #0e1114;"
-            " color: #edf0f3;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 9px;"
-            " padding: 4px 10px;"
-            " font-weight: 600;"
-            "}"
-            "QComboBox:hover { background: #14181c; border-color: #44494f; }"
-            "QComboBox:focus { border-color: #6e757d; }"
-            "QComboBox::drop-down { border: none; width: 18px; }"
+            panel_stylesheet("codex_sequence_bar")
+            + "QLabel { font-size: 13px; }"
+            "QLabel#codex_sequence_status { color: palette(window-text); font-size: 13px; padding: 0 2px; }"
+            "QComboBox, QToolButton, QPushButton, QLineEdit { font-size: 13px; font-weight: 500; padding: 2px 8px; min-height: 24px; max-height: 24px; }"
+            "QComboBox { padding-right: 24px; }"
+            "QComboBox::drop-down { border: none; width: 22px; }"
+            "QComboBox::down-arrow { width: 8px; height: 8px; }"
             "QComboBox QAbstractItemView {"
-            " background: #14181c;"
-            " color: #eef1f4;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 8px;"
-            " selection-background-color: #2c333a;"
+            " border: 1px solid palette(mid);"
+            " selection-color: palette(highlighted-text);"
             " padding: 4px;"
             "}"
-            "QPushButton {"
-            " background: #1d2126;"
-            " color: #eef1f4;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 9px;"
-            " padding: 5px 12px;"
-            " font-weight: 600;"
-            "}"
-            "QToolButton {"
-            " background: #1d2126;"
-            " color: #eef1f4;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 9px;"
-            " padding: 5px 12px;"
-            " font-weight: 600;"
-            "}"
-            "QPushButton:hover, QToolButton:hover {"
-            " background: #262a30; border-color: #44494f;"
-            "}"
             "QPushButton:pressed, QToolButton:pressed {"
-            " background: #11141a; border-color: #2a2f35;"
+            " background: palette(midlight); border-color: palette(highlight);"
             "}"
-            "QToolButton::menu-button { border: none; width: 16px; }"
-            "QToolButton::menu-arrow { image: none; }"
+            "QToolButton::menu-button { border: none; width: 20px; }"
+            "QToolButton::menu-arrow { width: 8px; height: 8px; }"
+            "QToolButton#codex_sequence_bases { padding-right: 24px; }"
+            "QToolButton#codex_sequence_color_key { padding-right: 22px; }"
+            "QToolButton#codex_sequence_color_key::menu-indicator {"
+            " width: 8px; height: 8px; subcontrol-position: right center; right: 6px; }"
             "QPlainTextEdit {"
-            " background: #0a0d10;"
-            " color: #eef1f4;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 10px;"
+            " font-size: 12px;"
             " padding: 6px 10px 14px 10px;"
-            " selection-background-color: #c7ccd2;"
-            " selection-color: #101214;"
+            " selection-color: palette(highlighted-text);"
             "}"
             "QPlainTextEdit#codex_sequence_alignment {"
-            " background: #0e1115;"
-            " color: #eef1f4;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 10px;"
             " padding: 6px 10px;"
             "}"
             "QPlainTextEdit#codex_sequence_metals {"
-            " background: #0a0d10;"
-            " color: #f2f5f8;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 8px;"
             " padding: 4px 10px;"
             " font-weight: 800;"
-            " selection-background-color: #c7ccd2;"
-            " selection-color: #101214;"
             "}"
             "QLineEdit#codex_sequence_search {"
-            " background: #0e1114;"
-            " color: #edf0f3;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 9px;"
-            " padding: 4px 9px;"
-            " selection-background-color: #2c333a;"
-            " selection-color: #eef1f4;"
+            " selection-background-color: palette(highlight);"
+            " selection-color: palette(highlighted-text);"
             "}"
-            "QLineEdit#codex_sequence_search:focus { border-color: #6e757d; }"
             "QLineEdit#codex_sequence_search:disabled {"
-            " background: #0a0c0f; color: #5b6168; border-color: #1f2328;"
+            " background: palette(window); color: palette(mid);"
             "}"
             "QScrollBar#codex_sequence_scroll:horizontal {"
             " height: 12px; background: transparent; margin: 0 4px; border: none;"
             "}"
             "QScrollBar#codex_sequence_scroll::handle:horizontal {"
-            " background: #3a3f46; border-radius: 5px; min-width: 32px;"
+            " background: palette(mid); border-radius: 5px; min-width: 32px;"
             "}"
             "QScrollBar#codex_sequence_scroll::handle:horizontal:hover {"
-            " background: #54595f;"
+            " background: palette(dark);"
             "}"
             "QScrollBar#codex_sequence_scroll::add-line:horizontal,"
             "QScrollBar#codex_sequence_scroll::sub-line:horizontal { width: 0; height: 0; }"
             "QScrollBar#codex_sequence_scroll::add-page:horizontal,"
             "QScrollBar#codex_sequence_scroll::sub-page:horizontal { background: transparent; }"
             "QMenu {"
-            " background: #14181c;"
-            " color: #eef1f4;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 8px;"
+            " background: palette(window);"
+            " color: palette(window-text);"
+            " border: 1px solid palette(mid);"
             " padding: 4px;"
             "}"
             "QMenu::item {"
             " background: transparent;"
             " padding: 6px 14px;"
-            " border-radius: 6px;"
             "}"
-            "QMenu::item:selected { background: #2c333a; }"
+            "QMenu::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
             "QMenu::separator {"
             " height: 1px;"
-            " background: #2a2f35;"
+            " background: palette(mid);"
             " margin: 4px 8px;"
             "}"
         )
 
         top_row = QHBoxLayout()
-        top_row.setSpacing(7)
+        top_row.setSpacing(6)
+        self.header_controls_layout = top_row
         self.chain_combo = QComboBox(parent)
-        self.chain_combo.setMinimumWidth(170)
+        self.chain_combo.setObjectName("codex_sequence_chain")
+        self.chain_combo.setMinimumWidth(210)
+        self.chain_combo.setMinimumContentsLength(20)
+        self.chain_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.chain_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.chain_combo.setPlaceholderText("No chain loaded")
         self.chain_combo.currentIndexChanged.connect(self._chain_changed)
-        top_row.addWidget(self.chain_combo, 0)
+        # Give long model names and sequence queries the available width;
+        # fixed-size actions stay together at the right edge.
+        top_row.addWidget(self.chain_combo, 3)
 
         self.selection_button = QToolButton(parent)
         self.selection_button.setText("Select: Residue")
+        self.selection_button.setObjectName("codex_sequence_mode")
+        self.selection_button.setMinimumWidth(142)
         self.selection_button.setToolTip(
             "Click to toggle Residue ↔ Chain selection mode. Use the dropdown arrow for helix/sheet actions."
         )
@@ -1364,33 +1561,70 @@ class CodexSequenceBar(ToolInstance):
         self.selection_button.clicked.connect(self._cycle_click_mode)
         top_row.addWidget(self.selection_button, 0)
 
-        self.status_label = QLabel("No protein sequence loaded.", parent)
-        self.status_label.setMinimumWidth(0)
-        self.status_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        top_row.addWidget(self.status_label, 1)
+        self.status_label = _SequenceStatusLabel("No protein sequence loaded.", parent)
+        self.all_chains_button = QPushButton("All chains", parent)
+        self.all_chains_button.setCheckable(True)
+        self.all_chains_button.setChecked(self._all_chains_enabled)
+        self.all_chains_button.setFixedHeight(30)
+        self.all_chains_button.setToolTip("Show every loaded protein, DNA and RNA chain as a separate sequence row.")
+        self.all_chains_button.toggled.connect(self._set_all_chains_enabled)
 
-        self.search_edit = QLineEdit(parent)
+        self.charge_colors_button = QPushButton("AA charge", parent)
+        self.base_colors_button = QToolButton(parent)
+        self.base_colors_button.setText("DNA/RNA")
+        self.base_colors_button.setObjectName("codex_sequence_bases")
+        self.base_colors_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        self.base_colors_button.setMenu(self._build_base_palette_menu(parent))
+        for button, checked, tooltip in (
+                (self.charge_colors_button, self._color_settings.aa_charge, CHARGE_TOOLTIP),
+                (self.base_colors_button, self._color_settings.nucleotides, BASE_TOOLTIP)):
+            button.setCheckable(True)
+            button.setChecked(bool(checked))
+            button.setFixedHeight(30)
+            button.setToolTip(tooltip)
+            button.toggled.connect(self._set_residue_coloring)
+        self.color_key_button = QToolButton(parent)
+        self.color_key_button.setObjectName("codex_sequence_color_key")
+        self.color_key_button.setText("Color key")
+        self.color_key_button.setFixedHeight(30)
+        self.color_key_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.color_key_button.setToolTip("Sequence fill colors and structure-color outlines")
+        color_menu = QMenu(self.color_key_button)
+        self._color_key_label = QLabel(color_menu)
+        self._color_key_label.setContentsMargins(12, 8, 12, 8)
+        color_action = QWidgetAction(color_menu)
+        color_action.setDefaultWidget(self._color_key_label)
+        color_menu.addAction(color_action)
+        self.color_key_button.setMenu(color_menu)
+        self._update_color_key()
+
+        self.search_edit = _SequenceSearchEdit(parent)
         self.search_edit.setObjectName("codex_sequence_search")
+        self.search_edit.setAccessibleName("Find sequence")
         self.search_edit.setPlaceholderText("Find seq (X = any)…")
         self.search_edit.setToolTip(
             "Find a subsequence in the current chain. X matches any residue. "
             "Press Enter to jump to the next match."
         )
         self.search_edit.setClearButtonEnabled(True)
-        self.search_edit.setFixedWidth(170)
+        self.search_edit.setMinimumWidth(220)
+        self.search_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.search_edit.textChanged.connect(self._on_search_text_changed)
         self.search_edit.returnPressed.connect(self._on_search_next)
+        self._find_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.Find), parent)
+        self._find_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self._find_shortcut.activated.connect(self._focus_search)
         for key in ("Shift+Return", "Shift+Enter"):
             shortcut = QShortcut(QKeySequence(key), self.search_edit)
             shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
             shortcut.activated.connect(self._on_search_prev)
-        top_row.addWidget(self.search_edit, 0)
+        top_row.addWidget(self.search_edit, 2)
 
         self.search_prev_button = QToolButton(parent)
         self.search_prev_button.setText("◀")
         self.search_prev_button.setToolTip("Previous match (Shift+Enter)")
         self.search_prev_button.setAutoRaise(False)
-        self.search_prev_button.setFixedWidth(28)
+        self.search_prev_button.setFixedWidth(30)
         self.search_prev_button.clicked.connect(self._on_search_prev)
         top_row.addWidget(self.search_prev_button, 0)
 
@@ -1398,7 +1632,7 @@ class CodexSequenceBar(ToolInstance):
         self.search_next_button.setText("▶")
         self.search_next_button.setToolTip("Next match (Enter)")
         self.search_next_button.setAutoRaise(False)
-        self.search_next_button.setFixedWidth(28)
+        self.search_next_button.setFixedWidth(30)
         self.search_next_button.clicked.connect(self._on_search_next)
         top_row.addWidget(self.search_next_button, 0)
 
@@ -1409,7 +1643,41 @@ class CodexSequenceBar(ToolInstance):
         self.similar_button = QPushButton("Similar", parent)
         self.similar_button.clicked.connect(self._open_similar)
         top_row.addWidget(self.similar_button, 0)
+        self.panel_layout_button = create_layout_button(self.session, parent)
+        for control in (self.chain_combo, self.selection_button, self.search_edit,
+                        self.search_prev_button, self.search_next_button,
+                        self.refresh_button, self.similar_button, self.panel_layout_button):
+            control.setFixedHeight(30)
+        self.refresh_button.setMinimumWidth(68)
+        self.similar_button.setMinimumWidth(66)
         layout.addLayout(top_row)
+        self._header_search_row = QWidget(parent)
+        self._header_search_layout = QHBoxLayout(self._header_search_row)
+        self._header_search_layout.setContentsMargins(0, 0, 0, 0)
+        self._header_search_layout.setSpacing(6)
+        self._header_search_row.hide()
+        layout.addWidget(self._header_search_row)
+        self._header_wrapped = False
+        status_row = QHBoxLayout()
+        status_row.setSpacing(6)
+        self._header_status_layout = status_row
+        status_row.addWidget(self.all_chains_button, 0)
+        status_row.addSpacing(4)
+        status_row.addWidget(QLabel("Fill:", parent), 0)
+        status_row.addWidget(self.charge_colors_button, 0)
+        status_row.addWidget(self.base_colors_button, 0)
+        status_row.addWidget(self.color_key_button, 0)
+        status_row.addSpacing(8)
+        status_row.addWidget(self.status_label, 1)
+        status_row.addWidget(self.panel_layout_button, 0)
+        layout.addLayout(status_row)
+        self._header_detail_row = QWidget(parent)
+        self._header_detail_layout = QHBoxLayout(self._header_detail_row)
+        self._header_detail_layout.setContentsMargins(0, 0, 0, 0)
+        self._header_detail_layout.setSpacing(6)
+        self._header_detail_row.hide()
+        layout.addWidget(self._header_detail_row)
+        self._status_wrapped = False
 
         self.sequence_text = ClickableSequenceText(
             self._select_residue_range_by_index,
@@ -1421,6 +1689,9 @@ class CodexSequenceBar(ToolInstance):
             metal_hover_callback=self._show_metal_hover,
         )
         self.sequence_text.setFixedHeight(78)
+        self.sequence_text.setToolTip(
+            "Click or drag to add residues; Shift-click extends. Click a selected residue to remove it. "
+            "Click empty space to clear, or right-click for actions.")
         layout.addWidget(self.sequence_text)
 
         self.sequence_scrollbar = QScrollBar(Qt.Orientation.Horizontal, parent)
@@ -1451,25 +1722,112 @@ class CodexSequenceBar(ToolInstance):
         self.alignment_text.setVisible(False)
         layout.addWidget(self.alignment_text)
 
+        self.all_chains_text = ClickableChainOverviewText(
+            self._select_all_chains_range, self._show_all_chains_hover,
+            self._show_all_chains_context_menu, parent)
+        self.all_chains_text.setObjectName("codex_sequence_all_chains")
+        self.all_chains_text.setFont(_sequence_panel_font())
+        self.all_chains_text.setVisible(False)
+        layout.addWidget(self.all_chains_text)
+        self._set_residue_coloring()
+
         self._relax_min_size()
         self._attach_to_graphics_view()
         self.install_handlers()
         self.refresh()
 
+    def _reflow_header(self, width):
+        if not hasattr(self, "all_chains_text"):
+            return
+        # Keep readable controls at their normal size; extra rows are needed
+        # only when dock panels leave a narrow graphics view.
+        wrapped = width < 840
+        status_wrapped = width < 660
+        changed = wrapped != self._header_wrapped or status_wrapped != self._status_wrapped
+        if not changed:
+            return
+        if wrapped != self._header_wrapped:
+            source = self.header_controls_layout if wrapped else self._header_search_layout
+            target = self._header_search_layout if wrapped else self.header_controls_layout
+            for control in (self.search_edit, self.search_prev_button, self.search_next_button,
+                            self.refresh_button, self.similar_button):
+                source.removeWidget(control)
+                target.addWidget(control, 2 if control is self.search_edit else 0)
+                control.show()
+            self._header_search_row.setVisible(wrapped)
+            self._header_wrapped = wrapped
+        if status_wrapped != self._status_wrapped:
+            source = self._header_status_layout if status_wrapped else self._header_detail_layout
+            target = self._header_detail_layout if status_wrapped else self._header_status_layout
+            for control in (self.status_label, self.panel_layout_button):
+                source.removeWidget(control)
+                target.addWidget(control, 1 if control is self.status_label else 0)
+                control.show()
+            self._header_detail_row.setVisible(status_wrapped)
+            self._status_wrapped = status_wrapped
+        self._fit_sequence_view_heights()
+        self.bar_widget.updateGeometry()
+
+    def _fit_sequence_view_heights(self):
+        # Keep the sequence panel's existing 320px cap. Long chain/alignment
+        # lists scroll inside the remaining space when controls gain a row.
+        extra_rows = int(self._header_wrapped) + int(self._status_wrapped)
+        budget = 220 - 36 * extra_rows
+        overview_height = max(78, min(220, 34 + (len(self._entries) + 1) * 18))
+        self.all_chains_text.setFixedHeight(min(overview_height, budget))
+        if self._alignment_payload is not None:
+            self.alignment_text.setFixedHeight(min(self._alignment_natural_height, budget))
+
+    def _build_base_palette_menu(self, parent):
+        menu = QMenu(parent)
+        group = QActionGroup(menu)
+        group.setExclusive(True)
+        self._base_palette_actions = {}
+        for key, label in BASE_PALETTE_LABELS.items():
+            action = menu.addAction(label)
+            action.setCheckable(True)
+            action.setChecked(key == self._base_palette)
+            action.setData(key)
+            group.addAction(action)
+            action.triggered.connect(lambda _checked=False, key=key: self._set_base_palette(key))
+            self._base_palette_actions[key] = action
+        return menu
+
+    def _set_base_palette(self, base_palette):
+        self._base_palette = normalize_base_palette(base_palette)
+        self._color_settings.base_palette = self._base_palette
+        for key, action in self._base_palette_actions.items():
+            action.setChecked(key == self._base_palette)
+        # Choosing a preset also turns its fill on, including saved-off settings.
+        self.base_colors_button.setChecked(True)
+        self._set_residue_coloring()
+        self._update_color_key()
+
+    def _update_color_key(self):
+        label = BASE_PALETTE_LABELS[self._base_palette]
+        self.base_colors_button.setToolTip(
+            f"Current preset: {label}. Click to toggle nucleotide fills. " + BASE_TOOLTIP)
+        self._color_key_label.setText(
+            "<b>Outline</b> &nbsp; Current structure color<br><br>"
+            + "<b>AA charge</b><br>" + CHARGE_LEGEND_HTML
+            + "<br>H: pH-dependent; colors indicate side-chain classes."
+            + f"<br><br><b>DNA/RNA · {label}</b><br>" + base_legend_html(self._base_palette)
+            + "<br><br>Turn either fill off to use structure colors.")
+
+    def _set_residue_coloring(self, _checked=None):
+        charge = self.charge_colors_button.isChecked()
+        bases = self.base_colors_button.isChecked()
+        self._color_settings.aa_charge = charge
+        self._color_settings.nucleotides = bases
+        for view in (self.sequence_text, self.alignment_text, self.all_chains_text):
+            view.set_residue_coloring(charge=charge, bases=bases, base_palette=self._base_palette)
+
     def _relax_min_size(self):
         if self.bar_widget is None:
             return
         self.bar_widget.setMinimumWidth(0)
-        for child in self.bar_widget.findChildren(QWidget):
-            try:
-                child.setMinimumWidth(0)
-            except Exception:
-                pass
-        for child_layout in self.bar_widget.findChildren(QLayout):
-            try:
-                child_layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
-            except Exception:
-                pass
+        # Release the outer bar only. The selector/search minimum widths
+        # protect their labels; a long status is elided in its separate row.
 
     def displayed(self):
         return bool(self.bar_widget is not None and self.bar_widget.isVisible())
@@ -1571,6 +1929,7 @@ class CodexSequenceBar(ToolInstance):
                 pass
 
     def delete(self):
+        self._closed = True
         for handler in self.handlers:
             try:
                 self.session.triggers.remove_handler(handler)
@@ -1578,6 +1937,9 @@ class CodexSequenceBar(ToolInstance):
                 pass
         self.handlers = []
         self._detach_from_graphics_view()
+        if self.bar_widget is not None:
+            self.bar_widget.deleteLater()
+            self.bar_widget = None
         super().delete()
 
     def _selected_chain_specs_from_session(self):
@@ -1711,8 +2073,12 @@ class CodexSequenceBar(ToolInstance):
         return f"{prefix} · {statuses[first_column]}"
 
     def refresh(self):
+        if self._closed:
+            return
         previous_spec = self._current_entry.get("spec") if self._current_entry else None
-        self._entries = _protein_sequence_entries(self.session)
+        self._entries = _protein_sequence_entries(
+            self.session, include_nucleic=self._all_chains_enabled,
+            include_hidden=self._all_chains_enabled)
         self.chain_combo.blockSignals(True)
         self.chain_combo.clear()
         for entry in self._entries:
@@ -1773,7 +2139,7 @@ class CodexSequenceBar(ToolInstance):
         self._set_current_entry_from_combo()
 
     def _queue_refresh(self, *_args):
-        if self._refresh_pending:
+        if self._closed or self._refresh_pending:
             return
         self._refresh_pending = True
 
@@ -1790,7 +2156,7 @@ class CodexSequenceBar(ToolInstance):
         self._queue_refresh()
 
     def _queue_selection_refresh(self, *_args):
-        if getattr(self, "_suppress_selection_refresh", False):
+        if self._closed or getattr(self, "_suppress_selection_refresh", False):
             return
         if self._selection_refresh_pending:
             return
@@ -1817,9 +2183,16 @@ class CodexSequenceBar(ToolInstance):
         return text.startswith("select ") or text == "select" or text.startswith("~select")
 
     def _refresh_selection_state(self):
-        if not self._entries:
+        if self._closed or not self._entries:
             return
         selected_chain_specs = self._selected_chain_specs_from_session()
+        if self._all_chains_enabled:
+            if len(selected_chain_specs) == 1:
+                entry = self.all_chains_text.entries_by_row.get(next(iter(selected_chain_specs)))
+                if entry is not None:
+                    self._set_overview_current_entry(entry)
+            self._refresh_all_chains_selection(scroll=True)
+            return
         if len(selected_chain_specs) == 1:
             selected_spec = next(iter(selected_chain_specs))
             current_spec = self._current_entry.get("spec") if self._current_entry else None
@@ -1876,6 +2249,8 @@ class CodexSequenceBar(ToolInstance):
     def _set_current_entry_from_combo(self):
         spec = self.chain_combo.currentData()
         self._current_entry = next((entry for entry in self._entries if entry["spec"] == spec), None)
+        self.chain_combo.setToolTip(
+            self._current_entry["display"] if self._current_entry else "Open a protein structure to choose a chain.")
         self._render_sequence()
 
     def _build_selection_menu(self, parent):
@@ -2285,6 +2660,10 @@ class CodexSequenceBar(ToolInstance):
         self._set_selection_click_mode(cycle[(index + 1) % len(cycle)])
 
     def _render_sequence(self):
+        if self._all_chains_enabled:
+            self._render_all_chains()
+            return
+        self.all_chains_text.setVisible(False)
         entry = self._current_entry
         if not entry:
             self.status_label.setText("No protein chain resolved. Open/select a protein model.")
@@ -2306,8 +2685,7 @@ class CodexSequenceBar(ToolInstance):
         metal_text = _metal_summary_text(entry)
         annotation_text = f"{motif_text} · {metal_text}" if metal_text else motif_text
         self._sequence_base_status = (
-            f"{entry['spec']} · {entry['length']} residues · click/drag adds; Shift-click extends; "
-            f"click selected residue to remove; click empty area to clear · right-click menu · {annotation_text}"
+            f"{entry['spec']} · {entry['length']:,} residues · {annotation_text}"
         )
         self.status_label.setText(self._sequence_base_status)
         metal_entries = _metal_panel_entries_for_entry(entry)
@@ -2338,6 +2716,108 @@ class CodexSequenceBar(ToolInstance):
             self.status_label.setText(self._status_for_ranges(entry, selected_ranges))
         self._render_alignment_panel(entry)
 
+    def _set_all_chains_enabled(self, enabled):
+        self._all_chains_enabled = bool(enabled)
+        blocked = self.all_chains_button.blockSignals(True)
+        try:
+            self.all_chains_button.setChecked(self._all_chains_enabled)
+        finally:
+            self.all_chains_button.blockSignals(blocked)
+        self.refresh()
+
+    def _render_all_chains(self):
+        self._alignment_payload = None
+        self._alignment_base_status = ""
+        self._alignment_selected_columns = {}
+        self.sequence_text.setVisible(False)
+        self.sequence_scrollbar.setVisible(False)
+        self.alignment_text.setVisible(False)
+        self.alignment_text.setFixedHeight(0)
+        self.all_chains_text.set_chain_rows(self._entries)
+        self.all_chains_text.setFixedHeight(max(78, min(220, 34 + (len(self._entries) + 1) * 18)))
+        self._fit_sequence_view_heights()
+        self.all_chains_text.setVisible(True)
+        self.all_chains_text.setPlaceholderText("Open a protein, DNA or RNA structure to see its chains.")
+        total = sum(entry["length"] for entry in self._entries)
+        self._all_chains_base_status = (
+            f"All chains · {len(self._entries):,} chains · {total:,} residues" if self._entries else
+            "No polymer chains loaded.")
+        self.search_edit.setEnabled(bool(self._entries))
+        self.search_edit.setPlaceholderText("Find all chains (X = any)…")
+        self._refresh_all_chains_selection()
+        self._refresh_search_highlights()
+
+    def _set_overview_current_entry(self, entry):
+        self._current_entry = entry
+        self._selected_ranges = self._selected_ranges_from_session(entry)
+        blocked = self.chain_combo.blockSignals(True)
+        try:
+            self.chain_combo.setCurrentIndex(self.chain_combo.findData(entry["spec"]))
+        finally:
+            self.chain_combo.blockSignals(blocked)
+        self.chain_combo.setToolTip(entry["display"])
+
+    def _refresh_all_chains_selection(self, *, scroll=False, update_status=True):
+        ranges = {entry["spec"]: self._selected_ranges_from_session(entry) for entry in self._entries}
+        self.all_chains_text.highlight_columns(ranges)
+        selected_rows = [(row, selected) for row, selected in ranges.items() if selected]
+        if scroll and selected_rows:
+            current = self._current_entry.get("spec") if self._current_entry else None
+            row, selected = next((item for item in selected_rows if item[0] == current), selected_rows[0])
+            self.all_chains_text.scroll_to_row_column(row, selected[0][0])
+        if update_status:
+            count = sum(end - start + 1 for selected in ranges.values() for start, end in selected)
+            suffix = f" · {count:,} selected" if count else ""
+            self.status_label.setText(self._all_chains_base_status + suffix)
+        return ranges
+
+    def _select_all_chains_range(self, start, end=None, row=None):
+        entry = self.all_chains_text.entries_by_row.get(row)
+        if not entry or not (0 <= int(start) < entry["length"]):
+            return
+        self._set_overview_current_entry(entry)
+        if entry.get("polymer_kind") == "nucleic" and self._selection_click_mode == "atom":
+            self._select_nucleic_overview_atoms(entry, int(start), int(end if end is not None else start))
+        else:
+            self._select_residue_range_for_entry(entry, start, end, additive=True)
+        self._refresh_all_chains_selection(update_status=False)
+
+    def _select_nucleic_overview_atoms(self, entry, start, end):
+        start, end = sorted((start, max(0, min(end, entry["length"] - 1))))
+        specs = []
+        objects = entry.get("_residue_objects", [])
+        fallback = False
+        for index in range(start, end + 1):
+            residue = objects[index] if index < len(objects) else None
+            atom = getattr(residue, "principal_atom", None) if residue is not None else None
+            if atom is None and residue is not None:
+                atom = residue.find_atom("C4'") or residue.find_atom("P")
+            spec = getattr(atom, "atomspec", "") if atom is not None else ""
+            fallback |= not bool(spec)
+            specs.append(spec or entry["residues"][index]["spec"])
+        if not specs:
+            return
+        from chimerax.core.commands import run
+        remove = start == end and self._index_in_ranges(start, self._selected_ranges)
+        self._mark_internal_selection_update()
+        run(self.session, f"{'~select' if remove else 'select add'} {' '.join(specs)}")
+        detail = "residue fallback where backbone atoms are missing" if fallback else "nucleotide backbone atoms"
+        self.status_label.setText(f"{'Removed' if remove else 'Selected'} {entry['spec']} · {detail}")
+
+    def _show_all_chains_hover(self, column, row):
+        entry = self.all_chains_text.entries_by_row.get(row)
+        if entry is not None and column is not None and 0 <= column < entry["length"]:
+            self.status_label.setText(f"{entry['spec']} · {entry['residues'][column]['label']}")
+        else:
+            self._refresh_all_chains_selection()
+
+    def _show_all_chains_context_menu(self, column, row, global_pos):
+        entry = self.all_chains_text.entries_by_row.get(row)
+        if entry is None or not (0 <= column < entry["length"]):
+            return
+        self._set_overview_current_entry(entry)
+        self._show_residue_context_menu(column, global_pos)
+
     def _render_metal_panel(self, entry):
         if not hasattr(self, "metal_text"):
             return
@@ -2347,6 +2827,15 @@ class CodexSequenceBar(ToolInstance):
         )
 
     def _compute_search_matches(self, query):
+        if self._all_chains_enabled:
+            rx = self._search_regex_for_query(query)
+            if rx is None:
+                return []
+            return [
+                {"row": entry["spec"], "start": match.start(1), "end": match.end(1) - 1,
+                 "label": f"{entry['spec']} · {self._short_range_label(entry, match.start(1), match.end(1) - 1)}"}
+                for entry in self._entries for match in rx.finditer(entry["sequence"])
+            ]
         if self._search_targets_alignment():
             return self._compute_alignment_search_matches(query)
         entry = self._current_entry
@@ -2355,17 +2844,10 @@ class CodexSequenceBar(ToolInstance):
         sequence = str(entry.get("sequence") or "")
         if not sequence:
             return []
-        cleaned = "".join(ch for ch in str(query or "").upper() if ch.isalpha())
-        if not cleaned:
+        rx = self._search_regex_for_query(query)
+        if rx is None:
             return []
-        import re
-
-        pattern = "".join("." if ch == "X" else re.escape(ch) for ch in cleaned)
-        try:
-            rx = re.compile(pattern)
-        except re.error:
-            return []
-        return [(m.start(), m.end() - 1) for m in rx.finditer(sequence) if m.end() > m.start()]
+        return [(m.start(1), m.end(1) - 1) for m in rx.finditer(sequence)]
 
     def _search_targets_alignment(self):
         return bool(
@@ -2385,7 +2867,9 @@ class CodexSequenceBar(ToolInstance):
 
         pattern = "".join("." if ch == "X" else re.escape(ch) for ch in cleaned)
         try:
-            return re.compile(pattern)
+            # The capture consumes the motif while the lookahead advances by
+            # one residue, so overlapping occurrences are included.
+            return re.compile(f"(?=({pattern}))")
         except re.error:
             return None
 
@@ -2410,10 +2894,8 @@ class CodexSequenceBar(ToolInstance):
             if not sequence:
                 continue
             for match in rx.finditer(sequence):
-                if match.end() <= match.start():
-                    continue
-                start_column = columns[match.start()]
-                end_column = columns[match.end() - 1]
+                start_column = columns[match.start(1)]
+                end_column = columns[match.end(1) - 1]
                 matches.append(
                     {
                         "row": row_name,
@@ -2448,38 +2930,81 @@ class CodexSequenceBar(ToolInstance):
             active = 0 if matches else -1
         self._search_matches = matches
         self._search_active_index = active
-        if self._search_targets_alignment():
+        if self._all_chains_enabled:
+            self.sequence_text.set_search_ranges([], -1)
+            self.alignment_text.set_search_ranges([], -1)
+            self.all_chains_text.set_search_ranges(matches, active)
+        elif self._search_targets_alignment():
+            self.all_chains_text.set_search_ranges([], -1)
             self.sequence_text.set_search_ranges([], -1)
             self.alignment_text.set_search_ranges(matches, active)
         else:
+            self.all_chains_text.set_search_ranges([], -1)
             self.alignment_text.set_search_ranges([], -1)
             self.sequence_text.set_search_ranges(matches, active)
+        self._update_search_controls()
+
+    def _search_scope_label(self):
+        if self._all_chains_enabled:
+            return "all chains"
+        if self._search_targets_alignment():
+            return "alignment"
+        return self._current_entry["spec"] if self._current_entry else "no chain loaded"
+
+    def _update_search_controls(self):
+        query = self.search_edit.text().strip()
+        count = len(self._search_matches)
+        current = self._search_active_index + 1 if count else 0
+        scope = self._search_scope_label()
+        if count:
+            match_label = self._search_match_status_label(self._search_matches[self._search_active_index])
+            description = f"Match {current:,} of {count:,} in {scope} · {match_label}"
+        else:
+            description = f"No matches in {scope}."
+        self.search_edit.set_match_count(current, count, visible=bool(query), description=description)
+        self.search_edit.setToolTip(
+            f"Find a subsequence in {scope}. X matches any residue; overlapping hits are included. "
+            "Enter: next match; Shift+Enter: previous; Escape: clear search."
+        )
+        for button, direction, key in ((self.search_prev_button, "Previous", "Shift+Enter"),
+                                       (self.search_next_button, "Next", "Enter")):
+            button.setEnabled(count > 1)
+            detail = description if query else "Type a sequence to find matches."
+            button.setToolTip(f"{direction} match ({key}) · {detail}")
+
+    def _focus_search(self):
+        if self.search_edit.isEnabled():
+            self.search_edit.setFocus(Qt.FocusReason.ShortcutFocusReason)
+            self.search_edit.selectAll()
+
+    def _restore_sequence_status(self):
+        if self._all_chains_enabled:
+            self._refresh_all_chains_selection()
+        elif self._search_targets_alignment():
+            self._refresh_alignment_selection_highlights(update_status=True)
+        elif self._current_entry:
+            self._refresh_sequence_selection_highlights(update_status=True)
+        else:
+            self.status_label.setText("No polymer chain loaded.")
 
     def _on_search_text_changed(self, text):
         query = (text or "").strip()
+        self._search_active_index = -1
+        self._refresh_search_highlights()
         if not query:
-            self._search_matches = []
-            self._search_active_index = -1
-            self.sequence_text.set_search_ranges([], -1)
-            self.alignment_text.set_search_ranges([], -1)
+            self._restore_sequence_status()
             return
         if not self._current_entry:
-            self.status_label.setText("Find: no protein chain loaded.")
+            self.status_label.setText("Find: no chain loaded.")
             return
-        matches = self._compute_search_matches(query)
-        self._search_matches = matches
-        self._search_active_index = 0 if matches else -1
-        if self._search_targets_alignment():
-            self.sequence_text.set_search_ranges([], -1)
-            self.alignment_text.set_search_ranges(matches, self._search_active_index)
-        else:
-            self.alignment_text.set_search_ranges([], -1)
-            self.sequence_text.set_search_ranges(matches, self._search_active_index)
+        matches = self._search_matches
         if not matches:
-            scope = "alignment" if self._search_targets_alignment() else self._current_entry["spec"]
+            scope = self._search_scope_label()
             self.status_label.setText(f"Find “{query}”: no matches in {scope}.")
             return
-        if self._search_targets_alignment():
+        if self._all_chains_enabled:
+            self.all_chains_text.scroll_to_row_column(matches[0]["row"], matches[0]["start"])
+        elif self._search_targets_alignment():
             self.alignment_text.scroll_to_column(matches[0]["start"])
         else:
             first_start, _ = matches[0]
@@ -2500,7 +3025,11 @@ class CodexSequenceBar(ToolInstance):
             return
         count = len(self._search_matches)
         self._search_active_index = (self._search_active_index + delta) % count
-        if self._search_targets_alignment():
+        if self._all_chains_enabled:
+            self.all_chains_text.set_search_ranges(self._search_matches, self._search_active_index)
+            match = self._search_matches[self._search_active_index]
+            self.all_chains_text.scroll_to_row_column(match["row"], match["start"])
+        elif self._search_targets_alignment():
             self.alignment_text.set_search_ranges(self._search_matches, self._search_active_index)
             match = self._search_matches[self._search_active_index]
             self.alignment_text.scroll_to_column(match["start"])
@@ -2514,6 +3043,7 @@ class CodexSequenceBar(ToolInstance):
         self.status_label.setText(
             f"Find “{query}”: {self._search_active_index + 1}/{count} · {label}"
         )
+        self._update_search_controls()
 
     def _search_match_status_label(self, match):
         if isinstance(match, dict):
@@ -2533,7 +3063,8 @@ class CodexSequenceBar(ToolInstance):
         bar.setSingleStep(max(1, internal_bar.singleStep()))
         bar.setValue(internal_bar.value())
         bar.blockSignals(False)
-        bar.setVisible(mx > mn)
+        bar.setVisible(mx > mn and not self._all_chains_enabled
+                       and not self.sequence_text.isHidden())
 
     def _select_residue_range_by_index(self, start, end=None, additive=False):
         self._select_residue_range_for_entry(self._current_entry, start, end, additive=additive)
@@ -3422,6 +3953,10 @@ class CodexSequenceBar(ToolInstance):
             self.alignment_text.setVisible(False)
             self.alignment_text.setFixedHeight(0)
             self.sequence_text.setVisible(True)
+            # A cached sequence can keep the same range across mode changes,
+            # so rangeChanged alone cannot restore its external scrollbar.
+            internal_bar = self.sequence_text.horizontalScrollBar()
+            self._sync_sequence_scrollbar(internal_bar.minimum(), internal_bar.maximum())
             if hasattr(self, "search_edit"):
                 self.search_edit.setEnabled(True)
                 self.search_edit.setPlaceholderText("Find seq (X = any)…")
@@ -3443,9 +3978,11 @@ class CodexSequenceBar(ToolInstance):
             payload.get("display_tooltips"),
         )
         selected_columns = self._refresh_alignment_selection_highlights(payload, scroll=True, update_status=False)
-        self.alignment_text.setFixedHeight(height)
+        self._alignment_natural_height = height
+        self._fit_sequence_view_heights()
         self.alignment_text.setVisible(True)
         self.sequence_text.setVisible(False)
+        self.sequence_scrollbar.setVisible(False)
         if hasattr(self, "search_edit"):
             self.search_edit.setEnabled(True)
             self.search_edit.setPlaceholderText("Find alignment (X = any)…")
@@ -3580,13 +4117,13 @@ class CodexSequenceBar(ToolInstance):
         return None
 
 
-def _protein_sequence_entries(session):
+def _protein_sequence_entries(session, *, include_nucleic=False, include_hidden=False):
     from chimerax.atomic import AtomicStructure, Residue
 
     entries = []
     for model in session.models.list(type=AtomicStructure):
         model_displayed = bool(getattr(model, "display", True))
-        if not model_displayed:
+        if not model_displayed and not include_hidden:
             continue
         model_spec = f"#{getattr(model, 'id_string', '?')}"
         model_name = getattr(model, "name", "structure")
@@ -3594,10 +4131,11 @@ def _protein_sequence_entries(session):
         for chain in getattr(model, "chains", []):
             polymer_type = getattr(chain, "polymer_type", None)
             if polymer_type not in (Residue.PT_AMINO, Residue.PT_PROTEIN):
-                continue
+                if not include_nucleic or polymer_type != Residue.PT_NUCLEIC:
+                    continue
             entry = _entry_for_chain(model_spec, model_name, chain)
             if entry:
-                entry["displayed"] = True
+                entry["displayed"] = model_displayed
                 entry["selected"] = model_selected
                 entries.append(entry)
     entries.sort(key=lambda item: (item["model_spec"], item["chain_id"]))
@@ -4889,7 +5427,7 @@ def _alignment_ruler(length, step=10):
         return ""
     for value in range(step, len(chars) + 1, step):
         text = str(value)
-        start = max(0, value - 1)
+        start = max(0, value - len(text))
         for offset, ch in enumerate(text):
             index = start + offset
             if 0 <= index < len(chars):
@@ -5237,21 +5775,44 @@ def _residue_display_style(residue):
         a = min(a, 70)
     atoms_displayed = _residue_has_visible_atoms(residue)
     stick_displayed = _residue_has_stick_atoms(residue)
+    from chimerax.atomic import Residue, Sequence
+    name = str(getattr(residue, "name", "") or "").upper()
+    nucleic = getattr(residue, "polymer_type", None) == Residue.PT_NUCLEIC
     return {
         "rgba": (r, g, b, a),
+        "residue_name": name,
+        "letter": Sequence.rname3to1(name) if nucleic else AA3_TO_1.get(name, "X"),
+        "polymer_kind": "nucleic" if nucleic else "protein",
         "source": source,
         "atoms_displayed": atoms_displayed,
         "stick_displayed": stick_displayed,
     }
 
 
-def _sequence_text_style(style):
+def _sequence_text_style(style, base_color=None, *, charge=False, bases=False, base_palette="muted"):
     if not style:
         return None
     rgba = _rgba8(style.get("rgba") if isinstance(style, dict) else None)
     if rgba is None:
         return None
     r, g, b, a = rgba
+    chemistry = chemistry_color(style, charge=charge, bases=bases, base_palette=base_palette)
+    if chemistry is not None:
+        fill = QColor(*chemistry["rgb"])
+        category = chemistry.get("category")
+        neutral = (category in ("neutral", "unknown")
+                   or (category == "base_N" and base_palette != "monochrome"))
+        dark = base_color is not None and base_color.lightnessF() <= 0.5
+        # Quiet neutral residues let charged side chains stand out. Hidden
+        # chains stay readable; their original display colors frame the fill.
+        if neutral:
+            fill.setAlpha(38 if dark else 115)
+            foreground = QColor("#d8dce2" if dark else "#41464d")
+        else:
+            fill.setAlpha(220 if dark else 235)
+            foreground = QColor("#17212b")
+        return {"foreground": foreground, "background": fill,
+                "font_weight": 600, "font_underline": False}
     stick_displayed = bool(style.get("stick_displayed"))
     atoms_displayed = bool(style.get("atoms_displayed"))
     fg_r, fg_g, fg_b = _contrast_sequence_rgb(r, g, b) if stick_displayed else _legible_sequence_rgb(r, g, b)
@@ -5262,6 +5823,11 @@ def _sequence_text_style(style):
     else:
         fg_alpha = max(88, min(255, int(round(76 + (179 * opacity)))))
         bg_alpha = max(14, min(76, int(round(14 + (62 * opacity)))))
+        if base_color is not None and base_color.lightnessF() > 0.5:
+            # Native light themes need dark lettering over the same residue
+            # tint; white model colors must not turn into invisible text.
+            fg_r, fg_g, fg_b = (int(channel * 0.45) for channel in (r, g, b))
+            fg_alpha = max(180, fg_alpha)
     return {
         "foreground": QColor(fg_r, fg_g, fg_b, fg_alpha),
         "background": QColor(r, g, b, bg_alpha),
@@ -5324,7 +5890,10 @@ def _entry_for_chain(model_spec, model_name, chain):
     ss_types = _safe_list(getattr(residues, "ss_types", []))
     metal_annotations = _metal_annotations_for_chain(chain, residue_objects)
 
-    sequence = "".join(AA3_TO_1.get(name, "X") for name in names)
+    from chimerax.atomic import Residue, Sequence
+    nucleic = getattr(chain, "polymer_type", None) == Residue.PT_NUCLEIC
+    sequence = "".join(Sequence.rname3to1(name) for name in names) if nucleic else (
+        "".join(AA3_TO_1.get(name, "X") for name in names))
     residues_payload = []
     residue_styles = []
     tooltips = []
@@ -5373,6 +5942,7 @@ def _entry_for_chain(model_spec, model_name, chain):
         "model_spec": model_spec,
         "model_name": model_name,
         "chain_id": chain_id,
+        "polymer_kind": "nucleic" if nucleic else "protein",
         "spec": f"{model_spec}/{chain_id}",
         "display": f"{model_spec}/{chain_id} · {model_name}",
         "sequence": sequence,
@@ -5457,7 +6027,7 @@ def _tick_line(length):
     chars = [" "] * int(length or 0)
     for pos in range(10, len(chars) + 1, 10):
         label = str(pos)
-        start = max(0, pos - 1)
+        start = max(0, pos - len(label))
         for offset, char in enumerate(label):
             target = start + offset
             if target < len(chars):

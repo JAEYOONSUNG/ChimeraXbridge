@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Catalytic residues</title>
+  <desc id="desc">Cyan, amber and coral residues rise along a reaction path above a curved silver reaction arrow.</desc>
+  <defs>
+    <linearGradient id="bond" x1="26" y1="85" x2="99" y2="31" gradientUnits="userSpaceOnUse"><stop stop-color="#26829C"/><stop offset=".5" stop-color="#F6CB72"/><stop offset="1" stop-color="#C85F5B"/></linearGradient>
+    <radialGradient id="cyan" cx="31%" cy="24%" r="77%"><stop stop-color="#DAF0F4"/><stop offset=".36" stop-color="#65BDD0"/><stop offset="1" stop-color="#26829C"/></radialGradient>
+    <radialGradient id="amber" cx="31%" cy="24%" r="77%"><stop stop-color="#FFF1CD"/><stop offset=".38" stop-color="#F6CB72"/><stop offset="1" stop-color="#C58A32"/></radialGradient>
+    <radialGradient id="coral" cx="31%" cy="24%" r="77%"><stop stop-color="#FBE1D9"/><stop offset=".38" stop-color="#EC9D92"/><stop offset="1" stop-color="#C85F5B"/></radialGradient>
+    <linearGradient id="arrow" x1="45" y1="108" x2="103" y2="79" gradientUnits="userSpaceOnUse"><stop stop-color="#8195A6"/><stop offset="1" stop-color="#DDE7EF"/></linearGradient>
+  </defs>
+  <g stroke="#253544" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26 80C40 71 44 52 62 52 75 48 81 31 98 28L101 36C88 39 82 55 67 61 53 62 49 79 34 87Z" fill="url(#bond)" stroke-width="4"/>
+    <path d="M46 99C64 109 88 98 94 83L87 85 100 72 110 88 102 86C95 107 68 119 44 107Z" fill="url(#arrow)" stroke-width="4"/>
+    <circle cx="30" cy="83" r="15" fill="url(#cyan)" stroke-width="4.5"/>
+    <circle cx="64" cy="57" r="16" fill="url(#amber)" stroke-width="4.5"/>
+    <circle cx="98" cy="32" r="15" fill="url(#coral)" stroke-width="4.5"/>
+    <path d="M20 79A11 11 0 0 1 30 72M54 53A11 11 0 0 1 65 45M89 28A10 10 0 0 1 99 21" fill="none" stroke="#FFFFFF" stroke-width="2.5" opacity=".65"/>
+  </g>
+</svg>

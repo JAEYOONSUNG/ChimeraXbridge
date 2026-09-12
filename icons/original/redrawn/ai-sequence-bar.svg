@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <title>Sequence bar</title>
+  <desc>Five silver and amber residue tracks cross a reading axis, with an amber pointer and a selected sequence interval.</desc>
+  <defs>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F4F8FC"/><stop offset=".4" stop-color="#DDE7EF"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF0C6"/><stop offset=".4" stop-color="#F6CB72"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+  </defs>
+  <g stroke="#253544" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 65H115" stroke="#253544" stroke-width="8"/>
+    <path d="M13 65H115" stroke="#DDE7EF" stroke-width="3"/>
+    <rect x="16" y="45" width="14" height="41" rx="4" fill="url(#silver)"/>
+    <rect x="37" y="34" width="14" height="61" rx="4" fill="url(#amber)"/>
+    <rect x="58" y="42" width="14" height="47" rx="4" fill="url(#silver)"/>
+    <rect x="79" y="34" width="14" height="61" rx="4" fill="url(#amber)"/>
+    <rect x="100" y="45" width="14" height="41" rx="4" fill="url(#silver)"/>
+    <path d="M58 15H72L65 29Z" fill="url(#amber)" stroke-width="3.5"/>
+    <path d="M37 103V111H93V103" stroke="#DDE7EF" stroke-width="7"/>
+    <path d="M37 103V111H93V103" stroke="#253544" stroke-width="3.5"/>
+    <path d="M20 50V78M41 39V86M62 47V81M83 39V86M104 50V78" stroke="#F4F8FC" stroke-width="2" opacity=".6"/>
+  </g>
+</svg>

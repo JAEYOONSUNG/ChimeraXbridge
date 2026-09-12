@@ -1,18 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Same dark-card style as the other Helper-section icons (display-controls, ai-action-pad). -->
-  <rect width="64" height="64" rx="14" fill="#171a1d"/>
-
-  <!-- Camera body -->
-  <rect x="10" y="20" width="44" height="28" rx="4" fill="#1f2937" stroke="#d9dde2" stroke-width="2.4"/>
-  <!-- Top hump (viewfinder) -->
-  <rect x="22" y="14" width="20" height="8" rx="2" fill="#1f2937" stroke="#d9dde2" stroke-width="2.4"/>
-  <!-- Lens outer -->
-  <circle cx="32" cy="34" r="9" fill="#1f2937" stroke="#d9dde2" stroke-width="2.4"/>
-  <!-- Lens inner glass -->
-  <circle cx="32" cy="34" r="5" fill="#58a6ff" stroke="#0a0c0f" stroke-width="1.6"/>
-  <circle cx="29.5" cy="31.5" r="1.6" fill="#ffffff" opacity="0.85"/>
-
-  <!-- Bookmark ribbon (orange tag clipped to the camera body) -->
-  <path d="M44 20 L44 44 L40 40 L36 44 L36 20 Z"
-        fill="#f59e0b" stroke="#0a0c0f" stroke-width="1.6"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#8B98AA" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+  <title>Camera bookmarks</title>
+  <path d="M16 7H9l-2 4H4v15h24V15"/>
+  <path d="M20 4h7v13l-3.5-3-3.5 3V4Z" stroke="#659ACB" fill="#659ACB" fill-opacity=".16"/>
+  <circle cx="13" cy="18" r="4.5"/>
 </svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Explore a molecular cavity</title>
+  <desc id="desc">A sculpted silver protein surface opens into an amber pocket holding a small gold ligand.</desc>
+  <defs>
+    <radialGradient id="surface" cx="34%" cy="25%" r="82%"><stop stop-color="#F0F6FA"/><stop offset=".38" stop-color="#DDE7EF"/><stop offset=".73" stop-color="#9DAFBC"/><stop offset="1" stop-color="#8195A6"/></radialGradient>
+    <radialGradient id="pocket" cx="63%" cy="70%" r="78%"><stop stop-color="#F6CB72"/><stop offset=".48" stop-color="#C58A32"/><stop offset="1" stop-color="#684C40"/></radialGradient>
+    <radialGradient id="ligand" cx="33%" cy="24%" r="78%"><stop stop-color="#FFF4D4"/><stop offset=".42" stop-color="#F6CB72"/><stop offset="1" stop-color="#C58A32"/></radialGradient>
+  </defs>
+  <g stroke="#253544" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 28C43 14 65 14 82 21 102 24 112 43 107 60 115 78 102 99 83 104 65 115 38 109 26 94 11 84 10 62 21 46 19 36 23 31 30 28Z" fill="url(#surface)" stroke-width="4.5"/>
+    <path d="M29 43C29 29 49 22 63 25M23 66C26 56 34 51 43 51M39 94C47 102 60 104 70 101" fill="none" stroke="#F6FBFF" stroke-width="3" opacity=".7"/>
+    <path d="M56 48C68 37 88 43 96 57 106 73 95 94 79 98 62 103 46 86 47 69 46 60 51 52 56 48Z" fill="url(#pocket)" stroke-width="4"/>
+    <path d="M54 64C52 54 64 45 75 47" fill="none" stroke="#F6CB72" stroke-width="3.5" opacity=".85"/>
+    <path d="M61 66 78 71 90 84" fill="none" stroke="#624A34" stroke-width="5"/>
+    <circle cx="61" cy="66" r="5.5" fill="url(#ligand)" stroke-width="3.5"/>
+    <circle cx="90" cy="84" r="5.5" fill="url(#ligand)" stroke-width="3.5"/>
+    <circle cx="78" cy="71" r="12" fill="url(#ligand)" stroke-width="3.5"/>
+  </g>
+  <path d="M72 67C74 64 78 63 82 65" fill="none" stroke="#FFF6DD" stroke-width="2.5" stroke-linecap="round" opacity=".9"/>
+</svg>

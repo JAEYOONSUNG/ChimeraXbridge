@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128">
+<title>Sequence conservation</title>
+<desc>Three aligned residue ribbons with one continuous blue conserved column and contrasting variable sites.</desc>
+<defs>
+<linearGradient id="silver" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F1F6FA"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+<linearGradient id="blue" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#B3CFF3"/><stop offset="1" stop-color="#486DB3"/></linearGradient>
+<linearGradient id="amber" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE3A0"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+<linearGradient id="green" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#B6E1C9"/><stop offset="1" stop-color="#438C79"/></linearGradient>
+<linearGradient id="coral" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F6BFB0"/><stop offset="1" stop-color="#C85F5B"/></linearGradient>
+</defs>
+<path d="M30 21H99C110 21 114 28 114 35S109 48 99 48H30C20 48 15 41 15 35S20 21 30 21Z" fill="url(#silver)" stroke="#253544" stroke-width="4"/>
+<path d="M30 53H99C110 53 114 60 114 67S109 80 99 80H30C20 80 15 73 15 67S20 53 30 53Z" fill="url(#silver)" stroke="#253544" stroke-width="4"/>
+<path d="M30 85H99C110 85 114 92 114 99S109 112 99 112H30C20 112 15 105 15 99S20 85 30 85Z" fill="url(#silver)" stroke="#253544" stroke-width="4"/>
+<path d="M26 26H97M25 58H97M25 90H97" stroke="#F6FAFC" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+<path d="M79 23H94V46H79ZM79 55H94V78H79ZM79 87H94V110H79Z" fill="url(#coral)" stroke="#253544" stroke-width="3.5"/>
+<path d="M79 55H94V78H79Z" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/>
+<path d="M79 87H94V110H79Z" fill="url(#green)" stroke="#253544" stroke-width="3.5"/>
+<path d="M43 15H66V113H43Z" fill="url(#blue)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M49 21V106" stroke="#D7E7FF" stroke-width="3.5" stroke-linecap="round" opacity="0.8"/>
+<path d="M43 49H66M43 81H66" stroke="#486DB3" stroke-width="3" opacity="0.6"/>
+</svg>

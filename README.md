@@ -1,262 +1,292 @@
-# ChimeraX AI agent Bridge
+# ChimeraXbridge
 
-Local ChimeraX bundle that can call installed AI CLIs such as `codex`,
-`claude`, and `gemini`, while sending a compact summary of the current
-ChimeraX session.
+**Version 0.2.0 · UCSF ChimeraX 1.10.x · tested on macOS with ChimeraX 1.10.1**
 
-## What it adds
+ChimeraXbridge adds a searchable sequence panel, compact molecular controls,
+camera bookmarks, publication image export, six local Quick actions, and an
+optional AI assistant inside ChimeraX.
 
-- Unknown multi-word input in the ChimeraX command line can fall back to the active AI backend automatically
-- `ai <request>` routes a request through the active backend with a mode-aware speed profile
-- `codex tool` opens a ChimeraX-integrated AI workspace with live context, quick actions, and interactive suggestions
-- `codex actions` opens a PyMOL-style action pad with A/S/H/L/C controls for models and chains
-- The tool defaults to `agent` mode so free-form requests can directly change the ChimeraX scene
-- `openai` backend uses the Responses API function-calling loop so the model can call ChimeraX tools directly
-- The tool also includes an in-app terminal: plain input runs ChimeraX commands, and `!` prefixes run shell commands
-- `codex ask <prompt>` sends your request to the active backend
-- `codex backend [name]` shows or switches the active AI backend
-- `codex model [name|default]` shows or overrides the active backend model
-- `codex auto true|false` toggles command-line natural-language fallback
-- `codex context` shows the exact ChimeraX context summary that gets attached
-- Analysis prompts now include recent ChimeraX state changes, view metadata, and external structure references
-- Codex requests can attach a live viewport snapshot for visual grounding
-- Analyze/chat replies are structured around evidence and confidence instead of free-form prose
-- Agent planning now uses typed ChimeraX actions instead of a raw command list
-- Analyze/chat replies keep suggested ChimeraX commands separate instead of auto-running them by default
+**서열·표시 제어·북마크·이미지 저장·Quick 버튼은 AI 계정 없이 사용할 수 있습니다.**
+AI에게 자연어로 작업을 맡기려면 사용하는 서비스의 본인 로그인이나 API 키를
+별도로 설정하세요. 외부 분석 프로그램과 개인 인증 정보는 플러그인에 포함되지 않습니다.
 
-## Interface Preview
-<img width="1920" height="1049" alt="스크린샷 2026-05-20 09 57 13" src="https://github.com/user-attachments/assets/cf2934ec-f0f5-405d-baa9-3aaccb773377" />
+## 설치: 다른 컴퓨터에서도 같은 플러그인 사용하기
 
+1. [최신 릴리스](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest)에서
+   **[ChimeraX_CodexBridge-0.2.0-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.0/ChimeraX_CodexBridge-0.2.0-py3-none-any.whl)**을 다운로드합니다.
+   GitHub의 **Source code** 압축파일 대신 `.whl` 파일을 받으면 빌드할 필요가 없습니다.
+2. ChimeraX 명령창에서 다운로드한 파일의 경로로 설치합니다.
 
-ChimeraXbridge adds a top sequence bar, AI toolbar entry, model/action controls,
-and a right-side AI Assistant workspace inside ChimeraX.
+   ```chimerax
+   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.0-py3-none-any.whl"
+   ```
 
-The AI Assistant panel exposes quick actions for sequence reports, motif
-highlighting, catalytic-residue triage, membrane views, PISA-style interface
-analysis, and structure-search launchers.
+   다운로드 폴더가 다르면 실제 경로로 바꾸세요. 공백이 있는 경로는 따옴표로 감쌉니다.
+3. ChimeraX를 다시 시작합니다. 아래 명령으로 공유 설정을 확인한 뒤 적용합니다.
 
-## Feature Overview
+   ```chimerax
+   codex profile
+   codex profile jaeyoon apply true
+   ```
 
-### AI assistant and natural-language control
+   `codex profile`은 안내만 표시합니다. `apply true`가 있어야 설정을 변경합니다.
+   기존 화면 설정을 유지하려면 적용 명령을 생략하세요.
 
-- `ai <request>` executes natural-language requests against the active backend.
-- `codex tool` opens the AI Assistant with live ChimeraX context, viewport-aware prompts, an in-app command terminal, transcript history, and backend/model/reasoning controls.
-- `codex ask <prompt>` asks the active backend without opening the full tool.
-- `codex backend`, `codex model`, `codex effort`, `codex routing`, and `codex auto` control backend selection, model overrides, reasoning profile, routing mode, and command-line fallback.
-- Backends include local Codex CLI, Claude CLI, Gemini CLI, and an OpenAI Responses API backend with tool-calling support.
+[v0.2.0 릴리스](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.0) ·
+[설치·업데이트·AI 연결 상세 안내](INSTALL_REPRODUCIBLE.md)
 
-### Sequence and structure alignment
+The wheel contains the plugin code, toolbar icons, built-in help and portable
+workspace profile. Install it through **ChimeraX**, rather than system Python.
+Local sequence, display, bookmark, export and Quick workflows need no AI login.
+Geometric cavity analysis requires optional `pyKVFinder`; without it, the result
+explains the fallback used and does not invent cavity measurements.
 
-- `codex seqbar` opens a clickable sequence panel synchronized with the 3D view.
-- The sequence panel tracks selected residues, displayed side chains, model colors, transparency, metals, and aligned structures.
-- Pairwise and multi-structure views can show structure-derived sequence alignments with gap handling, residue hover labels, selection highlights, and displayed-residue emphasis.
-- `codex structalign` exports an ESPript-like structural MSA report with conservation, core/loop, and metal-near tracks.
-- Toolbar launchers include Blast, UniProt profile search, HHpred, SignalP, ConSurf-lite, 3D conservation comparison, and hydrophobicity/MLP coloring.
+## What is new in 0.2.0
 
-### Model display and selection workflow
+- The sequence panel opens at startup, with guides every 10 residues, muted
+  nucleotide palettes, and a persistent search count, including overlapping motifs.
+- Eight right-side panels scroll through their complete contents. Nested lists
+  and evidence text scroll first, then the containing panel; scrolling over
+  sliders and number fields does not accidentally change their values.
+- The six **AI → Quick** buttons run local actions immediately, with background
+  calculations, ranked candidates, cancellation, cached results and visual undo.
+- **Quick Results** adds numeric sorting, filtering, an explicit current-preview
+  indicator, and CSV/JSON/Markdown reports that retain every candidate.
+- **Bookmarks** combines saved scene conditions, compact X/Y/Z controls, and
+  PNG/JPEG/TIFF export with size, DPI, aspect lock and convenient size presets.
+- Collapsed Action Pad branches, candidate filters, **Hide All**, and zero
+  transparency settings survive the relevant panel refreshes.
 
-- `codex actions` opens a PyMOL-style Action Pad with action/show/hide/label/color controls for models, chains, residues, and selections.
-- The right-click 3D context menu adds structure-aware actions such as show/hide sticks, chain cleanup, water hiding, model deletion, and residue display controls.
-- Shift-click residue picking supports additive residue selection in the 3D view.
-- Display Controls provide model color, transparency, cartoon/surface/stick visibility, named selections, and rainbow palette tools.
-- Model-order tools let the model list be reordered while preserving colors and transparency.
-- Camera Bookmarks save and restore figure angles for repeated screenshot export.
+### Interface examples
 
-### Figure and publication helpers
+![AI toolbar with Analyze, View, Pocket, Cavity, Figure and Zoom](docs/images/release-0.2.0-toolbar.png)
 
-- Quick toolbar actions clean up the current structure view, focus likely sites, cycle figure-ready views, zoom to catalytic motifs, and apply restrained display settings.
-- Figure actions preserve user colors where possible and avoid destructive scene changes unless requested.
-- The plugin can produce high-resolution ChimeraX-ready structural comparison views and helps maintain consistent angles through camera bookmarks.
+The panel examples below use synthetic data rendered offscreen. They illustrate
+the controls and feedback; the displayed candidates are not scientific results.
 
-### Functional site analysis
+| Sequence search and palette controls | Filtered candidate and preview status | Image size, DPI and bookmarks |
+| --- | --- | --- |
+| ![Sequence demo with persistent 1/5 match count](docs/images/release-0.2.0-sequence.png) | ![Quick Results demo identifying a preview hidden by the filter](docs/images/release-0.2.0-results.png) | ![Export demo set to PNG, 1600 by 900 pixels, 600 DPI and transparent background](docs/images/release-0.2.0-export.png) |
 
-- Catalytic tools rank and highlight likely catalytic residues using sequence motifs, geometry, ligand/metal context, and conservation-style evidence.
-- Metal tools review existing metals, predict plausible metal-binding candidates, place virtual metal ions, and draw coordination guides.
-- PISA/interface tools measure and highlight chain-chain interface buried surface area.
-- Cavity and pocket tools identify likely binding pockets and overlay translucent cavity surfaces.
-- FoldDisco launcher exports selected structural motifs for motif search.
+## Examples you can follow
 
-### Modeling and docking launchers
+### 1. Inspect a structure without an AI account
 
-- AlphaFold and AF Complex launchers prepare protein or protein-nucleic-acid modeling workflows.
-- Boltz launcher supports current protein, DNA, and RNA chains when a local Boltz executable is available.
-- RAPiDock prepares peptide docking jobs with native, Docker, and HPEPDOCK fallback engines.
-- HPEPDOCK launcher submits receptor-peptide jobs to the web service.
-- NucDock prepares DNA/RNA docking through HDOCK.
-- Optional OpenMM-based MD setup is available when OpenMM is installed in the ChimeraX Python environment.
+Open a local PDB or mmCIF file through **File → Open**, then choose a structure in
+**Models**, or select residues in the sequence/3D view. Click the **AI** toolbar tab:
 
-### Channels, membrane, and structure search
+| Quick button | What happens |
+| --- | --- |
+| **Analyze** | Reports composition, ligand/metal contacts, selection context and measured evidence. |
+| **View** | Tidies cartoons, nucleic bases, ligands and ions while keeping existing colors and camera angle. |
+| **Pocket** | Shows a ranked observed ligand neighborhood; tries geometric candidates when no usable ligand is present. |
+| **Cavity** | Runs optional KVFinder geometry in the background and shows a translucent mesh with measured volume/depth. |
+| **Figure** | Applies a clean white-background figure style, retains structure colors and offers image export. |
+| **Zoom** | Focuses selected residues, otherwise an observed ligand/ion neighborhood, otherwise the model overview. |
 
-- CAVER tools prepare tunnel/channel analysis, import CAVER results, display tunnels, and select lining residues.
-- Membrane tools create virtual membrane slabs and run hydrophobicity-oriented display workflows.
-- Structure search launchers export current structures to Foldseek Similar Structures, FoldMason, DALI, VAST, PDBeFold/SSM, and US-align.
-- US-align can align open structures in ChimeraX and use a local US-align executable when available.
+The automatic target is selected atoms, then the highlighted model, then the
+largest visible structure. **Quick Results** identifies the actual target and
+reports the evidence and limitations. Repeating unchanged input reuses its result.
 
-### Nucleotide tools
+For example, click **Pocket**, sort candidates by **Contacts**, and type a ligand
+name into the filter. Use the arrows or select a row to compare candidates. A
+filter only changes the table; the preview label tells you which candidate is
+actually displayed, even if its row is hidden by the filter. **Overlay** hides
+generated surfaces/labels without hiding the structure.
 
-- The Nucleotides toolbar exposes NucDock, AF Complex, Boltz, FoldDisco, and FoldMason shortcuts for protein-DNA/RNA workflows.
-- Sequence prompts can prepare current protein chains plus pasted DNA/RNA input for external modeling or docking services.
+**Save report → CSV / JSON / Markdown** saves all candidates, original ranks,
+measurements, units, evidence and input provenance. Sorting and filtering never
+discard report data. **Undo view** restores up to three recent visual steps.
+**Run again** retains an explicitly chosen target; its menu also offers
+**Recalculate without cache**.
 
-## Requirements
+Results are cached up to 64 MiB/eight entries. Structural edits, model moves,
+renames, ID changes and closures mark affected results stale and hide invalid
+previews. Cosmetic changes keep calculations reusable. Geometric candidates and
+nearby residues are observations, not proof of binding affinity or catalysis.
 
-- ChimeraX 1.10.x
-- Local `codex` CLI installed and logged in, or `OPENAI_API_KEY` set for the direct OpenAI API backend
-- If ChimeraX cannot find the CLI, set `CODEX_BRIDGE_CLI` to the full path
-  before launching ChimeraX, for example:
+### 2. Find a motif and use quieter nucleotide colors
 
-```bash
-CODEX_BRIDGE_CLI=/path/to/codex \
-  /Applications/ChimeraX-1.10.1.app/Contents/bin/ChimeraX
+```chimerax
+codex seqbar
 ```
 
-### Optional Tool Setup
+Choose a chain, or an all-chain/alignment view, then use the search field.
+**Ctrl/Cmd+F** focuses search in the panel, the counter shows the current/total
+matches, and **Esc** clears the focused query. Overlapping matches remain separate:
+searching `AAA` within `AAAA` finds two occurrences. Guides mark groups of 10
+residues or alignment columns.
 
-The bundle itself is small and does not auto-install large scientific stacks.
-Heavy or optional tools are exposed from the AI Assistant `Setup` menu and from
-the in-app `/setup` command:
+Use the **DNA/RNA** arrow menu to choose **Muted bases**, **Purine / pyrimidine**,
+or **Monochrome**. The main button toggles nucleotide fills; **Color key** explains
+the selected palette. These sequence palettes do not recolor the 3D structure.
 
-- `rapidock` can be installed into a separate `~/RAPiDock` checkout and venv after confirmation. Expect roughly 2-6 GB depending on CPU/GPU wheels.
-- `boltz` can be installed into a separate `~/boltz2_latest` venv after confirmation. Expect roughly 1-4 GB.
-- `foldmason`, `folddisco`, `usalign`, `caver`, and `openmm` show manual setup guidance; web or ChimeraX-native fallbacks remain available where supported.
+The sequence panel follows residue selection, shown side chains and aligned
+structures. To export a structure-derived sequence alignment report:
 
-Examples inside the AI Assistant terminal:
+```chimerax
+codex structalign
+```
+
+### 3. Save the exact view, then export a figure
+
+1. Open **Molecule Display → Bookmarks**. Use **X / Y / Z** for compact axis controls.
+2. In **Options** beside **Bookmark**, choose the conditions to remember: camera,
+   pivot, clipping/model positions, display styles, colors/transparency,
+   lighting/background, and optionally selection. Save the bookmark.
+3. Save the ChimeraX session as `.cxs` to retain those bookmarks with the structure.
+4. In the same panel's image controls, choose **PNG**, set **2400 × 1600 px** and
+   **300 DPI**. Unlock the ratio first if the current view has a different ratio.
+   The print-size hint reads approximately **20.3 × 13.5 cm**.
+   Click **Export** and choose a destination.
+
+**Quick Results → Export image** also opens and scrolls directly to these controls.
+The **Current** button uses the current viewport size; its arrow offers **2× view**,
+widths **1600 / 2400 / 3840 px**, and **Fit to 32 MP limit**. These presets preserve
+the aspect ratio and DPI.
+
+PNG and TIFF support transparent backgrounds; JPEG uses the current background.
+DPI is written into the file metadata and is distinct from pixel dimensions.
+The panel explains sizes beyond the 32 MP / 16,384 px-per-side limit before saving.
+
+### 4. Keep controls usable in a small window
+
+**AI Assistant**, **Display Controls**, **Action Pad**, **Camera Bookmarks**,
+**Quick Results**, **Models**, **CAVER**, and **Cavity Browser** all have full-panel
+scrolling. Lists and evidence text retain their own scrolling, and you can reach
+the bottom buttons without expanding the window.
+
+In **Action Pad**, expand only the chains you need; collapsed branches and scroll
+position are kept when the list refreshes. A/S/H/L/C menus apply actions, show,
+hide, label and color to the indicated model, chain, residue or selection.
+**Display Controls** provides color, transparency, cartoon/surface/stick controls,
+named selections and rainbow palettes. Empty targets are explained next to the
+controls, and valid hidden representations remain editable.
+
+## Share the same settings
+
+The bundled **jaeyoon** profile is applied only when explicitly requested:
+
+```chimerax
+codex profile jaeyoon
+codex profile jaeyoon apply true
+```
+
+| Preference | Shared value |
+| --- | --- |
+| Toolbar / right helper panels | Original icons / tabbed layout |
+| Sequence | Visible, All chains, guides every 10 positions |
+| Sequence colors | Amino-acid charge fills off; nucleotide fills on, Muted bases |
+| Image export | PNG, 300 DPI, aspect lock on, transparent background on |
+| Initial export size | The recipient's current graphics viewport |
+| Bookmark capture options | Camera, display, colors and lighting on; selection off |
+
+The profile changes these UI preferences; it does not change the open structure's
+coordinates, colors, selection or camera. It does not transfer saved bookmarks,
+output directories, executable paths, AI logins or API keys. Installing the plugin
+does not automatically apply the profile. Share a `.cxs` session separately when
+you also want collaborators to open a particular molecular scene.
+
+## Optional AI assistant
+
+```chimerax
+codex tool
+codex backend
+codex model
+```
+
+The AI Assistant's backend selector and **Setup** menu show available connections.
+Use your own installed/logged-in Codex, Claude or Gemini CLI, or configure your own
+OpenAI API key. Choose **Model** and **Reasoning** in the UI, or use `codex model`
+and `codex effort`; available models depend on the selected service and account.
+`codex model default` clears a model override.
+
+After configuring an available backend, these are example **ChimeraX commands**:
+
+```chimerax
+codex context
+ai 현재 선택한 잔기 주변의 리간드 접촉을 설명해줘
+ai Align #2 to #1 using the catalytic core and explain the domain shift
+codex ask Explain the evidence for a possible metal-binding site in the current selection
+```
+
+Replace example model IDs with your open structures. **Agent** mode may change
+the scene; **Analyze/Chat** keep suggested commands separate by default. Inspect
+`codex context` to see the session summary attached to requests. Depending on the
+backend/workflow, context can include model names/IDs, sizes, selection, camera,
+recent state changes, reference context and a viewport image.
+
+The assistant also provides an in-app terminal: plain input runs ChimeraX
+commands, and `!` prefixes shell commands. Inside that terminal:
 
 ```text
+show sel
+/sequence
+/motif
+/figure clean
 /setup
-/setup rapidock --gpu auto
-/setup boltz
 ```
 
-## Install
+Use **Enter** to submit an assistant request and **Shift+Enter** for a newline.
+`codex auto false` disables natural-language fallback in the main ChimeraX command
+line. `codex routing` describes the routing modes; `codex selftest` reports local
+integration and backend availability. Missing AI credentials do not disable the
+local Quick or sequence/display/export tools.
 
-For a reproducible setup on another machine, follow
-[`INSTALL_REPRODUCIBLE.md`](INSTALL_REPRODUCIBLE.md). The short version is:
+## Additional tools
 
-Clone the repository:
+These launchers extend the local workflows; external services and executables
+have their own installation, account and network requirements.
+
+| Area | Available workflows |
+| --- | --- |
+| Sequence and conservation | BLAST, UniProt search, HHpred, SignalP, ConSurf-lite, 3D conservation comparison, hydrophobicity/MLP coloring and structural MSA reports. |
+| Sites and interfaces | Catalytic-residue triage, existing/virtual metal coordination, PISA-style buried interface area, pockets and cavity overlays. |
+| Modeling and docking | AlphaFold/AF Complex launchers; local Boltz; RAPiDock native/Docker/HPEPDOCK routes; HPEPDOCK; NucDock through HDOCK. |
+| Tunnels and membranes | CAVER preparation/result import/tunnel display, lining-residue selection, virtual membrane slabs and hydrophobicity views. |
+| Structure search | Foldseek, FoldMason, FoldDisco, DALI, VAST, PDBeFold/SSM and US-align launchers. |
+| Molecular dynamics | Optional OpenMM-based setup when OpenMM is installed in ChimeraX's Python environment. |
+
+The bundle does not install large scientific stacks automatically. **Setup** and
+the terminal's `/setup` explain available setup routes. See
+[optional dependency notes](INSTALL_REPRODUCIBLE.md#optional-scientific-tools) and
+[RAPiDock setup](RAPIDOCK_SETUP.md).
+
+## Install from source and contribute
+
+For the exact release source:
 
 ```bash
-git clone https://github.com/JAEYOONSUNG/ChimeraXbridge.git
+git clone --branch v0.2.0 https://github.com/JAEYOONSUNG/ChimeraXbridge.git
 cd ChimeraXbridge
 ```
 
-Install the bundle from inside ChimeraX. Replace `/path/to/ChimeraXbridge` with
-the folder you just cloned:
+Then run this **inside ChimeraX**, replacing the path with the absolute clone path:
 
 ```chimerax
-devel install /path/to/ChimeraXbridge
+devel install "/absolute/path/to/ChimeraXbridge"
 ```
 
-On macOS, this usually looks like:
+Restart after installation. For development on the latest source, clone the
+default branch instead. [The install guide](INSTALL_REPRODUCIBLE.md) covers
+updates, same-version reinstalls and reproducibility checks.
 
-```chimerax
-devel install $HOME/ChimeraXbridge
-```
-
-Or install from a shell:
+Run checks without opening or activating a desktop window:
 
 ```bash
-/Applications/ChimeraX-1.10.1.app/Contents/bin/ChimeraX \
-  --nogui \
-  --cmd "devel install /path/to/ChimeraXbridge ; exit"
+python3 scripts/run_quality_check.py scroll
+python3 scripts/run_quality_check.py panels
+python3 scripts/run_quality_check.py export
+python3 scripts/run_quality_check.py sequence
+python3 scripts/run_quality_check.py quick
+python3 scripts/check_release_ready.py
 ```
 
-After installing, restart ChimeraX. If you are actively editing the plugin and
-want to reload the UI without reinstalling, run:
+The quality runner forces ChimeraX `--nogui` with offscreen Qt and covers actual
+widgets, supplied-pixel encoder output, state restoration and background work.
+It does not recheck the native OpenGL renderer. Older visible GUI runners are
+disabled unless `CODEX_ALLOW_VISIBLE_GUI_TESTS=1` is explicitly enabled after
+desktop interaction is authorized.
 
-```chimerax
-runscript /path/to/ChimeraXbridge/scripts/reload_codex_ui.py
-```
-
-### Wheel install
-
-A prebuilt wheel may be included under `dist/`. Use it only when it has been
-rebuilt from the same commit you are sharing. For active development and for
-matching another user's exact local tree, prefer `devel install` from the clone:
-
-```chimerax
-toolshed install /path/to/ChimeraXbridge/dist/chimerax_codexbridge-0.1.0-py3-none-any.whl
-```
-
-If ChimeraX reports that `toolshed install` cannot install local wheel paths in
-your version, or if `python3 scripts/check_release_ready.py` reports that the
-wheel is stale, use `devel install` instead.
-
-## Quick Start
-
-After restarting ChimeraX:
-
-```chimerax
-codex tool
-```
-
-Then use the AI toolbar or type a natural-language request in the ChimeraX
-command line, for example:
-
-```chimerax
-show the likely catalytic residues
-/pisa view
-/membrane view
-```
-
-## Examples
-
-```chimerax
-Align these two structures using only the catalytic core
-codex backend gemini
-codex backend openai
-codex model gpt-5.4
-codex model gemini-2.5-flash
-ai align #2 to #1 using only the catalytic core
-codex context
-codex ask Align #2 to #1 using only the catalytic core and explain the domain shift.
-codex tool
-```
-
-If fallback ever gets in the way of normal command-line work:
-
-```chimerax
-codex auto false
-```
-
-The bridge sends model names, IDs, structure sizes, and selection summaries by
-default. It now also includes camera/view metadata and recent state changes,
-and Codex can receive a current viewport image. When available it also folds in
-UniProt and RCSB/DALI reference context. It does not dump raw coordinates or
-full file contents.
-
-For the direct OpenAI agent backend, set the `OPENAI_API_KEY` environment
-variable before launching ChimeraX.
-
-Then inside ChimeraX:
-
-```chimerax
-codex backend openai
-ai show the catalytic pocket, label the likely residues, and verify the view changed
-```
-
-Local evaluation:
-
-```bash
-python3 scripts/nl_eval.py
-```
-
-In the tool window:
-
-- `Enter` runs the agent
-- `Shift+Enter` inserts a new line
-- A live workspace pane tracks session context, selection focus, and recommended figure flow
-- The AI tool header shows the currently resolved protein chain, sequence length, and default motif hits
-- Interactive suggestions can be double-clicked or applied directly back into ChimeraX
-- The AI control bar disables unavailable engines and exposes `Setup` actions for CLI login, OpenAI API-key setup, and optional scientific tool installs
-- The visible `Model` and `Reasoning` controls are real overrides passed to Codex CLI, OpenAI Responses API, Claude, or Gemini when supported
-- The main AI panel keeps only sequence-focused quick buttons, while analysis launchers live in the grouped `Analysis` menu and ChimeraX `AI` toolbar
-- The AI header includes a grouped `Analysis` menu for local reports, sequence/modeling tools, and structure-search launchers
-- Display controls open as a separate ChimeraX side tool from `Molecule Display > Display Ctrl`
-- The Action Pad stays PyMOL-style: model/chain/selection rows with A/S/H/L/C target menus
-- Requests like `구조 예쁘게 정리해줘` or `/figure clean` apply a restrained protein cartoon view without extra labels or repeated recoloring
-- Sequence quick controls expose `/sequence`, `/motif`, motif highlighting, and RCSB sequence-similarity search from the current chain
-- The transcript pane keeps a terminal-style history of progress, commands, and results
-- The in-app terminal accepts raw ChimeraX commands such as `show sel` and shell commands such as `!pwd`
-- The `Settings` popup in the AI tool provides secondary mode, speed, backend, and model shortcuts
-- Use `/backend`, `/model`, `/speed`, and `/status` to switch between available AI CLIs and quality profiles
-- `speed auto` uses fast mode for agent/visual execution and precise reasoning for `analyze` and `chat`
+Plugin license: [MIT](license.txt). UCSF ChimeraX and optional services/tools are
+distributed under their own terms.

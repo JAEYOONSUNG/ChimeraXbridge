@@ -1,9 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="RAPiDock">
-  <rect x="8" y="8" width="48" height="48" rx="10" fill="#101214" stroke="#58b7ff" stroke-width="2.5"/>
-  <path d="M18 42c5-8 11-12 16-12s11 4 12 12" fill="none" stroke="#58b7ff" stroke-width="3.2" stroke-linecap="round"/>
-  <path d="M18 25h28" fill="none" stroke="#9ee0ff" stroke-width="3.2" stroke-linecap="round"/>
-  <circle cx="22" cy="25" r="3" fill="#9ee0ff"/>
-  <circle cx="31" cy="25" r="3" fill="#9ee0ff"/>
-  <circle cx="40" cy="25" r="3" fill="#9ee0ff"/>
-  <text x="32" y="54" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="middle" fill="#dfefff">RAP</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#8B98AA" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+  <title>Rapid peptide docking</title>
+  <path d="M23 5h4v22h-4M21 10h-4v12h4"/>
+  <path d="M4 10h5l3 6-3 6H4M5 16h13m-4-4 4 4-4 4" stroke="#A18BC7"/>
+  <circle cx="4" cy="10" r="1.5" fill="#A18BC7" stroke="none"/>
+  <circle cx="4" cy="22" r="1.5" fill="#A18BC7" stroke="none"/>
 </svg>

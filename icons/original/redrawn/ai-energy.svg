@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Molecular energy</title>
+  <desc id="desc">An amber lightning bolt crosses two silver energy-transfer arcs, forming a bold molecular-energy emblem.</desc>
+  <defs>
+    <linearGradient id="arc" x1="22" y1="29" x2="104" y2="105" gradientUnits="userSpaceOnUse"><stop stop-color="#F0F5F9"/><stop offset=".4" stop-color="#DDE7EF"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+    <linearGradient id="bolt" x1="43" y1="23" x2="83" y2="102" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF0C9"/><stop offset=".32" stop-color="#F6CB72"/><stop offset=".74" stop-color="#DEA947"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+  </defs>
+  <g stroke="#253544" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M38 27C20 35 12 53 17 71 20 83 27 91 38 96L42 89C31 84 26 77 24 68 20 54 27 40 42 34Z" fill="url(#arc)" stroke-width="3.5"/>
+    <path d="M91 32C106 41 113 56 110 72 108 85 100 97 89 102L85 94C95 89 101 80 102 70 105 57 99 46 87 40Z" fill="url(#arc)" stroke-width="3.5"/>
+    <path d="M74 14 29 70H56L49 114 101 47H75Z" fill="url(#bolt)" stroke-width="4.5"/>
+    <path d="M67 29 42 62H63" fill="none" stroke="#FFF6DB" stroke-width="3" opacity=".85"/>
+    <path d="M83 55 62 88" fill="none" stroke="#C58A32" stroke-width="2.5" opacity=".55"/>
+  </g>
+</svg>

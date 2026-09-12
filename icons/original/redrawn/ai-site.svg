@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Locate a functional site</title>
+  <desc id="desc">A silver targeting dial centers a warm molecular hotspot, with a green neighboring residue at its rim.</desc>
+  <defs>
+    <linearGradient id="dial" x1="32" y1="23" x2="98" y2="107" gradientUnits="userSpaceOnUse"><stop stop-color="#F5F9FC"/><stop offset=".45" stop-color="#DDE7EF"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+    <radialGradient id="well" cx="38%" cy="32%" r="74%"><stop stop-color="#EFF8FB"/><stop offset=".7" stop-color="#C2DDE5"/><stop offset="1" stop-color="#65BDD0"/></radialGradient>
+    <radialGradient id="hotspot" cx="33%" cy="25%" r="78%"><stop stop-color="#FFF0CD"/><stop offset=".34" stop-color="#F6CB72"/><stop offset=".68" stop-color="#EC9D92"/><stop offset="1" stop-color="#C85F5B"/></radialGradient>
+    <radialGradient id="neighbor" cx="32%" cy="25%" r="76%"><stop stop-color="#D4EDDF"/><stop offset=".4" stop-color="#91C9AF"/><stop offset="1" stop-color="#438C79"/></radialGradient>
+  </defs>
+  <g stroke="#253544" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="64" cy="64" r="39" fill="url(#dial)" stroke-width="4.5"/>
+    <circle cx="64" cy="64" r="28" fill="url(#well)" stroke-width="3.5"/>
+    <path d="M64 14V36M64 92V114M14 64H36M92 64H114" fill="none" stroke-width="4.5"/>
+    <path d="M32 52A34 34 0 0 1 52 32" fill="none" stroke="#FFFFFF" stroke-width="2.5" opacity=".85"/>
+    <circle cx="64" cy="64" r="12" fill="url(#hotspot)" stroke-width="3.5"/>
+    <circle cx="90" cy="37" r="8.5" fill="url(#neighbor)" stroke-width="3.5"/>
+  </g>
+  <circle cx="60" cy="60" r="3" fill="#FFF7DF" opacity=".8"/>
+  <circle cx="87" cy="34" r="2.2" fill="#F3FCF7" opacity=".9"/>
+</svg>

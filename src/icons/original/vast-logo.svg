@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="VAST">
+  <defs>
+    <linearGradient id="vast-bg" x1="7" y1="7" x2="57" y2="57" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#082f49"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+    <linearGradient id="vast-helix" x1="16" y1="15" x2="47" y2="49" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset=".55" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="13" fill="url(#vast-bg)"/>
+  <path d="M19 17c15 0 23 5 23 12s-8 12-23 12" fill="none" stroke="url(#vast-helix)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M45 18l5 5-5 5" fill="none" stroke="#d9fff1" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M18 28h25M21 40h21" stroke="#e7f8ff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+  <text x="32" y="55" text-anchor="middle" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="8" font-weight="800" fill="#eafff7" letter-spacing=".9">VAST</text>
+</svg>

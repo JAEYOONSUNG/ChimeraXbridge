@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="US-align">
+  <defs>
+    <linearGradient id="usa-bg" x1="7" y1="8" x2="57" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#141820"/>
+      <stop offset="1" stop-color="#343b46"/>
+    </linearGradient>
+    <linearGradient id="usa-a" x1="14" y1="15" x2="49" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#61dafb"/>
+      <stop offset="1" stop-color="#2f80ed"/>
+    </linearGradient>
+    <linearGradient id="usa-b" x1="16" y1="49" x2="50" y2="17" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f6c85f"/>
+      <stop offset="1" stop-color="#ff6b6b"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="13" fill="url(#usa-bg)"/>
+  <path d="M16 22c8-7 20-8 31-2" fill="none" stroke="url(#usa-a)" stroke-width="5.2" stroke-linecap="round"/>
+  <path d="M17 42c9 6 21 6 30-2" fill="none" stroke="url(#usa-b)" stroke-width="5.2" stroke-linecap="round"/>
+  <path d="M20 31h24" stroke="#eef2f6" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M39 27l5 4-5 4" fill="none" stroke="#eef2f6" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="32" y="55" text-anchor="middle" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="8" font-weight="800" fill="#eef2f6" letter-spacing=".5">US</text>
+</svg>

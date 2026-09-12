@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <title>Membrane</title>
+  <desc>Two amber phospholipid leaflets surround a green helical protein passing through the membrane.</desc>
+  <defs>
+    <radialGradient id="amber" cx="30%" cy="24%" r="78%"><stop offset="0" stop-color="#FFF0C6"/><stop offset=".43" stop-color="#F6CB72"/><stop offset="1" stop-color="#C58A32"/></radialGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D8F0E3"/><stop offset=".4" stop-color="#91C9AF"/><stop offset="1" stop-color="#438C79"/></linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D2F1F6"/><stop offset=".4" stop-color="#65BDD0"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+  </defs>
+  <g stroke="#253544" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 46H114V82H14Z" fill="#F6CB72" fill-opacity=".22" stroke="none"/>
+    <path d="M14 25H43M85 25H114M14 103H43M85 103H114" stroke="#65BDD0" stroke-width="4"/>
+    <g stroke="#C58A32" stroke-width="4">
+      <path d="M17 43L22 54L17 64M26 44L31 54L26 64M39 43L44 54L39 64M46 44L50 54L46 64"/>
+      <path d="M82 43L87 54L82 64M90 44L95 54L90 64M104 43L109 54L104 64M112 44L115 54L112 64"/>
+      <path d="M17 85L22 74L17 65M26 84L31 74L26 65M39 85L44 74L39 65M46 84L50 74L46 65"/>
+      <path d="M82 85L87 74L82 65M90 84L95 74L90 65M104 85L109 74L104 65M112 84L115 74L112 65"/>
+    </g>
+    <g fill="url(#amber)" stroke-width="3.5">
+      <circle cx="22" cy="38" r="8"/><circle cx="43" cy="38" r="8"/>
+      <circle cx="86" cy="38" r="8"/><circle cx="107" cy="38" r="8"/>
+      <circle cx="22" cy="90" r="8"/><circle cx="43" cy="90" r="8"/>
+      <circle cx="86" cy="90" r="8"/><circle cx="107" cy="90" r="8"/>
+    </g>
+    <path d="M53 23C53 10 76 10 76 23V105C76 118 53 118 53 105Z" fill="url(#green)"/>
+    <path d="M55 31L74 21M55 50L74 40M55 69L74 59M55 88L74 78M55 107L74 97" stroke="#438C79" stroke-width="4"/>
+    <path d="M56 27L72 19M56 46L72 38M56 65L72 57M56 84L72 76M56 103L72 95" stroke="#D8F0E3" stroke-width="2.5" opacity=".8"/>
+  </g>
+</svg>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Zoom to a catalytic center</title>
+  <desc id="desc">A polished silver magnifier enlarges an amber catalytic center with three pale coordinated atoms.</desc>
+  <defs>
+    <linearGradient id="rim" x1="20" y1="15" x2="91" y2="90" gradientUnits="userSpaceOnUse"><stop stop-color="#F4F8FB"/><stop offset=".46" stop-color="#DDE7EF"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+    <linearGradient id="glass" x1="32" y1="23" x2="77" y2="83" gradientUnits="userSpaceOnUse"><stop stop-color="#F6FCFD"/><stop offset="1" stop-color="#C7E2E9"/></linearGradient>
+    <linearGradient id="handle" x1="80" y1="77" x2="107" y2="111" gradientUnits="userSpaceOnUse"><stop stop-color="#8195A6"/><stop offset=".4" stop-color="#536979"/><stop offset="1" stop-color="#253544"/></linearGradient>
+    <radialGradient id="center" cx="35%" cy="27%" r="76%"><stop stop-color="#FFF0CF"/><stop offset=".42" stop-color="#F6CB72"/><stop offset="1" stop-color="#C58A32"/></radialGradient>
+    <radialGradient id="atoms" cx="32%" cy="25%" r="76%"><stop stop-color="#FFFFFF"/><stop offset=".48" stop-color="#FFF1D5"/><stop offset="1" stop-color="#DCCBAA"/></radialGradient>
+  </defs>
+  <g stroke="#253544" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M78 73 111 103Q117 109 111 113 107 117 102 111L73 82Z" fill="url(#handle)" stroke-width="4.5"/>
+    <path d="M83 82 105 104" fill="none" stroke="#DDE7EF" stroke-width="2.5" opacity=".7"/>
+    <circle cx="52" cy="51" r="36" fill="url(#rim)" stroke-width="4.5"/>
+    <circle cx="52" cy="51" r="28.5" fill="url(#glass)" stroke-width="2"/>
+    <circle cx="52" cy="51" r="20" fill="url(#center)" stroke-width="3.5"/>
+    <path d="M42 43 62 43 52 62Z" fill="none" stroke="#8D663B" stroke-width="3.5"/>
+    <circle cx="42" cy="43" r="5.5" fill="url(#atoms)" stroke-width="3.5"/>
+    <circle cx="62" cy="43" r="5.5" fill="url(#atoms)" stroke-width="3.5"/>
+    <circle cx="52" cy="62" r="5.5" fill="url(#atoms)" stroke-width="3.5"/>
+    <path d="M25 39A29 29 0 0 1 53 22" fill="none" stroke="#FFFFFF" stroke-width="2.5" opacity=".85"/>
+  </g>
+</svg>

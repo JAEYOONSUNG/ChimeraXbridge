@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">View structure</title>
+  <desc id="desc">A silver eye surrounds a luminous green-cyan iris, evoking a precise scientific viewing instrument.</desc>
+  <defs>
+    <linearGradient id="shell" x1="30" y1="30" x2="87" y2="100" gradientUnits="userSpaceOnUse"><stop stop-color="#F7FAFC"/><stop offset=".5" stop-color="#DDE7EF"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+    <radialGradient id="iris" cx="37%" cy="30%" r="73%"><stop stop-color="#C3E7DA"/><stop offset=".3" stop-color="#91C9AF"/><stop offset=".68" stop-color="#26829C"/><stop offset="1" stop-color="#253544"/></radialGradient>
+    <linearGradient id="pupil" x1="59" y1="53" x2="71" y2="76" gradientUnits="userSpaceOnUse"><stop stop-color="#385567"/><stop offset="1" stop-color="#192934"/></linearGradient>
+  </defs>
+  <g stroke="#253544" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 64C27 41 43 29 64 29S102 43 115 64C102 87 83 99 64 99S27 87 13 64Z" fill="url(#shell)" stroke-width="4.5"/>
+    <path d="M26 76C41 91 82 94 101 78" fill="none" stroke="#438C79" stroke-width="4" opacity=".8"/>
+    <circle cx="64" cy="64" r="24" fill="url(#iris)" stroke-width="4"/>
+    <circle cx="64" cy="64" r="10" fill="url(#pupil)" stroke-width="3.5"/>
+    <path d="M45 58A20 20 0 0 1 67 44" fill="none" stroke="#DFF4EA" stroke-width="2.5" opacity=".75"/>
+    <path d="M24 58C35 43 48 35 61 35" fill="none" stroke="#FFFFFF" stroke-width="2.5" opacity=".85"/>
+  </g>
+  <circle cx="57" cy="55" r="5" fill="#FFFFFF" opacity=".94"/>
+  <circle cx="72" cy="72" r="2.3" fill="#BEE8DF" opacity=".8"/>
+</svg>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128">
+<title>PISA protein interface</title>
+<desc>Complementary cyan and coral protein surfaces meet at three amber contact sites along a narrow interface.</desc>
+<defs>
+<linearGradient id="cyan" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#A7E0E9"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+<linearGradient id="amber" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE3A0"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+<linearGradient id="coral" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F6BFB0"/><stop offset="1" stop-color="#C85F5B"/></linearGradient>
+</defs>
+<path d="M57 21C44 9 24 18 26 34C12 37 11 55 25 65C15 81 31 106 48 104C61 103 67 92 64 80C49 72 47 59 54 48C63 38 65 29 57 21Z" fill="url(#cyan)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M77 22C94 11 111 28 102 43C117 51 116 67 103 76C113 93 96 111 80 104C66 103 61 88 70 79C84 71 84 59 77 49C69 38 66 29 77 22Z" fill="url(#coral)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M29 42C21 42 18 54 29 60M36 23C42 18 48 21 52 24M29 84C29 94 38 100 45 99" fill="none" stroke="#C5EDF1" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+<path d="M82 25C89 20 99 27 99 34M105 51C109 57 108 63 101 68M78 97C87 103 97 97 100 89" fill="none" stroke="#FFE0D8" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+<path d="M34 45C40 43 44 46 43 52M33 76C39 79 45 77 46 73M89 45C85 50 88 55 93 55M86 83C91 79 95 82 94 87" fill="none" stroke="#253544" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+<circle cx="65" cy="44" r="5" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/><path d="M62.75 42.5q1 -1.75 2.75 -1.5" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/><circle cx="64" cy="62" r="5" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/><path d="M61.75 60.5q1 -1.75 2.75 -1.5" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/><circle cx="66" cy="80" r="5" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/><path d="M63.75 78.5q1 -1.75 2.75 -1.5" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+</svg>

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <title>AI Assistant</title>
+  <desc>A silver conversation bubble contains a blue molecular network, with an amber four-point intelligence star.</desc>
+  <defs>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F4F8FC"/><stop offset=".4" stop-color="#DDE7EF"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+    <radialGradient id="cyan" cx="30%" cy="24%" r="78%"><stop offset="0" stop-color="#D2F1F6"/><stop offset=".43" stop-color="#65BDD0"/><stop offset="1" stop-color="#26829C"/></radialGradient>
+    <radialGradient id="blue" cx="30%" cy="24%" r="78%"><stop offset="0" stop-color="#D8E7FC"/><stop offset=".43" stop-color="#82AEEA"/><stop offset="1" stop-color="#486DB3"/></radialGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF0C6"/><stop offset=".4" stop-color="#F6CB72"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+  </defs>
+  <g stroke="#253544" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M28 24H77C93 24 105 36 105 52V77C105 92 93 102 78 102H53L30 115L34 99C22 96 14 85 14 72V50C14 35 19 24 28 24Z" fill="url(#silver)"/>
+    <path d="M23 50C23 39 28 33 39 33H69" stroke="#F4F8FC" stroke-width="3" opacity=".8"/>
+    <path d="M40 58L62 45L78 71L49 84L40 58" stroke="#253544" stroke-width="5"/>
+    <path d="M40 58L78 71" stroke="#438C79" stroke-width="4"/>
+    <circle cx="40" cy="58" r="8" fill="url(#cyan)"/>
+    <circle cx="62" cy="45" r="8" fill="url(#blue)"/>
+    <circle cx="78" cy="71" r="9" fill="url(#cyan)"/>
+    <circle cx="49" cy="84" r="8" fill="url(#blue)"/>
+    <path d="M99 12L104 26L117 31L104 36L99 51L94 36L80 31L94 26Z" fill="url(#amber)" stroke-width="3.5"/>
+    <path d="M98 21L95 29L88 31" stroke="#FFF0C6" stroke-width="2"/>
+  </g>
+</svg>

@@ -1,16 +1,15 @@
-from Qt.QtCore import Qt, QTimer
-from Qt.QtGui import QColor, QLinearGradient, QPainter, QPen
+from Qt.QtCore import Qt, QTimer, QRectF, QSize
+from Qt.QtGui import QColor, QLinearGradient, QPainter, QPen, QPainterPath
 from Qt.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
-    QLayout,
     QLineEdit,
     QPushButton,
     QSizePolicy,
     QSlider,
+    QFrame,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -41,6 +40,7 @@ class _RainbowRamp(QWidget):
         self._color_callback = color_callback
         self._hue = 0.12
         self._saturation = 0.78
+        self._value = 0.95
         self.setMinimumHeight(18)
         self.setMaximumHeight(22)
         self.setMouseTracking(True)
@@ -65,6 +65,9 @@ class _RainbowRamp(QWidget):
         if rect.width() <= 0:
             return
         x = max(float(rect.left()), min(float(rect.right()), self._event_x(event)))
+        self._value = max(self._value, 0.95)
+        if self._saturation == 0:
+            self._saturation = 0.78
         self._hue = (x - float(rect.left())) / max(1.0, float(rect.width()))
         self.update()
         callback = self._color_callback
@@ -79,7 +82,7 @@ class _RainbowRamp(QWidget):
             callback(self.color_code(), final)
 
     def color_code(self):
-        return QColor.fromHsvF(float(self._hue), float(self._saturation), 0.95).name()
+        return QColor.fromHsvF(float(self._hue), float(self._saturation), self._value).name()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -255,6 +258,43 @@ class _SliderBlock(QWidget):
             self.value_label.setText(self._formatter(self.slider.value()))
 
 
+class _ColorPreview(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.colors = []
+        self.setFixedSize(22, 22)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.setToolTip("Colors present in the current color target.")
+
+    def sizeHint(self):
+        return QSize(22, 22)
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+
+    def set_colors(self, colors):
+        self.colors = [QColor(*[int(v) for v in color[:3]]) for color in colors]
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        rect = QRectF(self.rect()).adjusted(1, 1, -1, -1)
+        clip = QPainterPath()
+        clip.addRoundedRect(rect, 3, 3)
+        p.setClipPath(clip)
+        colors = self.colors or [QColor("#303f51")]
+        width = rect.width() / len(colors)
+        for i, color in enumerate(colors):
+            p.fillRect(QRectF(rect.left() + i * width, rect.top(), width + 1, rect.height()), color)
+
+
+class _StatusLabel(QLabel):
+    def setText(self, text):
+        super().setText(text)
+        self.setVisible(bool(text))
+
+
 class DisplayControlsWidget(QWidget):
 
     def __init__(self, session, parent=None):
@@ -265,6 +305,8 @@ class DisplayControlsWidget(QWidget):
         self._apply_timer.setSingleShot(True)
         self._apply_timer.timeout.connect(self._apply_pending)
         self._refresh_pending = False
+        self._syncing = False
+        self._closed = False
         self._handlers = []
         self._build_ui()
         self._install_handlers()
@@ -272,571 +314,291 @@ class DisplayControlsWidget(QWidget):
     def _install_handlers(self):
         if self._handlers:
             return
-        try:
-            self._handlers.append(
-                self.session.triggers.add_handler("selection changed", self._queue_refresh)
-            )
-        except Exception:
-            pass
+        for name, callback in (("selection changed", self._selection_changed),
+                               ("command finished", self._queue_refresh)):
+            self._handlers.append(self.session.triggers.add_handler(name, callback))
+        from chimerax.atomic import get_triggers
+        self._handlers.append(get_triggers().add_handler("changes done", self._queue_refresh))
+
+    def _selection_changed(self, *_args):
+        # A queued edit belongs to the previous selection. Never apply it to
+        # the object that was just picked.
+        self._apply_timer.stop()
+        self._pending.clear()
+        self._queue_refresh()
 
     def _queue_refresh(self, *_args):
-        if self._refresh_pending:
+        if self._closed or self._refresh_pending:
             return
         self._refresh_pending = True
 
         def run_refresh():
             self._refresh_pending = False
-            if not self.isVisible():
+            if self._closed or not self.isVisible() or self._pending:
                 return
-            try:
-                self.refresh()
-            except Exception:
-                pass
+            self.refresh()
 
-        QTimer.singleShot(400, run_refresh)
+        QTimer.singleShot(0, run_refresh)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._queue_refresh()
+
+    def cleanup(self):
+        self._closed = True
+        self._apply_timer.stop()
+        self._pending.clear()
+        for handler in self._handlers:
+            handler.remove()
+        self._handlers = []
 
     def closeEvent(self, event):
-        for handler in self._handlers:
-            try:
-                self.session.triggers.remove_handler(handler)
-            except Exception:
-                pass
-        self._handlers = []
+        self.cleanup()
         super().closeEvent(event)
 
     def _build_ui(self):
-        layout = QVBoxLayout()
-        layout.setContentsMargins(5, 4, 5, 4)
-        layout.setSpacing(3)
-        self.setLayout(layout)
         self.setObjectName("DisplayControlsRoot")
-        self.setMinimumWidth(0)
-        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.setStyleSheet(
-            "QWidget#DisplayControlsRoot {"
-            " background: #15181b;"
-            " color: #e5e8ec;"
-            " font-size: 12px;"
-            "}"
-            "QWidget#DisplayControlsRoot QLabel,"
-            "QWidget#DisplayControlsRoot QPushButton,"
-            "QWidget#DisplayControlsRoot QComboBox,"
-            "QWidget#DisplayControlsRoot QLineEdit,"
-            "QWidget#DisplayControlsRoot QCheckBox,"
-            "QWidget#DisplayControlsRoot QSpinBox,"
-            "QWidget#DisplayControlsRoot QDoubleSpinBox {"
-            " font-size: 12px;"
-            "}"
-            "QLabel { color: #d9dde2; background: transparent; border: none; }"
-            "QLabel#SectionTitle {"
-            " font-size: 10px;"
-            " font-weight: 700;"
-            " color: #aeb6bf;"
-            " letter-spacing: 0.05em;"
-            " padding: 1px 0px;"
-            "}"
-            "QLabel#MutedCaption {"
-            " color: #8d959f;"
-            " font-size: 10px;"
-            " letter-spacing: 0.02em;"
-            "}"
-            "QLabel#InlineSliderTitle {"
-            " background: transparent;"
-            " border: none;"
-            " color: #e6ebf0;"
-            " font-weight: 600;"
-            " padding: 0px;"
-            "}"
-            "QLabel#InlineSliderValue {"
-            " background: transparent;"
-            " border: none;"
-            " color: #d9dde2;"
-            " padding: 0px;"
-            " font-weight: 600;"
-            "}"
-            "QLabel#MetricSliderTitle {"
-            " background: transparent;"
-            " border: none;"
-            " color: #e6e9ed;"
-            " font-weight: 600;"
-            " line-height: 1.1;"
-            " padding: 0px;"
-            "}"
-            "QLabel#MetricSliderValue {"
-            " background: transparent;"
-            " border: none;"
-            " color: #d9dde2;"
-            " padding: 0px;"
-            " font-weight: 600;"
-            "}"
-            "QPushButton {"
-            " background: #1d2126;"
-            " color: #eef1f4;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 7px;"
-            " padding: 3px 8px;"
-            " font-weight: 600;"
-            " min-height: 20px;"
-            " max-height: 24px;"
-            "}"
-            "QPushButton:hover { background: #262a30; border-color: #44494f; }"
-            "QPushButton:pressed { background: #11141a; border-color: #2a2f35; }"
-            "QComboBox, QLineEdit {"
-            " background: #0e1114;"
-            " color: #eef1f4;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 7px;"
-            " padding: 3px 7px;"
-            " min-height: 20px;"
-            " max-height: 24px;"
-            "}"
-            "QComboBox:hover, QLineEdit:hover { border-color: #44494f; }"
-            "QComboBox:focus, QLineEdit:focus { border-color: #6e757d; }"
-            "QComboBox::drop-down { border: none; width: 18px; }"
-            "QComboBox QAbstractItemView {"
-            " background: #14181c;"
-            " color: #eef1f4;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 8px;"
-            " selection-background-color: #2c333a;"
-            " padding: 4px;"
-            "}"
-            "QCheckBox {"
-            " color: #e6ebf0;"
-            " font-weight: 600;"
-            " spacing: 4px;"
-            "}"
-            "QCheckBox::indicator {"
-            " width: 12px;"
-            " height: 12px;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 3px;"
-            " background: #0e1114;"
-            "}"
-            "QCheckBox::indicator:hover { border-color: #44494f; }"
-            "QCheckBox::indicator:checked {"
-            " background: #6e757d;"
-            " border-color: #8d959f;"
-            "}"
-            "QSpinBox, QDoubleSpinBox {"
-            " background: #0e1114;"
-            " color: #f0f4f8;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 7px;"
-            " padding: 2px 7px;"
-            " font-weight: 600;"
-            " min-height: 20px;"
-            " max-height: 24px;"
-            "}"
-            "QSpinBox:hover, QDoubleSpinBox:hover { border-color: #44494f; }"
-            "QSpinBox:focus, QDoubleSpinBox:focus { border-color: #6e757d; }"
-            "QSlider::groove:vertical {"
-            " background: #0a0d10;"
-            " border: 1px solid #2a2f35;"
-            " width: 6px;"
-            " border-radius: 3px;"
-            "}"
-            "QSlider::add-page:vertical {"
-            " background: #0a0d10;"
-            " border-radius: 3px;"
-            "}"
-            "QSlider::sub-page:vertical {"
-            " background: #6e757d;"
-            " border-radius: 3px;"
-            "}"
-            "QSlider::handle:vertical {"
-            " background: #c0c7cf;"
-            " border: 1px solid #14171a;"
-            " height: 18px;"
-            " margin: 0 -7px;"
-            " border-radius: 9px;"
-            "}"
-            "QSlider::handle:vertical:hover { background: #ffffff; }"
-            "QSlider::groove:horizontal {"
-            " background: #0a0d10;"
-            " border: 1px solid #2a2f35;"
-            " height: 4px;"
-            " border-radius: 2px;"
-            "}"
-            "QSlider::sub-page:horizontal {"
-            " background: #6e757d;"
-            " border-radius: 2px;"
-            "}"
-            "QSlider::handle:horizontal {"
-            " background: #c0c7cf;"
-            " border: 1px solid #14171a;"
-            " width: 14px;"
-            " margin: -6px 0;"
-            " border-radius: 7px;"
-            "}"
-            "QSlider::handle:horizontal:hover { background: #ffffff; }"
-            "QMenu {"
-            " background: #14181c;"
-            " color: #eef1f4;"
-            " border: 1px solid #2a2f35;"
-            " border-radius: 8px;"
-            " padding: 4px;"
-            "}"
-            "QMenu::item { background: transparent; padding: 6px 14px; border-radius: 6px; }"
-            "QMenu::item:selected { background: #2c333a; }"
-            "QMenu::separator { height: 1px; background: #2a2f35; margin: 4px 8px; }"
-        )
-
-        self.status_label = QLabel("", self)
-        self.status_label.setWordWrap(True)
-        self.status_label.setObjectName("MutedCaption")
-        layout.addWidget(self.status_label)
-
-        self._build_color_controls(layout)
-
-        sel_title = QLabel("SELECTION", self)
-        sel_title.setObjectName("SectionTitle")
-        layout.addWidget(sel_title)
-
-        sel_row = QHBoxLayout()
-        sel_row.setSpacing(4)
-        layout.addLayout(sel_row)
-
-        self.selection_transparency = _SliderBlock(
-            "Sel trans",
-            0,
-            100,
-            0,
-            lambda v: f"{v}%",
-            lambda _v: self._schedule_apply("selection"),
-            self,
-            editable=True,
-            suffix="%",
-            orientation=Qt.Orientation.Horizontal,
-            title_min_width=56,
-            value_min_width=52,
-        )
-        sel_row.addWidget(self.selection_transparency, 1)
-
-        self.clear_transparency_button = QPushButton("Opaque", self)
-        self.clear_transparency_button.setToolTip("Reset Sel trans to 0% on the current selection.")
-        self.clear_transparency_button.clicked.connect(lambda: self._set_selection_transparency(0))
-        self.clear_transparency_button.setMaximumWidth(66)
-        sel_row.addWidget(self.clear_transparency_button, 0)
-
-        # ---- LAYERS section: independent visibility + transparency for
-        # cartoon / surface / atoms-and-bonds. Each row drives ChimeraX's
-        # `cartoon|~cartoon`, `show|~show surface`, `show|~show atoms`
-        # toggles and `transparency <scope> <pct> target <c|s|ab>`. Scope is
-        # the current selection if one exists, otherwise every loaded
-        # atomic structure.
-        layers_title = QLabel("LAYERS", self)
-        layers_title.setObjectName("SectionTitle")
-        layout.addWidget(layers_title)
-
-        self.cartoon_visible_check, self.cartoon_transparency = self._build_layer_row(
-            layout, "Cartoon", "cartoon"
-        )
-        self.surface_visible_check, self.surface_transparency = self._build_layer_row(
-            layout, "Surface", "surface"
-        )
-        self.atoms_visible_check, self.atoms_transparency = self._build_layer_row(
-            layout, "Sticks", "atoms"
-        )
-
-        cartoon_title_row = QHBoxLayout()
-        cartoon_title_row.setSpacing(4)
-        layout.addLayout(cartoon_title_row)
-        cartoon_title = QLabel("CARTOON  STYLE", self)
-        cartoon_title.setObjectName("SectionTitle")
-        cartoon_title_row.addWidget(cartoon_title, 1)
-
-        self.reset_cartoon_button = QPushButton("Reset", self)
-        self.reset_cartoon_button.setToolTip("Reset cartoon width/thickness to ChimeraX defaults.")
-        self.reset_cartoon_button.clicked.connect(self._reset_cartoon)
-        self.reset_cartoon_button.setMaximumWidth(56)
-        cartoon_title_row.addWidget(self.reset_cartoon_button, 0)
-
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setMinimumSize(280, 0)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setStyleSheet(self._stylesheet())
+        from .panel_scroll import PanelScrollArea
+        wrapper = QVBoxLayout(self)
+        wrapper.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area = PanelScrollArea(self)
+        content = QWidget()
+        content.setObjectName("ControlsBody")
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(7, 6, 7, 5)
+        layout.setSpacing(3)
+        self.scroll_area.setWidget(content)
+        wrapper.addWidget(self.scroll_area)
+        header = QHBoxLayout()
+        self.scope_label = QLabel("", self)
+        self.scope_label.setObjectName("ScopeLabel")
+        self.scope_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        header.addWidget(self.scope_label, 1)
         self.refresh_button = QPushButton("Refresh", self)
-        self.refresh_button.setToolTip("Re-read the current selection state.")
         self.refresh_button.clicked.connect(self.refresh)
-        self.refresh_button.setMaximumWidth(62)
-        cartoon_title_row.addWidget(self.refresh_button, 0)
+        header.addWidget(self.refresh_button)
+        layout.addLayout(header)
+        self.scope_mode_label = QLabel(self)
+        self.scope_mode_label.hide()
+        self.scope_detail_label = QLabel("", self)
+        self.scope_detail_label.setObjectName("Caption")
+        layout.addWidget(self.scope_detail_label)
 
-        self.protein_width, self.protein_thickness = self._build_cartoon_row(layout, "All", "protein")
-        self.helix_width, self.helix_thickness = self._build_cartoon_row(layout, "Helix", "helix")
-        self.strand_width, self.strand_thickness = self._build_cartoon_row(layout, "Sheet", "strand")
+        body = QVBoxLayout()
+        body.setContentsMargins(0, 0, 5, 0)
+        body.setSpacing(4)
+        layout.addLayout(body, 1)
 
-        sil_row = QHBoxLayout()
-        sil_row.setSpacing(4)
-        layout.addLayout(sil_row)
+        self._build_color_controls(body)
+        row = self._section(body, "Layers")
+        self.layer_scope_label = QLabel("", self)
+        self.layer_scope_label.setObjectName("Caption")
+        row.addWidget(self.layer_scope_label)
+        for title, key in (("Cartoon", "cartoon"), ("Surface", "surface"), ("Atoms", "atoms")):
+            check, slider = self._build_layer_row(body, title, key)
+            setattr(self, key + "_visible_check", check)
+            setattr(self, key + "_transparency", slider)
+        row = QHBoxLayout()
+        row.setSpacing(4)
+        self.selection_transparency = self._slider("Selection", 0, 100, 0, "selection")
+        self.selection_transparency.title_label.setFixedWidth(58)
+        self.selection_transparency.setToolTip("Transparency of selected atoms, bonds and surfaces. Cartoon is unchanged.")
+        row.addWidget(self.selection_transparency, 1)
+        self.clear_transparency_button = QPushButton("Opaque", self)
+        self.clear_transparency_button.clicked.connect(lambda: self._set_selection_transparency(0))
+        row.addWidget(self.clear_transparency_button)
+        body.addLayout(row)
 
-        self.silhouette_check = QCheckBox("Silhouette", self)
-        self.silhouette_check.setToolTip("Toggle silhouette outlines on the model.")
+        row = self._section(body, "Cartoon")
+        note = QLabel("Per model", self)
+        note.setObjectName("Caption")
+        row.addWidget(note)
+        self.reset_cartoon_button = QPushButton("Reset", self)
+        self.reset_cartoon_button.clicked.connect(self._reset_cartoon)
+        row.addWidget(self.reset_cartoon_button)
+        self._geometry_titles = {}
+        self.protein_width, self.protein_thickness = self._build_cartoon_row(body, "Protein", "protein")
+        self.helix_width, self.helix_thickness = self._build_cartoon_row(body, "Helix", "helix")
+        self.strand_width, self.strand_thickness = self._build_cartoon_row(body, "Sheet", "strand")
+        row = self._section(body, "Outline")
+        note = QLabel("Whole scene", self)
+        note.setObjectName("Caption")
+        row.addWidget(note)
+        row = QHBoxLayout()
+        row.setSpacing(4)
+        self.silhouette_check = QPushButton("Off", self)
+        self.silhouette_check.setObjectName("VisibilityButton")
+        self.silhouette_check.setCheckable(True)
         self.silhouette_check.toggled.connect(self._on_silhouette_toggled)
-        sil_row.addWidget(self.silhouette_check, 0)
-
-        self.silhouette_width = _SliderBlock(
-            "",
-            2,
-            80,
-            10,
-            lambda v: f"{v / 10:.1f} px",
-            lambda _v: self._schedule_apply("silhouette"),
-            self,
-            editable=True,
-            suffix=" px",
-            decimals=1,
-            scale=0.1,
-            orientation=Qt.Orientation.Horizontal,
-            title_min_width=0,
-            value_min_width=58,
-        )
-        sil_row.addWidget(self.silhouette_width, 1)
-
-        layout.addStretch(1)
-
-        self._sync_silhouette_state()
-        self._relax_min_size()
-
+        label = QLabel("Silhouette", self)
+        label.setFixedWidth(58)
+        row.addWidget(label)
+        row.addWidget(self.silhouette_check)
+        self.silhouette_width = self._slider("", 2, 80, 10, "silhouette", " px", 0.1)
+        row.addWidget(self.silhouette_width, 1)
+        body.addLayout(row)
+        body.addStretch()
+        self.status_label = _StatusLabel("", self)
+        self.status_label.setWordWrap(True)
+        self.status_label.setObjectName("Caption")
+        self.status_label.hide()
+        layout.addWidget(self.status_label)
         self.refresh()
 
-    def _relax_min_size(self):
-        self.setMinimumSize(0, 0)
-        for child in self.findChildren(QWidget):
-            try:
-                child.setMinimumWidth(0)
-            except Exception:
-                pass
-        for child_layout in self.findChildren(QLayout):
-            try:
-                child_layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
-            except Exception:
-                pass
-
-    def _build_cartoon_row(self, layout, group_label, group_key):
-        row = QHBoxLayout()
-        row.setSpacing(4)
-        layout.addLayout(row)
-
-        label = QLabel(group_label, self)
-        label.setObjectName("InlineSliderTitle")
-        label.setMinimumWidth(32)
-        label.setMaximumWidth(46)
-        row.addWidget(label, 0)
-
-        width_block = _SliderBlock(
-            "w",
-            5,
-            60,
-            20,
-            self._angstrom_label,
-            lambda _v, g=group_key: self._schedule_apply(g),
-            self,
-            editable=True,
-            suffix=" Å",
-            decimals=1,
-            scale=0.1,
-            orientation=Qt.Orientation.Horizontal,
-            title_min_width=10,
-            value_min_width=52,
-        )
-        row.addWidget(width_block, 1)
-
-        thick_block = _SliderBlock(
-            "t",
-            1,
-            30,
-            4,
-            self._angstrom_label,
-            lambda _v, g=group_key: self._schedule_apply(g),
-            self,
-            editable=True,
-            suffix=" Å",
-            decimals=1,
-            scale=0.1,
-            orientation=Qt.Orientation.Horizontal,
-            title_min_width=10,
-            value_min_width=52,
-        )
-        row.addWidget(thick_block, 1)
-
-        return width_block, thick_block
-
-    def _build_layer_row(self, layout, label_text, layer_key):
-        """One row of: [label] [show ✓] [transparency slider].
-
-        ``layer_key`` is the internal identifier (``cartoon`` / ``surface``
-        / ``atoms``) used to route slider updates to the right ChimeraX
-        command in ``_apply_layer_transparency``.
+    @staticmethod
+    def _stylesheet():
+        from .ui_theme import panel_stylesheet
+        return panel_stylesheet("DisplayControlsRoot") + """
+        QLabel#ScopeLabel { font-size: 12px; font-weight: 600; }
+        QLabel#Caption { font-size: 10px; }
+        QLabel#SectionHeading { font-weight: 600; }
+        QFrame#SectionRule { border: none; border-top: 1px solid palette(mid); margin-top: 4px; }
+        QWidget#ControlsBody { background: transparent; }
+        QPushButton, QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox { max-height: 22px; }
+        QPushButton#VisibilityButton { min-width: 35px; max-width: 43px; font-size: 10px; padding: 2px 5px; }
+        QSpinBox, QDoubleSpinBox, QLineEdit#HexInput { font-family: "Menlo", "Consolas", monospace; font-size: 10px; }
+        QSpinBox:disabled, QDoubleSpinBox:disabled { color: #858585; }
+        QSlider::groove:horizontal { height: 3px; background: palette(base); border-radius: 1px; }
+        QSlider::sub-page:horizontal { background: palette(mid); border-radius: 1px; }
+        QSlider::handle:horizontal { background: palette(button-text); border: 1px solid palette(window); width: 11px; margin: -5px 0; border-radius: 6px; }
+        QSlider::handle:horizontal:hover { background: palette(highlight); }
+        QSlider::handle:horizontal:disabled { background: palette(mid); }
         """
+
+    def _section(self, layout, title):
+        rule = QFrame(self)
+        rule.setObjectName("SectionRule")
+        rule.setFixedHeight(5)
+        layout.addWidget(rule)
+        row = QHBoxLayout()
+        row.setSpacing(5)
+        label = QLabel(title, self)
+        label.setObjectName("SectionHeading")
+        row.addWidget(label)
+        row.addStretch()
+        layout.addLayout(row)
+        return row
+
+    def _slider(self, title, minimum, maximum, value, group, suffix="%", scale=1.0):
+        block = _SliderBlock(title, minimum, maximum, value, lambda v: str(v),
+                             lambda _v: self._schedule_apply(group), self,
+                             editable=True, suffix=suffix, decimals=1 if scale != 1 else 0,
+                             scale=scale, orientation=Qt.Orientation.Horizontal,
+                             value_min_width=49)
+        if not title:
+            block.title_label.hide()
+        block.slider.setMinimumHeight(22)
+        block.value_label.setMaximumWidth(61)
+        return block
+
+    def _build_layer_row(self, layout, title, key):
         row = QHBoxLayout()
         row.setSpacing(4)
-        layout.addLayout(row)
-
-        label = QLabel(label_text, self)
-        label.setObjectName("InlineSliderTitle")
-        label.setMinimumWidth(50)
-        label.setMaximumWidth(68)
-        row.addWidget(label, 0)
-
-        show_check = QCheckBox("Show", self)
-        show_check.setChecked(True)
-        show_check.toggled.connect(
-            lambda on, key=layer_key: self._on_layer_visibility_toggled(key, on)
-        )
-        show_check.setMaximumWidth(58)
-        row.addWidget(show_check, 0)
-
-        slider = _SliderBlock(
-            "",
-            0,
-            100,
-            0,
-            lambda v: f"{v}%",
-            lambda _v, key=layer_key: self._schedule_apply(f"layer_{key}"),
-            self,
-            editable=True,
-            suffix="%",
-            orientation=Qt.Orientation.Horizontal,
-            title_min_width=0,
-            value_min_width=52,
-        )
+        label = QLabel(title, self)
+        label.setFixedWidth(58)
+        row.addWidget(label)
+        state = QLabel(self)
+        state.hide()
+        setattr(self, key + "_state_label", state)
+        check = QPushButton("Shown", self)
+        check.setObjectName("VisibilityButton")
+        check.setCheckable(True)
+        check.setAccessibleName(title + " visibility")
+        check.toggled.connect(lambda on, layer=key: self._on_layer_visibility_toggled(layer, on))
+        row.addWidget(check)
+        slider = self._slider("", 0, 100, 0, "layer_" + key)
+        slider.setToolTip(title + " transparency")
         row.addWidget(slider, 1)
+        layout.addLayout(row)
+        return check, slider
 
-        return show_check, slider
+    def _build_cartoon_row(self, layout, title, key):
+        row = QHBoxLayout()
+        row.setSpacing(4)
+        label = QLabel(title, self)
+        label.setFixedWidth(49)
+        self._geometry_titles[key] = label
+        row.addWidget(label)
+        width = self._slider("w", 5, 60, 20, key, " Å", 0.1)
+        thickness = self._slider("t", 1, 30, 4, key, " Å", 0.1)
+        width.setToolTip("Cartoon width in angstroms, for models in the current scope.")
+        thickness.setToolTip("Cartoon thickness in angstroms, for models in the current scope.")
+        row.addWidget(width, 1)
+        row.addWidget(thickness, 1)
+        layout.addLayout(row)
+        return width, thickness
 
     def _build_color_controls(self, layout):
-        title = QLabel("COLOR", self)
-        title.setObjectName("SectionTitle")
-        layout.addWidget(title)
-
-        control_row = QHBoxLayout()
-        control_row.setSpacing(4)
-        layout.addLayout(control_row)
-
+        row = self._section(layout, "Color")
         self.color_scope_combo = QComboBox(self)
         self.color_scope_combo.addItem("Selection", "sel")
-        self.color_scope_combo.addItem("All", "all")
-        self.color_scope_combo.setToolTip("Color selected atoms/residues/models or all open models.")
-        self.color_scope_combo.setMinimumWidth(78)
-        self.color_scope_combo.setMaximumWidth(110)
-        control_row.addWidget(self.color_scope_combo, 0)
-
+        self.color_scope_combo.addItem("All models", "all")
+        self.color_scope_combo.setAccessibleName("Color scope")
         self.color_target_combo = QComboBox(self)
-        self.color_target_combo.addItem("All reps", "abcsp")
-        self.color_target_combo.addItem("Cartoon", "c")
-        self.color_target_combo.addItem("Atoms+bonds", "ab")
-        self.color_target_combo.addItem("Surface", "s")
-        self.color_target_combo.addItem("Models", "m")
-        self.color_target_combo.setToolTip("ChimeraX color target letters: a atoms, b bonds, c cartoon, s surface, p pseudobonds, m models.")
-        self.color_target_combo.setMinimumWidth(102)
-        self.color_target_combo.setMaximumWidth(134)
-        control_row.addWidget(self.color_target_combo, 0)
-
-        self.color_hex_edit = QLineEdit("#d9d3c7", self)
-        self.color_hex_edit.setMaxLength(9)
-        self.color_hex_edit.setPlaceholderText("#RRGGBB")
-        self.color_hex_edit.returnPressed.connect(self._apply_color_from_text)
-        self.color_hex_edit.setMinimumWidth(82)
-        self.color_hex_edit.setMaximumWidth(96)
-        control_row.addWidget(self.color_hex_edit, 0)
-
-        self.pick_color_button = QPushButton("Pick", self)
-        self.pick_color_button.clicked.connect(self._pick_color)
-        self.pick_color_button.setMaximumWidth(54)
-        control_row.addWidget(self.pick_color_button)
-
-        self.apply_color_button = QPushButton("Apply", self)
-        self.apply_color_button.clicked.connect(self._apply_color_from_text)
-        self.apply_color_button.setMaximumWidth(58)
-        control_row.addWidget(self.apply_color_button)
-        control_row.addStretch(1)
-
-        self.rainbow_ramp = _RainbowRamp(self._rainbow_color_changed, self)
-        self.rainbow_ramp.setToolTip("Drag along the rainbow ramp; release to apply the color.")
-        layout.addWidget(self.rainbow_ramp)
-
-        self.saturation_slider, self.saturation_value_label = self._make_horizontal_slider(
-            "Saturation",
-            0,
-            100,
-            78,
-            lambda value: f"{value}%",
-            self._saturation_changed,
-            layout,
-            editable=True,
-            suffix="%",
-        )
-        self.saturation_slider.sliderReleased.connect(self._apply_current_color_preserve_transparency)
-        self.saturation_value_label.editingFinished.connect(self._apply_current_color_preserve_transparency)
-
-        self.color_transparency_slider, self.color_transparency_value_label = self._make_horizontal_slider(
-            "Color trans",
-            0,
-            100,
-            0,
-            lambda value: f"{value}%",
-            self._color_transparency_changed,
-            layout,
-            editable=True,
-            suffix="%",
-        )
-        self.color_transparency_slider.sliderReleased.connect(self._apply_current_color_with_transparency)
-        self.color_transparency_value_label.editingFinished.connect(self._apply_current_color_with_transparency)
-
-        scheme_row = QHBoxLayout()
-        scheme_row.setSpacing(4)
-        layout.addLayout(scheme_row)
-
-        self.by_chain_button = QPushButton("By chain", self)
-        self.by_chain_button.clicked.connect(lambda: self._apply_color_scheme("bychain"))
-        scheme_row.addWidget(self.by_chain_button)
-
-        self.by_element_button = QPushButton("By element", self)
-        self.by_element_button.clicked.connect(lambda: self._apply_color_scheme("byelement"))
-        scheme_row.addWidget(self.by_element_button)
-
-        self.by_model_button = QPushButton("By model", self)
-        self.by_model_button.clicked.connect(lambda: self._apply_color_scheme("bymodel"))
-        scheme_row.addWidget(self.by_model_button)
-
-    def _make_horizontal_slider(self, title, minimum, maximum, value, formatter, changed_callback, layout, editable=False, suffix="%"):
+        for label, target in (("All reps", "abcsp"), ("Cartoon", "c"),
+                              ("Atoms & bonds", "ab"), ("Surface", "s"), ("Models", "m")):
+            self.color_target_combo.addItem(label, target)
+        self.color_target_combo.setAccessibleName("Color representation")
+        for combo in (self.color_scope_combo, self.color_target_combo):
+            combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+            combo.setMinimumContentsLength(7)
+            combo.currentIndexChanged.connect(self._queue_refresh)
+            row.addWidget(combo)
         row = QHBoxLayout()
         row.setSpacing(4)
+        self.color_preview = _ColorPreview(self)
+        row.addWidget(self.color_preview)
+        self.color_name_label = QLabel(self)
+        self.color_name_label.hide()
+        self.color_hex_edit = QLineEdit(self)
+        self.color_hex_edit.setObjectName("HexInput")
+        self.color_hex_edit.setMaxLength(9)
+        self.color_hex_edit.setMaximumWidth(86)
+        self.color_hex_edit.setPlaceholderText("#RRGGBB")
+        self.color_hex_edit.returnPressed.connect(self._apply_color_from_text)
+        row.addWidget(self.color_hex_edit)
+        self.rainbow_ramp = _RainbowRamp(self._rainbow_color_changed, self)
+        self.rainbow_ramp.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        row.addWidget(self.rainbow_ramp, 1)
+        self.pick_color_button = QPushButton("Pick", self)
+        self.pick_color_button.clicked.connect(self._pick_color)
+        row.addWidget(self.pick_color_button)
+        self.apply_color_button = QPushButton("Apply", self)
+        self.apply_color_button.clicked.connect(self._apply_color_from_text)
+        row.addWidget(self.apply_color_button)
+        layout.addLayout(row)
+        self.saturation_slider, self.saturation_value_label = self._make_horizontal_slider(
+            "Saturation", 0, 100, 78, lambda v: f"{v}%", self._saturation_changed, layout)
+        self.saturation_slider.sliderReleased.connect(self._apply_current_color_preserve_transparency)
+        self.saturation_value_label.editingFinished.connect(self._apply_current_color_preserve_transparency)
+        self.color_transparency_slider, self.color_transparency_value_label = self._make_horizontal_slider(
+            "Transparency", 0, 100, 0, lambda v: f"{v}%", self._color_transparency_changed, layout)
+        self.color_transparency_slider.sliderReleased.connect(self._apply_current_color_with_transparency)
+        self.color_transparency_value_label.editingFinished.connect(self._apply_current_color_with_transparency)
+        row = QHBoxLayout()
+        row.setSpacing(4)
+        for attr, title, scheme in (("by_chain_button", "By chain", "bychain"),
+                                    ("by_element_button", "By element", "byelement"),
+                                    ("by_model_button", "By model", "bymodel")):
+            button = QPushButton(title, self)
+            button.clicked.connect(lambda _checked, value=scheme: self._apply_color_scheme(value))
+            setattr(self, attr, button)
+            row.addWidget(button, 1)
         layout.addLayout(row)
 
-        label = QLabel(title, self)
-        label.setObjectName("InlineSliderTitle")
-        label.setMinimumWidth(56)
-        label.setMaximumWidth(78)
-        row.addWidget(label, 0)
-
-        slider = QSlider(Qt.Orientation.Horizontal, self)
-        slider.setRange(minimum, maximum)
-        slider.setValue(value)
-        slider.setTickPosition(QSlider.TickPosition.NoTicks)
-        slider.valueChanged.connect(changed_callback)
-        row.addWidget(slider, 1)
-
-        if editable:
-            spin = QSpinBox(self)
-            spin.setObjectName("InlineSliderInput")
-            spin.setRange(minimum, maximum)
-            spin.setValue(value)
-            if suffix:
-                spin.setSuffix(suffix)
-            spin.setMinimumWidth(52)
-            spin.setMaximumWidth(62)
-            spin.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
-            spin.setKeyboardTracking(False)
-            spin.valueChanged.connect(slider.setValue)
-            slider.valueChanged.connect(spin.setValue)
-            row.addWidget(spin, 0)
-            return slider, spin
-
-        value_label = QLabel(formatter(value), self)
-        value_label.setObjectName("InlineSliderValue")
-        value_label.setMinimumWidth(42)
-        value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        row.addWidget(value_label, 0)
-        return slider, value_label
+    def _make_horizontal_slider(self, title, minimum, maximum, value, formatter, callback, layout):
+        block = _SliderBlock(title, minimum, maximum, value, formatter, callback, self,
+                             editable=True, orientation=Qt.Orientation.Horizontal,
+                             value_min_width=49)
+        block.title_label.setFixedWidth(77)
+        block.slider.setMinimumHeight(22)
+        block.value_label.setMaximumWidth(61)
+        layout.addWidget(block)
+        return block.slider, block.value_label
 
     def _angstrom_label(self, value):
         return f"{value / 10:.1f} A"
@@ -876,6 +638,9 @@ class DisplayControlsWidget(QWidget):
 
     def _rainbow_color_changed(self, color, final):
         self.color_hex_edit.setText(color)
+        rgb = QColor(color)
+        self.color_preview.set_colors([(rgb.red(), rgb.green(), rgb.blue())])
+        self.color_name_label.setText("Custom color")
         if final:
             self._apply_color(color)
 
@@ -899,6 +664,13 @@ class DisplayControlsWidget(QWidget):
         color = self._normalized_color_code()
         if color is not None:
             self._apply_color(color, transparency=int(self.color_transparency_slider.value()))
+        elif self.color_hex_edit.placeholderText() == "Mixed":
+            scope = self._color_scope()
+            if scope:
+                target = self.color_target_combo.currentData()
+                percent = self.color_transparency_slider.value()
+                _run(self.session, f"transparency {scope} {percent} target {target}")
+                self.refresh()
 
     def _pick_color(self):
         from Qt.QtGui import QColor
@@ -926,7 +698,7 @@ class DisplayControlsWidget(QWidget):
             return
         self._preserve_charge_tips(scope, target)
         self._auto_name_region(scope, color)
-        self.status_label.setText(f"Applied: {command}")
+        self.refresh()
 
     def _apply_color_scheme(self, scheme, transparency=None):
         scope = self._color_scope()
@@ -944,7 +716,7 @@ class DisplayControlsWidget(QWidget):
         if scheme != "byelement":
             self._preserve_charge_tips(scope, target)
         self._auto_name_region(scope, scheme)
-        self.status_label.setText(f"Applied: {command}")
+        self.refresh()
 
     def _auto_name_region(self, scope, color_or_scheme):
         if color_or_scheme in (
@@ -1023,6 +795,8 @@ class DisplayControlsWidget(QWidget):
             pass
 
     def _schedule_apply(self, group):
+        if self._syncing:
+            return
         self._pending.add(group)
         sliders = [
             self.selection_transparency,
@@ -1079,10 +853,6 @@ class DisplayControlsWidget(QWidget):
         self.status_label.setText(f"Applied: {command} (cartoon excluded)")
 
     def _selection_transparency_spec(self):
-        mode = getattr(self.session, "_codex_bridge_selection_click_mode", "")
-        spec = str(getattr(self.session, "_codex_bridge_last_chain_selection_spec", "") or "").strip()
-        if mode == "chain" and spec:
-            return spec
         return "sel"
 
     # ---- LAYERS section apply paths ----
@@ -1157,7 +927,11 @@ class DisplayControlsWidget(QWidget):
     def _apply_cartoon_style(self, target, width_slider, thickness_slider):
         width = self._slider_float(width_slider)
         thickness = self._slider_float(thickness_slider)
-        command = f"cartoon style {target} width {width:.1f} thickness {thickness:.1f}"
+        atoms = self._scope_atoms()
+        if atoms is None or not len(atoms):
+            return
+        models = ",".join(m.id_string for m in atoms.unique_structures)
+        command = f"cartoon style (#{models} & {target}) width {width:.1f} thickness {thickness:.1f}"
         _run(self.session, command)
         self.status_label.setText(f"Applied: {command}")
 
@@ -1197,88 +971,234 @@ class DisplayControlsWidget(QWidget):
         self.silhouette_check.blockSignals(True)
         self.silhouette_check.setChecked(enabled)
         self.silhouette_check.blockSignals(False)
+        self.silhouette_check.setText("On" if enabled else "Off")
         raw = max(2, min(80, int(round(width * 10))))
-        self.silhouette_width.set_value(raw)
+        self._set_slider_silent(self.silhouette_width, raw)
 
     def _set_selection_transparency(self, percent):
         self.selection_transparency.set_value(int(percent))
         self._schedule_apply("selection")
 
     def _reset_cartoon(self):
-        for slider, value in (
-            (self.protein_width, 20),
-            (self.protein_thickness, 4),
-            (self.helix_width, 20),
-            (self.helix_thickness, 4),
-            (self.strand_width, 20),
-            (self.strand_thickness, 4),
+        for target, width, thickness in (
+            ("protein", self.protein_width, self.protein_thickness),
+            ("helix", self.helix_width, self.helix_thickness),
+            ("strand", self.strand_width, self.strand_thickness),
         ):
-            slider.set_value(value)
-        for command in (
-            "cartoon style protein width 2.0 thickness 0.4",
-            "cartoon style helix width 2.0 thickness 0.4",
-            "cartoon style strand width 2.0 thickness 0.4",
-        ):
-            _run(self.session, command)
-        self.status_label.setText("Cartoon width/thickness reset to ChimeraX defaults.")
+            self._set_slider_silent(width, 20)
+            self._set_slider_silent(thickness, 4)
+            self._apply_cartoon_style(target, width, thickness)
+        self.refresh()
 
     def refresh(self):
-        if _has_selection(self.session):
-            self.status_label.setText("Selection ready. Sel trans applies to atoms, cartoons, surfaces, bonds, and pseudobonds.")
-        else:
-            self.status_label.setText("No selection. Select residues/atoms/models to use Sel trans.")
-        # Sync sliders + checkboxes with the SCENE state of the new scope so
-        # the user always sees the actual current transparency / visibility
-        # rather than whatever was last typed into the slider.
+        if self._closed:
+            return
+        self._syncing = True
         try:
+            selected = _has_selection(self.session)
+            atoms = self._scope_atoms()
+            count = len(atoms) if atoms is not None else 0
+            spec = self._concrete_selection_spec() if selected else None
+            groups = list(atoms.unique_residues.by_chain) if count else []
+            if selected:
+                parts = [f"#{m.id_string} / {chain or '—'}" for m, chain, _ in groups]
+                heading = "  ·  ".join(parts[:2]) or "Selection"
+                if len(parts) > 2:
+                    heading += f"  +{len(parts) - 2}"
+                self.scope_mode_label.setText("CURRENT SELECTION")
+            else:
+                heading = "All structures" if count else "Nothing open yet"
+                self.scope_mode_label.setText("SCENE")
+            self.scope_label.setText(heading)
+            residues = len(atoms.unique_residues) if count else 0
+            self.scope_detail_label.setText(
+                f"{len(groups):,} chains  ·  {residues:,} residues  ·  {count:,} atoms" if count else
+                "Open a structure to start editing its appearance.")
+            self.scope_label.setToolTip(spec or "Layer controls apply to all structures when nothing is selected.")
+            self.layer_scope_label.setText("Selection · transparency" if selected else "All structures · transparency")
+            self.status_label.setText("")
+            self.selection_transparency.setEnabled(selected and count > 0)
+            self.clear_transparency_button.setEnabled(selected and count > 0)
             self._sync_selection_transparency_from_scene()
             self._sync_layer_state_from_scene()
-        except Exception:
-            pass
-
-    # ------------------------------------------------------------------
-    # State-sync helpers: read the CURRENT scene state (Atom/Residue/
-    # Surface attributes) and push it into the slider/checkbox widgets so
-    # they reflect reality. Slider signals are blocked while we set
-    # values so this doesn't re-fire the apply pipeline.
-    # ------------------------------------------------------------------
+            self._sync_layer_labels(atoms)
+            self._sync_color_from_scene()
+            self._sync_cartoon_from_scene()
+            self._sync_silhouette_state()
+        finally:
+            self._syncing = False
 
     @staticmethod
     def _alpha_to_percent(alpha_0_to_255):
-        try:
-            return int(round(100 * (255 - float(alpha_0_to_255)) / 255))
-        except Exception:
-            return 0
+        return int(round(100 * (255 - float(alpha_0_to_255)) / 255))
 
-    def _set_slider_silent(self, slider_block, percent):
+    @staticmethod
+    def _set_widget_silent(widget, value):
+        blocked = widget.blockSignals(True)
         try:
-            inner = slider_block.slider
-        except Exception:
-            return
-        try:
-            inner.blockSignals(True)
-            slider_block.set_value(max(0, min(100, int(percent))))
+            widget.setValue(value)
         finally:
-            try:
-                inner.blockSignals(False)
-            except Exception:
-                pass
-        try:
+            widget.blockSignals(blocked)
+
+    def _set_slider_silent(self, slider_block, value):
+        self._set_widget_silent(slider_block.slider, int(value))
+        # Blocking slider signals also blocks the slider -> spinbox connection.
+        # Update both explicitly, including scaled Å / px input fields.
+        if slider_block._editable:
+            scaled = slider_block.value() * slider_block._scale
+            self._set_widget_silent(slider_block.value_label,
+                                    scaled if slider_block._decimals else int(scaled))
+        else:
             slider_block.refresh_label()
-        except Exception:
-            pass
+
+    def _sync_color_from_scene(self):
+        import numpy as np
+        all_models = self.color_scope_combo.currentData() == "all"
+        atoms = self._scope_atoms(all_models=all_models) if all_models or _has_selection(self.session) else None
+        target = self.color_target_combo.currentData()
+        # A surface/volume model can be a valid native color target even when
+        # there are no atomic colors to preview. Only an empty scope is disabled.
+        has_models = bool(self.session.models.list())
+        has_target = has_models if all_models else _has_selection(self.session)
+        empty_hint = ("Open a structure to color its atoms, cartoon or surface." if not has_models else
+                      "Select atoms, residues or a model, or choose All models in Color scope.")
+        for widget in (self.color_hex_edit, self.pick_color_button, self.apply_color_button,
+                       self.by_chain_button, self.by_element_button, self.by_model_button):
+            widget.setEnabled(has_target)
+            widget.setToolTip("Apply color to the chosen scope and representation." if has_target else empty_hint)
+        self.color_scope_combo.setToolTip(
+            "Color scope is independent of the layer controls below." if has_target else empty_hint)
+        colors = []
+        if atoms is not None and len(atoms):
+            if target in ("c", "abcsp"):
+                residues = atoms.unique_residues
+                colors.extend(residues.ribbon_colors[residues.ribbon_displays])
+            if target in ("s", "abcsp"):
+                for surf, mask in self._scope_surfaces(atoms):
+                    if surf.display:
+                        vc = surf.vertex_colors
+                        colors.extend(vc[mask] if vc is not None else [surf.color])
+            if target in ("ab", "abcsp"):
+                colors.extend(atoms.colors if target == "ab" else atoms.colors[atoms.displays])
+            if target == "m":
+                colors.extend(m.color for m in atoms.unique_structures if m.color is not None)
+            if not len(colors) and target == "abcsp":
+                colors = atoms.colors
+        valid = len(colors) > 0
+        for widget in (self.rainbow_ramp, self.saturation_slider, self.saturation_value_label,
+                       self.color_transparency_slider, self.color_transparency_value_label):
+            widget.setEnabled(valid)
+        if not valid:
+            for widget in (self.color_transparency_slider, self.color_transparency_value_label,
+                           self.saturation_slider, self.saturation_value_label):
+                self._set_widget_silent(widget, 0)
+            self.color_hex_edit.clear()
+            self.color_hex_edit.setPlaceholderText(
+                "No color" if has_target else "Select first" if has_models else "Open model")
+            self.color_hex_edit.setToolTip(
+                "No displayed color in this representation. Enter a color or use Pick to color the target."
+                if has_target else empty_hint)
+            self.color_preview.set_colors([])
+            self.color_name_label.setText("No displayed color in this representation" if has_target else empty_hint)
+            self.color_preview.setToolTip(self.color_name_label.text())
+            return
+        colors = np.asarray(colors)
+        unique, counts = np.unique(colors[:, :3], axis=0, return_counts=True)
+        rgb = unique[counts.argmax()]
+        color = QColor(*(int(c) for c in rgb))
+        mixed = len(unique) > 1
+        self.color_preview.set_colors(unique[counts.argsort()[::-1][:8]])
+        self.color_name_label.setText(f"{len(unique):,} colors in this target" if mixed else color.name().upper())
+        self.color_preview.setToolTip(self.color_name_label.text())
+        self.color_hex_edit.setText("" if mixed else color.name())
+        self.color_hex_edit.setPlaceholderText("Mixed" if mixed else "#RRGGBB")
+        self.color_hex_edit.setToolTip("Multiple colors. Pick a color to replace them." if mixed else color.name())
+        self.rainbow_ramp._hue = max(0.0, color.hsvHueF())
+        self.rainbow_ramp._saturation = color.hsvSaturationF()
+        self.rainbow_ramp._value = color.valueF()
+        self.rainbow_ramp.update()
+        saturation = round(color.hsvSaturationF() * 100)
+        for widget in (self.saturation_slider, self.saturation_value_label):
+            self._set_widget_silent(widget, saturation)
+        percent = self._alpha_to_percent(np.mean(colors[:, 3]))
+        for widget in (self.color_transparency_slider, self.color_transparency_value_label):
+            self._set_widget_silent(widget, percent)
+            widget.setToolTip("Average transparency across the current color target.")
+
+    def _sync_cartoon_from_scene(self):
+        atoms = self._scope_atoms()
+        structures = atoms.unique_structures if atoms is not None and len(atoms) else []
+        for group, label, key, width, thickness in (
+            ("helix", "Helix", "scale_helix", self.helix_width, self.helix_thickness),
+            ("strand", "Sheet", "scale_sheet", self.strand_width, self.strand_thickness),
+            ("protein", "Protein", "scale_helix", self.protein_width, self.protein_thickness),
+        ):
+            values = [getattr(m.ribbon_xs_mgr, key) for m in structures]
+            if group == "protein":
+                values += [m.ribbon_xs_mgr.scale_sheet for m in structures]
+            any_mixed = False
+            for index, block in enumerate((width, thickness)):
+                block.setEnabled(bool(values))
+                if values:
+                    self._set_slider_silent(block, round(values[0][index] * 20))
+                    mixed = any(v[index] != values[0][index] for v in values)
+                    any_mixed |= mixed
+                    block.setToolTip("Mixed dimensions; showing the first value." if mixed else
+                                     "Dimensions apply to entire models in the current scope.")
+                else:
+                    self._set_slider_silent(block, block.slider.minimum())
+            self._geometry_titles[group].setText(label + (" *" if any_mixed else ""))
 
     def _set_check_silent(self, check, on):
         try:
             check.blockSignals(True)
             check.setChecked(bool(on))
+            if isinstance(check, QPushButton):
+                check.setText("Shown" if on else "Hidden")
         finally:
             try:
                 check.blockSignals(False)
             except Exception:
                 pass
 
-    def _scope_atoms(self):
+    def _sync_layer_labels(self, atoms):
+        import numpy as np
+        available = atoms is not None and len(atoms) > 0
+        descriptions = {"cartoon": "Backbone ribbon", "surface": "Molecular envelope", "atoms": "Atomic detail"}
+        for key in descriptions:
+            check = getattr(self, key + "_visible_check")
+            slider = getattr(self, key + "_transparency")
+            check.setEnabled(available)
+            slider.setEnabled(available)
+            slider.value_label.setPrefix("")
+            getattr(self, key + "_state_label").setText(descriptions[key] if available else "No atoms in this target")
+        if not available:
+            self._set_slider_silent(self.selection_transparency, 0)
+            return
+        for key, flags, alphas in (
+            ("atoms", atoms.displays, atoms.colors[:, 3]),
+            ("cartoon", atoms.unique_residues.ribbon_displays, atoms.unique_residues.ribbon_colors[:, 3]),
+        ):
+            check = getattr(self, key + "_visible_check")
+            if flags.any() and not flags.all():
+                check.setText("Mixed")
+                check.setToolTip("Some are shown. Click to hide all in this target.")
+            else:
+                check.setToolTip("Toggle visibility for this target.")
+            if len(alphas) and np.min(alphas) != np.max(alphas):
+                getattr(self, key + "_state_label").setText("Mixed transparency · average shown")
+                getattr(self, key + "_transparency").value_label.setPrefix("~")
+                getattr(self, key + "_transparency").setToolTip("Mixed transparency; the average is shown.")
+        surface_alphas = []
+        for surf, mask in self._scope_surfaces(atoms):
+            colors = surf.vertex_colors
+            surface_alphas.extend(np.unique(colors[mask, 3]) if colors is not None else [surf.color[3]])
+        if len(set(surface_alphas)) > 1:
+            self.surface_state_label.setText("Mixed transparency · average shown")
+            self.surface_transparency.value_label.setPrefix("~")
+            self.surface_transparency.setToolTip("Mixed transparency; the average is shown.")
+
+    def _scope_atoms(self, all_models=False):
         """Atoms collection to read state from: current selection if any,
         else every loaded atomic structure."""
         try:
@@ -1286,10 +1206,13 @@ class DisplayControlsWidget(QWidget):
         except Exception:
             return None
         try:
-            if _has_selection(self.session):
+            if not all_models and _has_selection(self.session):
                 atoms = selected_atoms(self.session)
                 if atoms is not None and len(atoms) > 0:
                     return atoms
+                models = self.session.selection.models()
+                from chimerax.atomic import concatenate, Atoms
+                return concatenate([m.atoms for m in models if hasattr(m, "atoms")], Atoms)
         except Exception:
             pass
         try:
@@ -1299,23 +1222,24 @@ class DisplayControlsWidget(QWidget):
         if not structures:
             return None
         try:
-            from chimerax.atomic import Atoms
+            from chimerax.atomic import concatenate
 
             atom_arrays = [s.atoms for s in structures if getattr(s, "atoms", None) is not None]
             if not atom_arrays:
                 return None
-            return Atoms.concatenate(atom_arrays) if len(atom_arrays) > 1 else atom_arrays[0]
+            return concatenate(atom_arrays) if len(atom_arrays) > 1 else atom_arrays[0]
         except Exception:
             return None
 
     def _sync_selection_transparency_from_scene(self):
         if not _has_selection(self.session):
+            self._set_slider_silent(self.selection_transparency, 0)
             return
         try:
             from chimerax.atomic import selected_atoms
             import numpy as np
 
-            atoms = selected_atoms(self.session)
+            atoms = self._scope_atoms()
             if atoms is None or len(atoms) == 0:
                 return
             avg = float(np.mean(atoms.colors[:, 3]))
@@ -1334,6 +1258,9 @@ class DisplayControlsWidget(QWidget):
             return  # UI not built yet
         atoms = self._scope_atoms()
         if atoms is None or len(atoms) == 0:
+            for name in ("cartoon", "surface", "atoms"):
+                self._set_slider_silent(getattr(self, name + "_transparency"), 0)
+                self._set_check_silent(getattr(self, name + "_visible_check"), False)
             return
         try:
             import numpy as np
@@ -1382,71 +1309,51 @@ class DisplayControlsWidget(QWidget):
             except Exception:
                 pass
 
-        # --- Surface (per-structure MolecularSurface child models) ---
-        try:
-            structures = atoms.unique_structures
-        except Exception:
-            structures = []
-        surf_alpha, surf_visible = self._aggregate_surface_state(structures)
-        if surf_alpha is not None:
-            self._set_slider_silent(
-                self.surface_transparency, self._alpha_to_percent(surf_alpha)
-            )
-        if surf_visible is not None:
-            self._set_check_silent(self.surface_visible_check, surf_visible)
+        alpha, visible = self._aggregate_surface_state(atoms)
+        self._set_slider_silent(self.surface_transparency, self._alpha_to_percent(alpha))
+        self._set_check_silent(self.surface_visible_check, visible)
 
-    def _aggregate_surface_state(self, structures):
-        """Walk MolecularSurface children for the given structures and
-        compute (average alpha, any visible). Returns (None, None) if no
-        molecular surface exists at all."""
-        try:
-            from chimerax.atomic import MolecularSurface
-        except Exception:
-            return None, None
-        total_alpha = 0.0
-        total_n = 0
-        any_visible = False
-        surf_seen = False
-        for structure in structures:
-            try:
-                children = list(structure.child_models())
-            except Exception:
-                children = []
-            for surf in children:
-                if not isinstance(surf, MolecularSurface):
+    def _scope_surfaces(self, atoms):
+        from chimerax.atomic import MolecularSurface
+        for structure in atoms.unique_structures:
+            for surf in structure.child_models():
+                if not isinstance(surf, MolecularSurface) or surf.vertices is None:
                     continue
-                surf_seen = True
-                try:
-                    if surf.display:
-                        any_visible = True
-                except Exception:
-                    pass
-                try:
-                    colors = surf.vertex_colors
-                    if colors is not None and len(colors) > 0:
-                        total_alpha += float(colors[:, 3].sum())
-                        total_n += len(colors)
-                        continue
-                except Exception:
-                    pass
-                try:
-                    single = surf.single_color
-                    if single is not None:
-                        total_alpha += float(single[3])
-                        total_n += 1
-                except Exception:
-                    pass
-        if not surf_seen:
-            return None, None
-        avg = (total_alpha / total_n) if total_n else None
-        return avg, any_visible
+                if not surf.atoms.mask(atoms).any():
+                    continue
+                mask, _ = surf._vertices_for_atoms(atoms)
+                if mask is not None:
+                    yield surf, mask
+
+    def _aggregate_surface_state(self, atoms):
+        import numpy as np
+        total_alpha = total_n = 0
+        visible = False
+        for surf, mask in self._scope_surfaces(atoms):
+            if surf.display:
+                triangles = surf.triangles
+                vmask = np.zeros(len(surf.vertices), dtype=bool)
+                vmask[mask] = True
+                tmask = vmask[triangles].any(axis=1)
+                if surf.triangle_mask is not None:
+                    tmask &= surf.triangle_mask
+                visible |= bool(tmask.any())
+            colors = surf.vertex_colors
+            if colors is not None:
+                alpha = colors[mask, 3]
+                total_alpha += float(alpha.sum())
+                total_n += len(alpha)
+            else:
+                total_alpha += float(surf.color[3])
+                total_n += 1
+        return (total_alpha / total_n if total_n else 255), visible
 
 
 class CodexDisplayControls(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 18
+    UI_LAYOUT_VERSION = 24
     help = "help:user/tools/codex_assistant.html"
 
     @classmethod
@@ -1494,10 +1401,5 @@ class CodexDisplayControls(ToolInstance):
     def delete(self):
         widget = getattr(self, "widget", None)
         if widget is not None:
-            for handler in list(getattr(widget, "_handlers", [])):
-                try:
-                    self.session.triggers.remove_handler(handler)
-                except Exception:
-                    pass
-            widget._handlers = []
+            widget.cleanup()
         super().delete()

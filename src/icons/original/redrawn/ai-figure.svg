@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Compose a scientific figure</title>
+  <desc id="desc">A folded silver-white figure sheet organizes blue, violet and green molecular panels beside an amber plot.</desc>
+  <defs>
+    <linearGradient id="paper" x1="29" y1="17" x2="103" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFF"/><stop offset=".55" stop-color="#EDF3F7"/><stop offset="1" stop-color="#C5D3DF"/></linearGradient>
+    <linearGradient id="fold" x1="86" y1="17" x2="107" y2="42" gradientUnits="userSpaceOnUse"><stop stop-color="#DDE7EF"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+    <linearGradient id="blue" x1="27" y1="33" x2="57" y2="63" gradientUnits="userSpaceOnUse"><stop stop-color="#82AEEA"/><stop offset="1" stop-color="#486DB3"/></linearGradient>
+    <linearGradient id="violet" x1="74" y1="40" x2="98" y2="62" gradientUnits="userSpaceOnUse"><stop stop-color="#C2B6E7"/><stop offset="1" stop-color="#8272AE"/></linearGradient>
+    <linearGradient id="green" x1="28" y1="75" x2="55" y2="102" gradientUnits="userSpaceOnUse"><stop stop-color="#B5DCCA"/><stop offset=".4" stop-color="#91C9AF"/><stop offset="1" stop-color="#438C79"/></linearGradient>
+  </defs>
+  <g stroke="#253544" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 17H86L110 41V108Q110 112 106 112H22Q18 112 18 108V22Q18 17 19 17Z" fill="url(#paper)" stroke-width="4.5"/>
+    <path d="M86 17V36Q86 41 91 41H110" fill="url(#fold)" stroke-width="3.5"/>
+    <path d="M63 31V102M28 68H100" fill="none" stroke="#8195A6" stroke-width="3"/>
+    <path d="M29 54C36 35 45 32 54 40L50 49C43 41 38 52 35 60Z" fill="url(#blue)" stroke-width="3.5"/>
+    <path d="M32 57C40 61 48 56 55 50" fill="none" stroke="#65BDD0" stroke-width="4"/>
+    <path d="M73 55 83 48 96 55" fill="none" stroke-width="3.5"/>
+    <circle cx="74" cy="55" r="5.5" fill="url(#violet)" stroke-width="3.5"/>
+    <circle cx="94" cy="55" r="5.5" fill="url(#violet)" stroke-width="3.5"/>
+    <path d="M29 86C28 77 41 73 47 79 57 79 57 93 50 97 41 104 28 97 29 86Z" fill="url(#green)" stroke-width="3.5"/>
+    <path d="M72 78V100H99" fill="none" stroke="#8195A6" stroke-width="3"/>
+    <path d="M76 95C81 93 81 81 87 82S93 93 100 84" fill="none" stroke="#C58A32" stroke-width="4"/>
+    <circle cx="87" cy="83" r="4" fill="#EC9D92" stroke-width="3"/>
+    <path d="M24 25V105" fill="none" stroke="#FFFFFF" stroke-width="2" opacity=".8"/>
+  </g>
+</svg>

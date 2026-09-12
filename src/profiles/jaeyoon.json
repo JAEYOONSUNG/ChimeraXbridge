@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "name": "jaeyoon",
+  "title": "JaeYoon's molecular workspace",
+  "description": "Original icons, a tabbed sidebar, readable sequences, and transparent PNG export. Image dimensions use your own graphics viewport.",
+  "settings": {
+    "toolbar": {"style": "original"},
+    "panels": {"mode": "tabs"},
+    "sequence": {"aa_charge": false, "nucleotides": true, "base_palette": "muted"},
+    "image_export": {"format": "PNG", "width": 0, "height": 0, "dpi": 300, "lock_ratio": true, "transparent": true},
+    "bookmarks": {"camera": true, "visibility": true, "colors": true, "lighting": true, "selection": false}
+  },
+  "ui": {"sequence_visible": true, "all_chains": true}
+}

@@ -3,26 +3,19 @@ from urllib.request import Request, urlopen
 
 
 _LOG_FONT_PATCH_VERSION = 1
-_AI_TOOLBAR_STYLE_VERSION = 20
+_AI_TOOLBAR_STYLE_VERSION = 24
 _MODEL_PANEL_ID_REORDER_PATCH_VERSION = 2
-# Uniform geometry across the entire AI tab. Every button is forced to the
-# same icon size, button width, AND button height so:
-#   - the inter-icon horizontal rhythm is identical in every section, and
-#   - the label baseline lands at the same Y in every button (QToolButton
-#     centres the icon+text block vertically inside the button, so equal
-#     icon size + equal button height = labels on the same baseline).
-#
-# Tightened from 34/56 to 30/48 because Quick-section SVGs carry generous
-# internal margins (visible icon is ~24px of a 30px box), which made the
-# inter-icon gap feel wider than in Sequence/Modeling where the icons fill
-# more of their box. 9pt font keeps the longest labels (AlphaFold, PyRosetta,
-# HPEPDOCK) inside 48px without clipping.
-_AI_ICON_PX = 30
-_AI_BUTTON_W = 46
-_AI_BUTTON_H = 64
-_AI_FONT_PT = 9
+# Keep artwork and label baselines consistent; long names get enough width
+# instead of clipping into the next tool. Section overflow remains native Qt.
+_AI_ICON_PX = 28
+_AI_BUTTON_W = 48
+_AI_BUTTON_H = 60
+_AI_FONT_PX = 11
+_AI_SECTION_TOP_PX = 6
+_AI_SECTION_BOTTOM_PX = 3
 
 _AI_TOOLBAR_BUTTON_TITLES = {
+    "Icons", "Original icons", "New SVG icons",
     "Analyze",
     "View",
     "Site",
@@ -72,6 +65,8 @@ _AI_TOOLBAR_BUTTON_TITLES = {
 }
 
 _AI_TOOLBAR_DISPLAY_TEXT = {
+    "Original icons": "Original\nicons",
+    "New SVG icons": "New SVG\nicons",
     "AF Complex": "AF\nComplex",
     "Action Pad": "Action\nPad",
     "Display Ctrl": "Display\nCtrl",
@@ -118,6 +113,7 @@ def apply_runtime_patches(session):
     _relax_codex_dock_widths(session)
     _patch_tabbedtoolbar_section()
     _patch_model_panel_id_reorder(session)
+    _patch_model_panel_ui(session)
     try:
         from .auto_reload import install_auto_reload_watcher
 
@@ -128,6 +124,50 @@ def apply_runtime_patches(session):
         return
     session._codex_bridge_runtime_patches_applied = True
     _patch_blastprotein_pdbinfo()
+
+
+def _patch_model_panel_ui(session):
+    from chimerax.model_panel.tool import ModelPanel
+    from .ui_theme import style_model_panel, update_model_panel_columns
+
+    if getattr(ModelPanel, "_codex_compact_ui_patched", 0) != 2:
+        original_init = getattr(ModelPanel, "_codex_compact_original_init", ModelPanel.__init__)
+        original_fill = getattr(ModelPanel, "_codex_compact_original_fill", ModelPanel._fill_tree)
+
+        def initialize(panel, *args, **kwargs):
+            original_init(panel, *args, **kwargs)
+            from .ui_theme import style_model_panel
+            style_model_panel(panel)
+
+        def fill(panel, *args, **kwargs):
+            selected = {getattr(item, "_model", None) for item in panel.tree.selectedItems()}
+            current = getattr(panel.tree.currentItem(), "_model", None)
+            result = original_fill(panel, *args, **kwargs)
+            if getattr(panel, "_codex_compact_models_layout", False):
+                # Native full rebuilds retain expansion but drop highlighted
+                # rows. Preserve model identity through delayed frame refreshes.
+                from Qt.QtCore import QSignalBlocker, QItemSelectionModel
+                from .ui_theme import update_model_panel_columns
+                blocker = QSignalBlocker(panel.tree)
+                for item in panel._items:
+                    model = getattr(item, "_model", None)
+                    if model is not None and model in selected:
+                        item.setSelected(True)
+                    if model is not None and model is current:
+                        panel.tree.setCurrentItem(item, 0, QItemSelectionModel.SelectionFlag.NoUpdate)
+                del blocker
+                update_model_panel_columns(panel)
+            return result
+
+        ModelPanel.__init__ = initialize
+        ModelPanel._fill_tree = fill
+        ModelPanel._codex_compact_original_init = original_init
+        ModelPanel._codex_compact_original_fill = original_fill
+        ModelPanel._codex_compact_ui_patched = 2
+    tools = getattr(session, "tools", None)
+    for tool in tools.list() if tools is not None else ():
+        if isinstance(tool, ModelPanel):
+            style_model_panel(tool)
 
 
 def _patch_model_panel_id_reorder(session=None):
@@ -325,78 +365,47 @@ def _relax_codex_dock_widths(session):
 
 
 def _style_ai_button_widget(button):
-    """Force uniform icon size + button width on an AI-tab QToolButton.
+    """Shared toolbar/overflow geometry, measured using the actual label font."""
+    from Qt.QtCore import QSize, Qt
+    from Qt.QtGui import QFont, QFontMetrics
+    from Qt.QtWidgets import QSizePolicy
 
-    Two reasons we override:
-      - Modeling icons are a mix of PNG (small native) and SVG (vector). Qt
-        renders PNGs at their native size unless we set iconSize explicitly,
-        so the section looks ragged. _AI_ICON_PX makes every icon land at the
-        same pixel size.
-      - Long labels ("AF Complex", "AlphaFold", "HPEPDOCK") naturally produce
-        wide buttons while short labels ("Boltz", "MLP") produce narrow ones.
-        Adjacent buttons end up with visibly different inter-icon gaps. A
-        uniform minimum width fixes the spacing rhythm; the maximum lets
-        especially-long labels grow if they truly need it.
-    """
-    try:
-        from Qt.QtCore import QSize, Qt
-        from Qt.QtWidgets import QSizePolicy
-    except Exception:
-        return
-    try:
-        title = " ".join(str(button.text() or "").split())
-    except Exception:
-        return
+    title = " ".join(str(button.text() or "").split())
     if title not in _AI_TOOLBAR_BUTTON_TITLES:
         return
-    try:
-        display_text = _AI_TOOLBAR_DISPLAY_TEXT.get(title, title)
-        if str(button.text() or "") != display_text:
-            button.setText(display_text)
-        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-        button.setIconSize(QSize(_AI_ICON_PX, _AI_ICON_PX))
-        button.setFixedSize(_AI_BUTTON_W, _AI_BUTTON_H)
-        fixed_policy = _fixed_size_policy(QSizePolicy)
-        button.setSizePolicy(fixed_policy, fixed_policy)
-        button.setMinimumWidth(_AI_BUTTON_W)
-        button.setMaximumWidth(_AI_BUTTON_W)
-        button.setMinimumHeight(_AI_BUTTON_H)
-        button.setMaximumHeight(_AI_BUTTON_H)
-        font = button.font()
-        font.setPointSize(_AI_FONT_PT)
-        try:
-            font.setWeight(500)
-        except Exception:
-            from Qt.QtGui import QFont
-
-            font.setWeight(QFont.Weight.Medium)
-        button.setFont(font)
-        # The QSS width clamps are a belt-and-braces backup to setMinimumWidth
-        # / setMaximumWidth: some Qt styles ignore the C++ size hints when
-        # computing column widths inside a QGridLayout, but they always honour
-        # the QSS min-width / max-width.
-        button.setStyleSheet(
-            "QToolButton {"
-            f" min-width: {_AI_BUTTON_W}px;"
-            f" max-width: {_AI_BUTTON_W}px;"
-            f" min-height: {_AI_BUTTON_H}px;"
-            f" max-height: {_AI_BUTTON_H}px;"
-            " padding: 0px;"
-            " margin: 0px;"
-            " text-align: center;"
-            "}"
-            "QToolButton::menu-indicator { image: none; width: 0px; }"
-        )
-        try:
-            button.updateGeometry()
-            parent = button.parentWidget()
-            if parent is not None and parent.layout() is not None:
-                parent.layout().invalidate()
-        except Exception:
-            pass
-        button.setProperty("codexToolbarStyled", _AI_TOOLBAR_STYLE_VERSION)
-    except Exception:
-        pass
+    display_text = _AI_TOOLBAR_DISPLAY_TEXT.get(title, title)
+    # Qt centers the combined icon/label block. Reserve the same two text
+    # lines on every button so single-line labels cannot lower their icons.
+    if "\n" not in display_text:
+        display_text += "\n "
+    button.setText(display_text)
+    button.setAccessibleName(title)
+    button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+    button.setIconSize(QSize(_AI_ICON_PX, _AI_ICON_PX))
+    font = button.font()
+    font.setPixelSize(_AI_FONT_PX)
+    font.setWeight(QFont.Weight.Medium)
+    button.setFont(font)
+    metrics = QFontMetrics(font)
+    width = max(_AI_BUTTON_W, max(metrics.horizontalAdvance(line) for line in display_text.splitlines()) + 12)
+    if title in {"Icons", "Original icons", "New SVG icons"}:
+        width = max(width, 72)
+    button.setFixedSize(width, _AI_BUTTON_H)
+    button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+    button.setStyleSheet(
+        "QToolButton {"
+        f"min-width: {width}px; max-width: {width}px;"
+        f"min-height: {_AI_BUTTON_H}px; max-height: {_AI_BUTTON_H}px;"
+        "padding: 0; margin: 0; border: none; border-radius: 4px;"
+        "background: transparent; color: palette(button-text); }"
+        "QToolButton:hover { background: palette(midlight); }"
+        "QToolButton:pressed { background: palette(mid); }"
+        "QToolButton:checked { background: palette(midlight); }"
+        "QToolButton:focus { border: 1px solid palette(highlight); }"
+        "QToolButton::menu-indicator { image: none; width: 0; }"
+    )
+    button.setProperty("codexToolbarStyled", _AI_TOOLBAR_STYLE_VERSION)
+    button.updateGeometry()
 
 
 def _style_ai_section_label(label):
@@ -408,7 +417,7 @@ def _style_ai_section_label(label):
         label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
         label.setMinimumHeight(18)
         font = label.font()
-        font.setPointSize(11)
+        font.setPixelSize(11)
         try:
             font.setWeight(600)
         except Exception:
@@ -418,6 +427,20 @@ def _style_ai_section_label(label):
         label.setFont(font)
     except Exception:
         pass
+
+
+def _style_ai_section_widget(widget):
+    """Leave a little space above the artwork and below the section title."""
+    layout = widget.layout()
+    if layout is None:
+        return
+    margins = layout.contentsMargins()
+    layout.setContentsMargins(
+        margins.left(), _AI_SECTION_TOP_PX,
+        margins.right(), _AI_SECTION_BOTTOM_PX,
+    )
+    layout.invalidate()
+    widget.updateGeometry()
 
 
 def _patch_tabbedtoolbar_section():
@@ -453,6 +476,7 @@ def _patch_tabbedtoolbar_section():
 
                 for button in widget.findChildren(QToolButton):
                     _style_ai_button_widget(button)
+                _style_ai_section_widget(widget)
                 for label in widget.findChildren(QLabel):
                     try:
                         label_text = str(label.text() or "").strip()
@@ -462,6 +486,8 @@ def _patch_tabbedtoolbar_section():
                         _style_ai_section_label(label)
         except Exception:
             pass
+        from .icon_theme import style_section_theme
+        style_section_theme(self, widget)
         return widget
 
     section_cls.createWidget = patched_create_widget
@@ -487,88 +513,22 @@ def style_ai_toolbar(session):
     if ttb is None:
         return
 
+    from .icon_theme import apply_icon_theme
+    apply_icon_theme(session, ttb)
+
     for button in ttb.findChildren(QToolButton):
-        try:
-            title = " ".join(str(button.text() or "").split())
-        except Exception:
-            continue
-        if title not in _AI_TOOLBAR_BUTTON_TITLES:
-            continue
-        try:
-            display_text = _AI_TOOLBAR_DISPLAY_TEXT.get(title, title)
-            if str(button.text() or "") != display_text:
-                button.setText(display_text)
-            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-            button.setIconSize(QSize(_AI_ICON_PX, _AI_ICON_PX))
-            # Uniform width + height so every AI-tab button is geometrically
-            # identical: same inter-icon horizontal gap across every section,
-            # same label baseline across every button. Multi-word labels
-            # ("AF Complex", "Action Pad") still wrap onto two lines via
-            # tabbedtoolbar.split_title() because we set a sufficient height.
-            button.setFixedSize(_AI_BUTTON_W, _AI_BUTTON_H)
-            fixed_policy = _fixed_size_policy(QSizePolicy)
-            button.setSizePolicy(fixed_policy, fixed_policy)
-            button.setMinimumWidth(_AI_BUTTON_W)
-            button.setMaximumWidth(_AI_BUTTON_W)
-            button.setMinimumHeight(_AI_BUTTON_H)
-            button.setMaximumHeight(_AI_BUTTON_H)
-            font = button.font()
-            font.setPointSize(_AI_FONT_PT)
-            try:
-                font.setWeight(500)
-            except Exception:
-                from Qt.QtGui import QFont
-
-                font.setWeight(QFont.Weight.Medium)
-            button.setFont(font)
-            # QSS clamps mirror the C++ size hints. Some Qt styles compute
-            # column widths from the QSS first and ignore the C++ min/max
-            # entirely -- this redundancy keeps the AI tab uniform regardless
-            # of the active QStyle.
-            button.setStyleSheet(
-                "QToolButton {"
-                f" min-width: {_AI_BUTTON_W}px;"
-                f" max-width: {_AI_BUTTON_W}px;"
-                f" min-height: {_AI_BUTTON_H}px;"
-                f" max-height: {_AI_BUTTON_H}px;"
-                " padding: 0px;"
-                " margin: 0px;"
-                " text-align: center;"
-                "}"
-                "QToolButton::menu-indicator { image: none; width: 0px; }"
-            )
-            try:
-                button.updateGeometry()
-                parent = button.parentWidget()
-                if parent is not None and parent.layout() is not None:
-                    parent.layout().invalidate()
-            except Exception:
-                pass
-            button.setProperty("codexToolbarStyled", _AI_TOOLBAR_STYLE_VERSION)
-        except Exception:
-            pass
-
+        _style_ai_button_widget(button)
     for label in ttb.findChildren(QLabel):
-        try:
-            title = str(label.text() or "").strip()
-        except Exception:
+        if str(label.text() or "").strip() in _AI_TOOLBAR_SECTION_TITLES:
+            _style_ai_section_label(label)
+    for tab, sections in getattr(ttb, "_buttons", {}).items():
+        if tab not in {"AI", "Molecule Display", "Nucleotides"}:
             continue
-        if title not in _AI_TOOLBAR_SECTION_TITLES:
-            continue
-        try:
-            label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-            label.setMinimumHeight(18)
-            font = label.font()
-            font.setPointSize(11)
-            try:
-                font.setWeight(600)
-            except Exception:
-                from Qt.QtGui import QFont
-
-                font.setWeight(QFont.Weight.DemiBold)
-            label.setFont(font)
-        except Exception:
-            pass
+        for title, section in sections.items():
+            if title not in _AI_TOOLBAR_SECTION_TITLES or not hasattr(section, "createdWidgets"):
+                continue
+            for widget in section.createdWidgets():
+                _style_ai_section_widget(widget)
 
     try:
         from Qt.QtWidgets import QWidget
@@ -605,7 +565,7 @@ def style_ai_toolbar(session):
                     rapidock_button.setMaximumWidth(_AI_BUTTON_W)
                     rapidock_button.setMinimumHeight(_AI_BUTTON_H)
                     rapidock_button.setMaximumHeight(_AI_BUTTON_H)
-                    rapidock_button.setProperty("codexToolbarStyled", _AI_TOOLBAR_STYLE_VERSION)
+                    _style_ai_button_widget(rapidock_button)
                     try:
                         from .toolbar_actions import _prompt_peptide_sequence, launch_rapidock_prediction
 

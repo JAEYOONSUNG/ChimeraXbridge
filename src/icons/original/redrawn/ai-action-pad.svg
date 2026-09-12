@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <title>Action Pad</title>
+  <desc>A bracketed set of metallic command rows ends in a raised amber execute arrow.</desc>
+  <defs>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F4F8FC"/><stop offset=".4" stop-color="#DDE7EF"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF0C6"/><stop offset=".4" stop-color="#F6CB72"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+  </defs>
+  <g stroke="#253544" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 17H17V110H32" stroke="#DDE7EF" stroke-width="8"/>
+    <path d="M32 17H17V110H32" stroke="#253544" stroke-width="4"/>
+    <path d="M42 20H109" stroke="#253544" stroke-width="9"/>
+    <path d="M42 20H109" stroke="url(#amber)" stroke-width="4"/>
+    <circle cx="31" cy="44" r="6.5" fill="url(#amber)"/>
+    <circle cx="31" cy="69" r="6.5" fill="url(#silver)"/>
+    <circle cx="31" cy="94" r="6.5" fill="url(#silver)"/>
+    <rect x="47" y="38" width="62" height="12" rx="4" fill="url(#silver)"/>
+    <rect x="47" y="63" width="54" height="12" rx="4" fill="url(#silver)"/>
+    <rect x="47" y="88" width="32" height="12" rx="4" fill="url(#silver)"/>
+    <path d="M89 82L115 97L89 112Z" fill="url(#amber)"/>
+    <path d="M94 90L104 97" stroke="#FFF0C6" stroke-width="2.5"/>
+    <path d="M52 41H102M52 66H94M52 91H71" stroke="#F4F8FC" stroke-width="2" opacity=".7"/>
+  </g>
+</svg>

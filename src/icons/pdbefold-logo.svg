@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#8B98AA" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+  <title>Fold alignment</title>
+  <path d="M4 6h9v5h-5v8h5v7H4M28 6h-9v5h5v8h-5v7h9"/>
+  <path d="M12 16h8m-5-3-3 3 3 3m2-6 3 3-3 3" stroke="#659ACB"/>
+</svg>

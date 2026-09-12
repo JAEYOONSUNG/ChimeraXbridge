@@ -1,21 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="g" x1="10" x2="54" y1="8" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#f2f5f7"/>
-      <stop offset="0.48" stop-color="#aeb7c1"/>
-      <stop offset="1" stop-color="#5a626b"/>
-    </linearGradient>
-    <linearGradient id="a" x1="16" x2="48" y1="18" y2="46" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7aa2f7"/>
-      <stop offset="1" stop-color="#ffb86b"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="15" fill="#101214"/>
-  <path d="M15 20c7-9 20-10 28-3 4 4 6 8 7 13-7-2-13-2-19 0-7 2-13 7-16 13-6-7-7-16 0-23z" fill="url(#g)" opacity="0.92"/>
-  <path d="M49 44c-7 9-20 10-28 3-4-4-6-8-7-13 7 2 13 2 19 0 7-2 13-7 16-13 6 7 7 16 0 23z" fill="url(#g)" opacity="0.74"/>
-  <path d="M18 33c8 3 16 3 27-1" fill="none" stroke="url(#a)" stroke-width="5" stroke-linecap="round"/>
-  <circle cx="21" cy="33" r="4" fill="#7aa2f7"/>
-  <circle cx="43" cy="32" r="4" fill="#ffb86b"/>
-  <path d="M18 51h28" stroke="#d9dde2" stroke-width="2.6" stroke-linecap="round" opacity="0.9"/>
-  <path d="M18 55h18" stroke="#7e8792" stroke-width="2.2" stroke-linecap="round" opacity="0.85"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#8B98AA" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+  <title>Assembly interface area</title>
+  <path d="m16 4 11 6v12l-11 6-11-6V10l11-6ZM5 10l11 6 11-6M16 16v12"/>
+  <path d="m16 4-5 9v12m10-18-5 9" stroke="#C49A55"/>
+  <path d="m11 13 5 3v12l-5-3V13Z" fill="#C49A55" fill-opacity=".18" stroke="none"/>
 </svg>

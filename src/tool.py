@@ -44,6 +44,8 @@ from .display_color import (
 )
 from .integration import command_batch
 from .service import format_memory_compare, run_mode_request
+from .ui_theme import panel_stylesheet
+from .panel_scroll import PanelScrollArea
 
 
 def _is_qt_main_thread():
@@ -182,7 +184,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 59
+    UI_LAYOUT_VERSION = 62
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -233,7 +235,6 @@ class CodexAssistant(ToolInstance):
             QListWidgetItem,
             QPlainTextEdit,
             QPushButton,
-            QScrollArea,
             QSizePolicy,
             QSlider,
             QSplitter,
@@ -246,13 +247,22 @@ class CodexAssistant(ToolInstance):
         from Qt.QtCore import Qt
 
         parent = self.tool_window.ui_area
+        parent.setObjectName("AssistantRoot")
+        parent.setStyleSheet(
+            panel_stylesheet("AssistantRoot")
+            + "QToolButton { padding-right: 16px; }"
+            + "QToolButton::menu-indicator { width: 8px; height: 8px; "
+              "subcontrol-origin: padding; subcontrol-position: center right; right: 4px; }"
+        )
         outer_layout = QHBoxLayout()
         outer_layout.setContentsMargins(0, 0, 0, 0)
         outer_layout.setSpacing(0)
         layout = QVBoxLayout()
+        layout.setContentsMargins(7, 6, 7, 5)
+        layout.setSpacing(4)
         ui_font = parent.font()
         try:
-            ui_font.setPointSize(11)
+            ui_font.setPixelSize(11)
         except Exception:
             pass
         try:
@@ -277,121 +287,49 @@ class CodexAssistant(ToolInstance):
             except Exception:
                 pass
         try:
-            fixed_font.setPointSize(11)
+            fixed_font.setPixelSize(11)
         except Exception:
             pass
         mono_qss = f' font-family: "{mono_family}"; font-size: 11px;'
         self._fixed_font = fixed_font
         self._mono_qss = mono_qss
-        control_arrow = self._icon_path("chevron-down.svg").replace("\\", "/")
 
         self.resize_grip = _DockResizeGrip(parent)
         self.resize_grip._init_resize_grip(self._begin_dock_resize, self._resize_dock_by_position, self._end_dock_resize)
         self.resize_grip.setProperty("activeGrip", False)
-        self.resize_grip.setFixedWidth(22)
+        self.resize_grip.setFixedWidth(6)
         self.resize_grip.setCursor(Qt.CursorShape.SizeHorCursor)
         self.resize_grip.setStyleSheet(
-            "QWidget {"
-            " background: #171a1d;"
-            " border-right: 2px solid #3a4046;"
-            "}"
-            "QWidget[activeGrip=\"true\"] {"
-            " background: #24282d;"
-            " border-right: 2px solid #8b949e;"
-            "}"
+            "QWidget { background: palette(window); border-right: 1px solid palette(mid); }"
+            "QWidget[activeGrip=\"true\"] { background: palette(midlight); }"
         )
         outer_layout.addWidget(self.resize_grip)
+
+        main_shell = QWidget(parent)
+        main_shell.setMinimumSize(0, 0)
+        main_shell.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
+        main_shell_layout = QVBoxLayout(main_shell)
+        main_shell_layout.setContentsMargins(0, 0, 0, 0)
+        main_shell_layout.setSpacing(0)
+        outer_layout.addWidget(main_shell, 1)
 
         content_container = _ResponsiveContent(self._apply_responsive_layout, parent)
         content_container.setMinimumWidth(0)
         content_container.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         content_container.setFont(ui_font)
         content_container.setLayout(layout)
-        content_container.setStyleSheet(
-            "QLabel { color: #d9dde2; font-size: 13px; }"
-            "QPushButton, QToolButton {"
-            " background: #20252a;"
-            " color: #eef1f4;"
-            " border: 1px solid #3a424b;"
-            " border-radius: 8px;"
-            " padding: 5px 9px;"
-            " font-size: 13px;"
-            "}"
-            "QPushButton:hover, QToolButton:hover {"
-            " background: #2a3036;"
-            " border-color: #59636f;"
-            "}"
-            "QPushButton:pressed, QToolButton:pressed { background: #191d21; }"
-            "QPushButton:checked {"
-            " background: #2c3a4d;"
-            " border-color: #5c8bd6;"
-            " color: #f4f7fa;"
-            "}"
-            "QPushButton:checked:hover { background: #344660; border-color: #7aa6e6; }"
-            "QToolButton { padding-right: 24px; }"
-            "QToolButton::menu-indicator {"
-            f" image: url(\"{control_arrow}\");"
-            " subcontrol-origin: padding;"
-            " subcontrol-position: center right;"
-            " width: 12px;"
-            " height: 12px;"
-            " right: 8px;"
-            "}"
-            "QComboBox, QLineEdit {"
-            " background: #20252a;"
-            " color: #edf0f3;"
-            " border: 1px solid #3a424b;"
-            " border-radius: 8px;"
-            " padding: 5px 30px 5px 9px;"
-            " selection-background-color: #3a424a;"
-            " font-size: 13px;"
-            "}"
-            "QComboBox:hover, QLineEdit:hover {"
-            " background: #242a30;"
-            " border-color: #59636f;"
-            "}"
-            "QComboBox::drop-down {"
-            " subcontrol-origin: padding;"
-            " subcontrol-position: top right;"
-            " width: 30px;"
-            " border: none;"
-            " background: #20252a;"
-            " border-top-right-radius: 8px;"
-            " border-bottom-right-radius: 8px;"
-            "}"
-            "QComboBox::down-arrow {"
-            f" image: url(\"{control_arrow}\");"
-            " width: 12px;"
-            " height: 12px;"
-            "}"
-            "QComboBox QAbstractItemView {"
-            " background: #1b1f23;"
-            " color: #edf0f3;"
-            " border: 1px solid #3a424b;"
-            " selection-background-color: #2f3740;"
-            "}"
-            "QComboBox:disabled, QLineEdit:disabled, QPushButton:disabled, QToolButton:disabled {"
-            " background: #181c20;"
-            " color: #7f8790;"
-            " border-color: #2d343b;"
-            "}"
-        )
-        scroll_area = QScrollArea(parent)
+        scroll_area = self.scroll_area = PanelScrollArea(parent)
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll_area.setFrameStyle(0)
-        scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
         scroll_area.setWidget(content_container)
-        outer_layout.addWidget(scroll_area, 1)
-
-        intro = QLabel("AI workspace for ChimeraX. Enter runs, Shift+Enter adds a line.")
-        intro.setWordWrap(True)
-        layout.addWidget(intro)
+        scroll_area.setMinimumHeight(0)
+        main_shell_layout.addWidget(scroll_area, 1)
 
         top_control_row = QGridLayout()
-        top_control_row.setHorizontalSpacing(7)
-        top_control_row.setVerticalSpacing(7)
+        top_control_row.setHorizontalSpacing(4)
+        top_control_row.setVerticalSpacing(4)
         self.top_control_row = top_control_row
         self.engine_label = QLabel("Engine", parent)
         self.model_label = QLabel("Model", parent)
@@ -485,24 +423,28 @@ class CodexAssistant(ToolInstance):
         layout.addLayout(top_control_row)
 
         bottom_control_row = QGridLayout()
-        bottom_control_row.setHorizontalSpacing(6)
-        bottom_control_row.setVerticalSpacing(6)
+        bottom_control_row.setHorizontalSpacing(4)
+        bottom_control_row.setVerticalSpacing(4)
         self.bottom_control_row = bottom_control_row
         self.refresh_button = QPushButton("Refresh", parent)
         self.refresh_button.clicked.connect(self._refresh_workspace)
 
         self.toggle_workspace_button = QPushButton("Context", parent)
+        self.toggle_workspace_button.setCheckable(True)
+        self.toggle_workspace_button.setToolTip("Show session context and suggestions; click again to return to AI.")
         self.toggle_workspace_button.clicked.connect(self._toggle_workspace_visibility)
 
         self.toggle_selection_button = QPushButton("Selection", parent)
+        self.toggle_selection_button.setCheckable(True)
         self.toggle_selection_button.clicked.connect(self._toggle_selection_panel_visibility)
 
         self.toggle_terminal_button = QPushButton("Terminal", parent)
+        self.toggle_terminal_button.setCheckable(True)
         self.toggle_terminal_button.clicked.connect(self._toggle_command_terminal_visibility)
 
-        self.open_action_pad_button = QPushButton("Actions", parent)
+        self.open_action_pad_button = QPushButton("Action Pad", parent)
         self.open_action_pad_button.clicked.connect(self._open_action_pad)
-        self.open_display_controls_button = QPushButton("Display Ctrl", parent)
+        self.open_display_controls_button = QPushButton("Display Controls", parent)
         self.open_display_controls_button.clicked.connect(self._open_display_controls)
         self.open_sequence_panel_button = QPushButton("Sequence", parent)
         self.open_sequence_panel_button.setToolTip("Show or hide the Sequence display bar.")
@@ -512,20 +454,14 @@ class CodexAssistant(ToolInstance):
         self._set_action_buttons_compact(True)
 
         sequence_status_row = QGridLayout()
-        sequence_status_row.setHorizontalSpacing(6)
-        sequence_status_row.setVerticalSpacing(6)
+        sequence_status_row.setHorizontalSpacing(4)
+        sequence_status_row.setVerticalSpacing(4)
         self.sequence_status_row = sequence_status_row
         self.sequence_status_label = QLabel("Sequence: no protein chain resolved", parent)
         self.sequence_status_label.setWordWrap(True)
         self.sequence_status_label.setMinimumWidth(0)
         self.sequence_status_label.setStyleSheet(
-            "QLabel {"
-            " background: #171a1d;"
-            " color: #e4e7eb;"
-            " border: 1px solid #3a4046;"
-            " border-radius: 6px;"
-            " padding: 6px 8px;"
-            "}"
+            "QLabel { padding: 1px 0; }"
         )
         sequence_status_row.addWidget(self.sequence_status_label, 0, 0)
         sequence_status_row.setColumnStretch(0, 1)
@@ -533,8 +469,8 @@ class CodexAssistant(ToolInstance):
         layout.addLayout(bottom_control_row)
 
         sequence_control_row = QGridLayout()
-        sequence_control_row.setHorizontalSpacing(6)
-        sequence_control_row.setVerticalSpacing(6)
+        sequence_control_row.setHorizontalSpacing(4)
+        sequence_control_row.setVerticalSpacing(4)
         self.sequence_control_row = sequence_control_row
 
         self.sequence_strip_edit = None
@@ -600,39 +536,23 @@ class CodexAssistant(ToolInstance):
         layout.addLayout(sequence_control_row)
 
         selection_panel = _SelectionPanelWindow()
+        selection_panel.setObjectName("AssistantSelectionRoot")
         selection_panel._init_selection_window(self._set_selection_panel_visible)
         selection_panel.setStyleSheet(
-            "QWidget {"
-            " background: #171a1d;"
-            " border: 1px solid #3a4046;"
-            " border-radius: 8px;"
-            "}"
-            "QLabel { color: #d9dde2; }"
-            "QLineEdit, QComboBox {"
-            " background: #101214;"
-            " color: #edf0f3;"
-            " border: 1px solid #3a4046;"
-            " border-radius: 6px;"
-            " padding: 4px 6px;"
-            "}"
-            "QPushButton {"
-            " background: #24282d;"
-            " color: #eef1f4;"
-            " border: 1px solid #464d55;"
-            " border-radius: 6px;"
-            " padding: 5px 8px;"
-            "}"
+            panel_stylesheet("AssistantSelectionRoot")
         )
         selection_layout = QVBoxLayout()
-        selection_layout.setContentsMargins(10, 10, 10, 10)
-        selection_layout.setSpacing(6)
+        selection_layout.setContentsMargins(7, 6, 7, 6)
+        selection_layout.setSpacing(4)
         selection_panel.setLayout(selection_layout)
         self.selection_panel = selection_panel
-        selection_panel.resize(520, 220)
+        selection_panel.resize(440, 180)
 
         selection_header = QHBoxLayout()
         selection_label = QLabel("Selection Bar", selection_panel)
-        selection_label.setStyleSheet("QLabel { color: #d8dde3; font-weight: 700; }")
+        selection_label.setStyleSheet(
+            "QLabel { font-weight: 600; }"
+        )
         selection_header.addWidget(selection_label)
         self.selection_use_current_button = QPushButton("Use Current", selection_panel)
         self.selection_use_current_button.clicked.connect(self._apply_current_selection_to_controls)
@@ -641,7 +561,7 @@ class CodexAssistant(ToolInstance):
 
         selection_grid = QGridLayout()
         selection_grid.setHorizontalSpacing(8)
-        selection_grid.setVerticalSpacing(6)
+        selection_grid.setVerticalSpacing(4)
         selection_layout.addLayout(selection_grid)
 
         selection_grid.addWidget(QLabel("Model", selection_panel), 0, 0)
@@ -674,14 +594,10 @@ class CodexAssistant(ToolInstance):
         selection_grid.addWidget(self.selection_rep_combo, 2, 1)
 
         self.selection_spec_label = QLabel("Spec: (none)", selection_panel)
+        self.selection_spec_label.setWordWrap(True)
+        self.selection_spec_label.setMinimumWidth(0)
         self.selection_spec_label.setStyleSheet(
-            "QLabel {"
-            " background: #101214;"
-            " color: #e4e7eb;"
-            " border: 1px solid #3a4046;"
-            " border-radius: 6px;"
-            " padding: 5px 8px;"
-            "}"
+            "QLabel { background: palette(base); border: 1px solid palette(mid); border-radius: 4px; padding: 2px 4px; }"
         )
         selection_grid.addWidget(self.selection_spec_label, 2, 2, 1, 2)
 
@@ -712,34 +628,20 @@ class CodexAssistant(ToolInstance):
         selection_layout.addLayout(selection_actions)
 
         self.session_status_label = QLabel("Session: initializing", parent)
-        self.session_status_label.setFont(fixed_font)
+        self.session_status_label.setFont(ui_font)
         self.session_status_label.setWordWrap(True)
         self.session_status_label.setMinimumWidth(0)
         self.session_status_label.setStyleSheet(
-            "QLabel {"
-            " background: #171a1d;"
-            " color: #d9dde2;"
-            " border: 1px solid #3a4046;"
-            " border-radius: 6px;"
-            " padding: 6px 8px;"
-            f"{mono_qss}"
-            "}"
+            "QLabel { padding: 1px 0; }"
         )
         layout.addWidget(self.session_status_label)
 
         self.result_status_label = QLabel("Result: ready", parent)
-        self.result_status_label.setFont(fixed_font)
+        self.result_status_label.setFont(ui_font)
         self.result_status_label.setWordWrap(True)
         self.result_status_label.setMinimumWidth(0)
         self.result_status_label.setStyleSheet(
-            "QLabel {"
-            " background: #15181b;"
-            " color: #c7ccd2;"
-            " border: 1px solid #343a40;"
-            " border-radius: 6px;"
-            " padding: 6px 8px;"
-            f"{mono_qss}"
-            "}"
+            "QLabel { font-weight: 600; padding: 1px 0; }"
         )
         layout.addWidget(self.result_status_label)
 
@@ -747,52 +649,39 @@ class CodexAssistant(ToolInstance):
         self.error_banner_label.setWordWrap(True)
         self.error_banner_label.setVisible(False)
         self.error_banner_label.setStyleSheet(
-            "QLabel {"
-            " background: #2a1116;"
-            " color: #ffdce1;"
-            " border: 1px solid #8a3c48;"
-            " border-radius: 8px;"
-            " padding: 8px 10px;"
-            " font-weight: 700;"
-            "}"
+            "QLabel { background: palette(base); color: palette(text); border: 1px solid palette(mid); border-left: 3px solid #b45454; border-radius: 4px; padding: 4px 6px; }"
         )
         layout.addWidget(self.error_banner_label)
 
         self.result_detail_edit = QPlainTextEdit(parent)
         self.result_detail_edit.setReadOnly(True)
         self.result_detail_edit.setFont(fixed_font)
-        self.result_detail_edit.setFixedHeight(36)
-        self.result_detail_edit.setMaximumHeight(36)
-        self.result_detail_edit.setMinimumHeight(36)
+        self.result_detail_edit.setFixedHeight(44)
         self.result_detail_edit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.result_detail_edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         self.result_detail_edit.setPlaceholderText("Recent result details will appear here.")
         self.result_detail_edit.setStyleSheet(
-            "QPlainTextEdit {"
-            " background: #101214;"
-            " color: #d9dde2;"
-            " border: 1px solid #343a40;"
-            " border-radius: 8px;"
-            " padding: 7px;"
-            f"{mono_qss}"
-            "}"
+            "QPlainTextEdit { padding: 3px;" + mono_qss + " }"
         )
         layout.addWidget(self.result_detail_edit)
 
         self.content_tabs = QTabWidget(parent)
         self.content_tabs.setStyleSheet(
-            "QTabWidget::pane { border: 1px solid #343a40; border-radius: 12px; }"
-            "QTabBar::tab { background: #111315; color: #aeb4bb; padding: 8px 14px; margin-right: 2px; border-top-left-radius: 8px; border-top-right-radius: 8px; }"
-            "QTabBar::tab:selected { background: #2a3035; color: #f0f2f4; }"
+            "QTabWidget::pane { border: none; }"
         )
+        # Keep page navigation for compatibility; Context is the only visible switch.
+        self.content_tabs.tabBar().hide()
         self.content_tabs.setMinimumWidth(0)
-        self.content_tabs.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
+        # The page fills the space between controls and the pinned prompt.
+        # Ignore natural editor size hints so history cannot enlarge the viewport.
+        self.content_tabs.setMinimumHeight(170)
+        self.content_tabs.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         layout.addWidget(self.content_tabs, 1)
 
         assistant_page = QWidget(parent)
         assistant_page_layout = QVBoxLayout()
-        assistant_page_layout.setContentsMargins(6, 6, 6, 6)
-        assistant_page_layout.setSpacing(6)
+        assistant_page_layout.setContentsMargins(0, 0, 0, 0)
+        assistant_page_layout.setSpacing(4)
         assistant_page.setLayout(assistant_page_layout)
         self.content_tabs.addTab(assistant_page, "AI")
 
@@ -803,14 +692,16 @@ class CodexAssistant(ToolInstance):
         workspace_panel = QWidget(parent)
         workspace_layout = QVBoxLayout()
         workspace_layout.setContentsMargins(0, 0, 0, 0)
-        workspace_layout.setSpacing(6)
+        workspace_layout.setSpacing(4)
         workspace_panel.setLayout(workspace_layout)
         self.workspace_panel = workspace_panel
         self.workspace_panel.setMinimumWidth(0)
         self.workspace_panel.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
 
         workspace_label = QLabel("Workspace", workspace_panel)
-        workspace_label.setStyleSheet("QLabel { color: #d8dde3; font-weight: 700; }")
+        workspace_label.setStyleSheet(
+            "QLabel { font-weight: 600; }"
+        )
         workspace_layout.addWidget(workspace_label)
 
         self.workspace_edit = QPlainTextEdit(workspace_panel)
@@ -818,20 +709,15 @@ class CodexAssistant(ToolInstance):
         self.workspace_edit.setFont(fixed_font)
         self.workspace_edit.setPlaceholderText("Live ChimeraX context will appear here.")
         self.workspace_edit.setStyleSheet(
-            "QPlainTextEdit {"
-            " background: #101214;"
-            " color: #d9dde2;"
-            " border: 1px solid #343a40;"
-            " border-radius: 6px;"
-            " padding: 6px;"
-            f"{mono_qss}"
-            "}"
+            "QPlainTextEdit { padding: 4px;" + mono_qss + " }"
         )
         workspace_layout.addWidget(self.workspace_edit, 1)
 
         suggestion_header = QHBoxLayout()
-        suggestion_label = QLabel("Interactive Suggestions", workspace_panel)
-        suggestion_label.setStyleSheet("QLabel { color: #d8dde3; font-weight: 700; }")
+        suggestion_label = QLabel("Suggestions", workspace_panel)
+        suggestion_label.setStyleSheet(
+            "QLabel { font-weight: 600; }"
+        )
         suggestion_header.addWidget(suggestion_label)
         self.use_suggestion_button = QPushButton("To Prompt", workspace_panel)
         self.use_suggestion_button.clicked.connect(self._copy_selected_suggestion_to_prompt)
@@ -841,63 +727,39 @@ class CodexAssistant(ToolInstance):
         self.suggestion_list = QListWidget(workspace_panel)
         self.suggestion_list.itemDoubleClicked.connect(self._apply_suggestion_item)
         self.suggestion_list.setStyleSheet(
-            "QListWidget {"
-            " background: #101214;"
-            " color: #edf0f3;"
-            " border: 1px solid #343a40;"
-            " border-radius: 6px;"
-            " padding: 4px;"
-            "}"
-            "QListWidget::item:selected {"
-            " background: #3a424a;"
-            "}"
+            "QListWidget { padding: 2px; } QListWidget::item { padding: 3px 2px; }"
         )
         workspace_layout.addWidget(self.suggestion_list, 1)
 
         assistant_panel = QWidget(parent)
-        assistant_panel.setStyleSheet(
-            "QWidget {"
-            " background: #11100d;"
-            "}"
-        )
         assistant_panel.setMinimumWidth(0)
         assistant_panel.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         assistant_layout = QVBoxLayout()
         assistant_layout.setContentsMargins(0, 0, 0, 0)
-        assistant_layout.setSpacing(6)
+        assistant_layout.setSpacing(4)
         assistant_panel.setLayout(assistant_layout)
         self.assistant_vertical_splitter = QSplitter(assistant_panel)
         self.assistant_vertical_splitter.setOrientation(Qt.Orientation.Vertical)
         self.assistant_vertical_splitter.setChildrenCollapsible(False)
-        self.assistant_vertical_splitter.setHandleWidth(10)
+        self.assistant_vertical_splitter.setHandleWidth(5)
         self.assistant_vertical_splitter.setStyleSheet(
-            "QSplitter::handle {"
-            " background: #24282d;"
-            " border: 1px solid #3a4046;"
-            " margin: 1px 0;"
-            "}"
+            "QSplitter::handle { background: palette(mid); margin: 1px 0; }"
         )
         assistant_layout.addWidget(self.assistant_vertical_splitter, 1)
 
         transcript_panel = QWidget(assistant_panel)
         self.transcript_panel = transcript_panel
-        transcript_panel.setMaximumHeight(150)
-        transcript_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        transcript_panel.setMaximumHeight(16777215)
+        transcript_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         transcript_layout = QVBoxLayout()
         transcript_layout.setContentsMargins(0, 0, 0, 0)
-        transcript_layout.setSpacing(6)
+        transcript_layout.setSpacing(4)
         transcript_panel.setLayout(transcript_layout)
 
         self.ai_header_label = QLabel("", parent)
         self.ai_header_label.setFont(fixed_font)
         self.ai_header_label.setStyleSheet(
-            "QLabel {"
-            " background: transparent;"
-            " color: #c6b79d;"
-            " border: none;"
-            " padding: 0px;"
-            f"{mono_qss}"
-            "}"
+            "QLabel { padding: 0;" + mono_qss + " }"
         )
         self.ai_header_label.setVisible(False)
         transcript_layout.addWidget(self.ai_header_label)
@@ -907,88 +769,76 @@ class CodexAssistant(ToolInstance):
         self.terminal_edit.setPlaceholderText("AI activity and command results will appear here.")
         self.terminal_edit.setFont(fixed_font)
         self.terminal_edit.setStyleSheet(
-            "QPlainTextEdit {"
-            " background: #0b0d0f;"
-            " color: #d9dde2;"
-            " border: 1px solid #343a40;"
-            " border-radius: 10px;"
-            " padding: 6px;"
-            " selection-background-color: #3a424a;"
-            f"{mono_qss}"
-            "}"
+            "QPlainTextEdit { padding: 4px;" + mono_qss + " }"
         )
-        self.terminal_edit.setMinimumHeight(32)
-        self.terminal_edit.setMaximumHeight(140)
-        self.terminal_edit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-        transcript_layout.addWidget(self.terminal_edit)
+        self.terminal_edit.setMinimumHeight(84)
+        self.terminal_edit.setMaximumHeight(16777215)
+        self.terminal_edit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        transcript_layout.addWidget(self.terminal_edit, 1)
 
         interaction_panel = QWidget(assistant_panel)
         self.interaction_panel = interaction_panel
-        interaction_panel.setMaximumHeight(120)
-        interaction_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        interaction_panel.setMaximumHeight(16777215)
+        interaction_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         interaction_layout = QVBoxLayout()
         interaction_layout.setContentsMargins(0, 0, 0, 0)
-        interaction_layout.setSpacing(6)
+        interaction_layout.setSpacing(4)
         interaction_panel.setLayout(interaction_layout)
         self.interaction_vertical_splitter = QSplitter(interaction_panel)
         self.interaction_vertical_splitter.setOrientation(Qt.Orientation.Vertical)
         self.interaction_vertical_splitter.setChildrenCollapsible(False)
-        self.interaction_vertical_splitter.setHandleWidth(10)
+        self.interaction_vertical_splitter.setHandleWidth(5)
         self.interaction_vertical_splitter.setStyleSheet(
-            "QSplitter::handle {"
-            " background: #24282d;"
-            " border: 1px solid #3a4046;"
-            " margin: 1px 0;"
-            "}"
+            "QSplitter::handle { background: palette(mid); margin: 1px 0; }"
         )
         interaction_layout.addWidget(self.interaction_vertical_splitter, 1)
 
-        prompt_panel = QWidget(interaction_panel)
+        # Input stays outside the scrolling controls/history region.
+        prompt_panel = _ResponsiveContent(lambda _width: self._enforce_compact_assistant_heights(), main_shell)
         self.prompt_panel = prompt_panel
-        # Height must accommodate: stage_label (~20px) + prompt_edit (≥50px for
-        # 2 lines + padding) + Run button (38px) + panel padding (19px) + spacing.
-        self.prompt_panel.setMinimumHeight(112)
-        self.prompt_panel.setMaximumHeight(160)
+        self.prompt_panel.setMinimumHeight(82)
+        self.prompt_panel.setMaximumHeight(140)
         self.prompt_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         self.prompt_panel.setObjectName("PromptPanel")
         self.prompt_panel.setStyleSheet(
-            "QWidget#PromptPanel {"
-            " background: #111315;"
-            " border: 1px solid #343a40;"
-            " border-radius: 12px;"
-            "}"
+            "QWidget#PromptPanel { background: transparent; border: none; }"
         )
         prompt_layout = QVBoxLayout()
-        prompt_layout.setContentsMargins(10, 9, 10, 10)
-        prompt_layout.setSpacing(7)
+        prompt_layout.setContentsMargins(7, 4, 7, 5)
+        prompt_layout.setSpacing(4)
         prompt_panel.setLayout(prompt_layout)
 
         self.stage_label = QLabel("Ready", parent)
-        self.stage_label.setFont(fixed_font)
+        self.stage_label.setFont(ui_font)
         self.stage_label.setWordWrap(True)
         self.stage_label.setMinimumWidth(0)
         self.stage_label.setStyleSheet(
-            "QLabel {"
-            " background: transparent;"
-            " color: #c2b49c;"
-            " border: none;"
-            " padding: 0px;"
-            f"{mono_qss}"
-            "}"
+            "QLabel { padding: 0; font-weight: 600; }"
         )
-        prompt_layout.addWidget(self.stage_label)
+        prompt_heading = QHBoxLayout()
+        prompt_heading.setSpacing(4)
+        prompt_heading.addWidget(self.stage_label, 1)
+        prompt_hint = QLabel("Enter runs · Shift+Enter newline", parent)
+        prompt_hint.setProperty("role", "caption")
+        prompt_hint.setWordWrap(True)
+        prompt_heading.addWidget(prompt_hint)
+        prompt_layout.addLayout(prompt_heading)
 
         self.status_label = QLabel("Ready.", parent)
         self.status_label.setFont(fixed_font)
         self.status_label.setWordWrap(True)
         self.status_label.setMinimumWidth(0)
-        self.status_label.setStyleSheet("QLabel { color: #b7aa94;" + mono_qss + " }")
+        self.status_label.setStyleSheet(
+            "QLabel { padding: 0; }"
+        )
         self.status_label.setVisible(False)
         prompt_layout.addWidget(self.status_label)
 
         prompt_header = QLabel("AI Prompt", parent)
         prompt_header.setFont(fixed_font)
-        prompt_header.setStyleSheet("QLabel { color: #d8dde3; font-weight: 700;" + mono_qss + " }")
+        prompt_header.setStyleSheet(
+            "QLabel { font-weight: 600; }"
+        )
         prompt_header.setVisible(False)
         prompt_layout.addWidget(prompt_header)
 
@@ -996,7 +846,9 @@ class CodexAssistant(ToolInstance):
         prompt_label = QLabel(">", parent)
         prompt_label.setFont(fixed_font)
         prompt_label.setAlignment(Qt.AlignmentFlag.AlignTop)
-        prompt_label.setStyleSheet("QLabel { color: #d8dde3; padding-top: 8px;" + mono_qss + " }")
+        prompt_label.setStyleSheet(
+            "QLabel { padding-top: 4px;" + mono_qss + " }"
+        )
         prompt_label.setVisible(False)
         prompt_row.addWidget(prompt_label)
 
@@ -1013,35 +865,18 @@ class CodexAssistant(ToolInstance):
         self.prompt_edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         self.prompt_edit.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.prompt_edit.setStyleSheet(
-            "QPlainTextEdit {"
-            " background: #0b0d0f;"
-            " color: #edf0f3;"
-            " border: 1px solid #3a4046;"
-            " border-radius: 10px;"
-            " padding: 8px;"
-            " selection-background-color: #3a424a;"
-            f"{mono_qss}"
-            "}"
-            "QPlainTextEdit:focus { border: 1px solid #8b949e; }"
+            "QPlainTextEdit { padding: 4px;" + mono_qss + " } QPlainTextEdit:focus { border-color: palette(highlight); }"
         )
         self.prompt_edit.textChanged.connect(self._resize_prompt)
         prompt_row.addWidget(self.prompt_edit, 1)
         self.prompt_run_button = QPushButton("Run", parent)
         self.prompt_run_button.clicked.connect(self._submit_and_run)
-        self.prompt_run_button.setMinimumHeight(38)
+        self.prompt_run_button.setMinimumHeight(24)
+        self.prompt_run_button.setMinimumWidth(52)
         self.prompt_run_button.setStyleSheet(
-            "QPushButton {"
-            " background: #30363d;"
-            " color: #f0f2f4;"
-            " border: 1px solid #59616b;"
-            " border-radius: 9px;"
-            " padding: 8px 14px;"
-            " font-weight: 700;"
-            "}"
-            "QPushButton:hover { background: #3a4149; }"
-            "QPushButton:pressed { background: #1f2429; }"
+            "QPushButton { font-weight: 600; }"
         )
-        prompt_row.addWidget(self.prompt_run_button)
+        prompt_row.addWidget(self.prompt_run_button, 0, Qt.AlignmentFlag.AlignBottom)
         prompt_layout.addLayout(prompt_row)
         self._resize_prompt()
 
@@ -1049,11 +884,13 @@ class CodexAssistant(ToolInstance):
         self.terminal_panel = terminal_panel
         terminal_layout = QVBoxLayout()
         terminal_layout.setContentsMargins(0, 0, 0, 0)
-        terminal_layout.setSpacing(6)
+        terminal_layout.setSpacing(4)
         terminal_panel.setLayout(terminal_layout)
 
-        terminal_label = QLabel("In-App Terminal", parent)
-        terminal_label.setStyleSheet("QLabel { color: #d8dde3; font-weight: 700; }")
+        terminal_label = QLabel("Command terminal", parent)
+        terminal_label.setStyleSheet(
+            "QLabel { font-weight: 600; }"
+        )
         terminal_layout.addWidget(terminal_label)
         self.command_terminal_label = terminal_label
 
@@ -1062,37 +899,24 @@ class CodexAssistant(ToolInstance):
         self.command_terminal_output.setFont(fixed_font)
         self.command_terminal_output.setPlaceholderText("Run raw ChimeraX commands here. Prefix shell commands with !")
         self.command_terminal_output.setStyleSheet(
-            "QPlainTextEdit {"
-            " background: #101214;"
-            " color: #d9e2cf;"
-            " border: 1px solid #4a5334;"
-            " border-radius: 6px;"
-            " padding: 6px;"
-            f"{mono_qss}"
-            "}"
+            "QPlainTextEdit { padding: 4px;" + mono_qss + " }"
         )
-        self.command_terminal_output.setMinimumHeight(40)
+        self.command_terminal_output.setMinimumHeight(64)
         terminal_layout.addWidget(self.command_terminal_output, 1)
 
         terminal_row = QHBoxLayout()
         terminal_prompt = QLabel("cx>", parent)
         terminal_prompt.setFont(fixed_font)
-        terminal_prompt.setStyleSheet("QLabel { color: #d8dde3;" + mono_qss + " }")
+        terminal_prompt.setStyleSheet(
+            "QLabel {" + mono_qss + " }"
+        )
         terminal_row.addWidget(terminal_prompt)
 
         self.command_terminal_input = QLineEdit(parent)
         self.command_terminal_input.setFont(fixed_font)
         self.command_terminal_input.setPlaceholderText("show sel   or   !pwd")
         self.command_terminal_input.setStyleSheet(
-            "QLineEdit {"
-            " background: #20252a;"
-            " color: #edf0f3;"
-            " border: 1px solid #3a424b;"
-            " border-radius: 8px;"
-            " padding: 5px 9px;"
-            " selection-background-color: #3a424a;"
-            f"{mono_qss}"
-            "}"
+            "QLineEdit {" + mono_qss + " }"
         )
         self.command_terminal_input.returnPressed.connect(self._run_terminal_command)
         terminal_row.addWidget(self.command_terminal_input, 1)
@@ -1107,19 +931,16 @@ class CodexAssistant(ToolInstance):
         terminal_layout.addLayout(terminal_row)
         self.command_terminal_row = terminal_row
 
-        self.interaction_vertical_splitter.addWidget(prompt_panel)
+        layout.addWidget(prompt_panel)
         self.interaction_vertical_splitter.addWidget(terminal_panel)
-        self.interaction_vertical_splitter.setStretchFactor(0, 2)
-        self.interaction_vertical_splitter.setStretchFactor(1, 0)
-        # Give prompt_panel real room (≥112 from setMinimumHeight) and collapse
-        # terminal_panel to 0 by default — _set_command_terminal_visible reopens it.
-        self.interaction_vertical_splitter.setSizes([130, 0])
+        self.interaction_vertical_splitter.setStretchFactor(0, 1)
+        self.interaction_vertical_splitter.setSizes([140])
 
         self.assistant_vertical_splitter.addWidget(transcript_panel)
         self.assistant_vertical_splitter.addWidget(interaction_panel)
-        self.assistant_vertical_splitter.setStretchFactor(0, 0)
+        self.assistant_vertical_splitter.setStretchFactor(0, 1)
         self.assistant_vertical_splitter.setStretchFactor(1, 0)
-        self.assistant_vertical_splitter.setSizes([72, 50])
+        self.assistant_vertical_splitter.setSizes([200, 100])
 
         assistant_page_layout.addWidget(assistant_panel, 1)
         self.workspace_tab_index = self.content_tabs.insertTab(1, workspace_panel, "Context")
@@ -1356,11 +1177,9 @@ class CodexAssistant(ToolInstance):
         from Qt.QtWidgets import QComboBox, QLineEdit, QPushButton, QToolButton, QSizePolicy
 
         for widget in root.findChildren(QPushButton):
-            widget.setMinimumWidth(0)
-            widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         for widget in root.findChildren(QToolButton):
-            widget.setMinimumWidth(0)
-            widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         for widget in root.findChildren(QComboBox):
             widget.setMinimumWidth(0)
             widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
@@ -1403,13 +1222,12 @@ class CodexAssistant(ToolInstance):
 
     def _apply_responsive_layout(self, width):
         width = int(width or 0)
-        if width < 720:
-            layout_mode = "compact"
-        else:
-            layout_mode = "wide"
-        if layout_mode == self._compact_layout_active:
+        layout_mode = "narrow" if width < 470 else "compact" if width < 720 else "wide"
+        action_columns = 2 if width < 330 else 3 if width < 720 else 6
+        if layout_mode == self._compact_layout_active and action_columns == getattr(self, "_action_columns", None):
             return
         self._compact_layout_active = layout_mode
+        self._action_columns = action_columns
         self._set_top_controls_compact(layout_mode)
         compact = layout_mode != "wide"
         self._set_action_buttons_compact(compact)
@@ -1426,217 +1244,74 @@ class CodexAssistant(ToolInstance):
         elif layout_mode is False:
             layout_mode = "wide"
         self._clear_grid_layout(grid)
-        max_qt_width = 16777215
-        labels = (
-            self.engine_label,
-            self.model_label,
-            self.effort_label,
-            self.mode_label,
-            self.speed_label,
-        )
-        self._top_control_widgets = (
-            self.engine_label,
-            self.model_label,
-            self.effort_label,
-            self.mode_label,
-            self.speed_label,
-            self.backend_combo,
-            self.model_combo,
-            self.effort_combo,
-            self.mode_combo,
-            self.speed_combo,
-            self.backend_setup_button,
-            self.quick_menu_button,
-            self.analysis_menu_button,
-            self.quick_rapidock_button,
-        )
-        label_alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        fixed_control_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        labels = (self.engine_label, self.model_label, self.effort_label, self.mode_label, self.speed_label)
+        combos = (self.backend_combo, self.model_combo, self.effort_combo, self.mode_combo, self.speed_combo)
+        menus = (self.backend_setup_button, self.quick_menu_button, self.analysis_menu_button)
+        self._top_control_widgets = labels + combos + menus + (self.quick_rapidock_button,)
+        self.effort_label.setText("Reason")
         for label in labels:
-            label.setAlignment(label_alignment)
+            label.setFixedWidth(label.fontMetrics().horizontalAdvance(label.text()) + 2)
+            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        for combo in combos:
+            combo.setMinimumWidth(58)
+            combo.setMaximumWidth(16777215)
+            combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.mode_combo.setMinimumWidth(76)
+        self.speed_combo.setMinimumWidth(68)
+        for button in menus:
+            button.setMinimumWidth(max(58, button.sizeHint().width()))
+            button.setMaximumWidth(16777215)
+            button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
-        def expand_control(widget, min_width):
-            widget.setMinimumWidth(min_width)
-            widget.setMaximumWidth(max_qt_width)
-            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-        def fixed_control(widget, width):
-            widget.setMinimumWidth(width)
-            widget.setMaximumWidth(width)
-            widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-
-        def fixed_label(widget, width):
-            widget.setMinimumWidth(width)
-            widget.setMaximumWidth(width)
-            widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-
-        def flexible_control(widget, min_width, max_width=max_qt_width):
-            widget.setMinimumWidth(min_width)
-            widget.setMaximumWidth(max_width)
-            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-        def top_row(*items):
+        def add_row(index, *items):
             row = QWidget(grid.parentWidget())
             row.setProperty("codexDynamicTopControlRow", True)
             row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             row_layout = QHBoxLayout(row)
             row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(7)
+            row_layout.setSpacing(4)
             for item in items:
-                widget = item[0] if isinstance(item, tuple) else item
-                stretch = item[1] if isinstance(item, tuple) else 0
-                row_layout.addWidget(widget)
-                if stretch:
-                    row_layout.setStretch(row_layout.count() - 1, stretch)
-            return row
+                widget, stretch = item if isinstance(item, tuple) else (item, 0)
+                row_layout.addWidget(widget, stretch)
+            grid.addWidget(row, index, 0)
 
-        def add_row(row_index, *items):
-            grid.addWidget(top_row(*items), row_index, 0)
-
-        if layout_mode == "narrow":
-            grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            expand_control(self.backend_combo, 180)
-            expand_control(self.model_combo, 180)
-            fixed_control(self.effort_combo, 160)
-            fixed_control(self.mode_combo, 130)
-            fixed_control(self.speed_combo, 130)
-            fixed_control(self.backend_setup_button, 130)
-            fixed_control(self.quick_menu_button, 135)
-            fixed_control(self.analysis_menu_button, 135)
-            fixed_control(self.quick_rapidock_button, 116)
-            for label in labels:
-                label.setMinimumWidth(88)
-                label.setMaximumWidth(88)
-            grid.addWidget(self.engine_label, 0, 0, 1, 1, label_alignment)
-            grid.addWidget(self.backend_combo, 0, 1)
-            grid.addWidget(self.model_label, 1, 0, 1, 1, label_alignment)
-            grid.addWidget(self.model_combo, 1, 1)
-            grid.addWidget(self.effort_label, 2, 0, 1, 1, label_alignment)
-            grid.addWidget(self.effort_combo, 2, 1, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.mode_label, 3, 0, 1, 1, label_alignment)
-            grid.addWidget(self.mode_combo, 3, 1, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.speed_label, 4, 0, 1, 1, label_alignment)
-            grid.addWidget(self.speed_combo, 4, 1, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.backend_setup_button, 5, 1, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.quick_menu_button, 6, 1, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.analysis_menu_button, 7, 1, 1, 1, fixed_control_alignment)
-            grid.addWidget(self.quick_rapidock_button, 8, 1, 1, 1, fixed_control_alignment)
-            grid.setColumnStretch(0, 0)
-            grid.setColumnStretch(1, 1)
-            grid.setColumnMinimumWidth(0, 88)
-        elif layout_mode == "compact":
-            grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            flexible_control(self.backend_combo, 86)
-            flexible_control(self.model_combo, 86)
-            flexible_control(self.effort_combo, 46)
-            flexible_control(self.mode_combo, 52)
-            flexible_control(self.speed_combo, 44)
-            flexible_control(self.backend_setup_button, 64)
-            flexible_control(self.quick_menu_button, 62)
-            flexible_control(self.analysis_menu_button, 64)
-            flexible_control(self.quick_rapidock_button, 88)
-            self.effort_label.setText("Reason")
-            fixed_label(self.engine_label, 44)
-            fixed_label(self.model_label, 38)
-            fixed_label(self.effort_label, 44)
-            fixed_label(self.mode_label, 30)
-            fixed_label(self.speed_label, 32)
-            add_row(
-                0,
-                self.engine_label,
-                (self.backend_combo, 3),
-                self.model_label,
-                (self.model_combo, 4),
-                (self.backend_setup_button, 2),
-            )
-            add_row(
-                1,
-                self.effort_label,
-                (self.effort_combo, 2),
-                self.mode_label,
-                (self.mode_combo, 2),
-                self.speed_label,
-                (self.speed_combo, 2),
-                (self.quick_menu_button, 2),
-                (self.analysis_menu_button, 2),
-                (self.quick_rapidock_button, 2),
-            )
-            grid.setColumnStretch(0, 1)
+        if layout_mode == "wide":
+            add_row(0, self.engine_label, (self.backend_combo, 3), self.model_label,
+                    (self.model_combo, 4), self.backend_setup_button)
         else:
-            grid.setAlignment(Qt.AlignmentFlag.AlignTop)
-            self.effort_label.setText("Reason")
-            flexible_control(self.backend_combo, 100)
-            flexible_control(self.model_combo, 120)
-            flexible_control(self.effort_combo, 60)
-            flexible_control(self.mode_combo, 66)
-            flexible_control(self.speed_combo, 56)
-            flexible_control(self.backend_setup_button, 72)
-            flexible_control(self.quick_menu_button, 72)
-            flexible_control(self.analysis_menu_button, 78)
-            flexible_control(self.quick_rapidock_button, 92)
-            fixed_label(self.engine_label, 52)
-            fixed_label(self.model_label, 48)
-            fixed_label(self.effort_label, 54)
-            fixed_label(self.mode_label, 36)
-            fixed_label(self.speed_label, 38)
-            add_row(
-                0,
-                self.engine_label,
-                (self.backend_combo, 3),
-                self.model_label,
-                (self.model_combo, 4),
-                (self.backend_setup_button, 2),
-            )
-            add_row(
-                1,
-                self.effort_label,
-                (self.effort_combo, 2),
-                self.mode_label,
-                (self.mode_combo, 2),
-                self.speed_label,
-                (self.speed_combo, 2),
-                (self.quick_menu_button, 2),
-                (self.analysis_menu_button, 2),
-                (self.quick_rapidock_button, 2),
-            )
-            grid.setColumnStretch(0, 1)
-        try:
-            grid.invalidate()
-            parent = grid.parentWidget()
-            if parent is not None:
-                parent.updateGeometry()
-        except Exception:
-            pass
+            add_row(0, self.engine_label, (self.backend_combo, 1), self.backend_setup_button)
+        if layout_mode == "narrow":
+            add_row(1, self.model_label, (self.model_combo, 1))
+            add_row(2, self.effort_label, (self.effort_combo, 1), self.mode_label, (self.mode_combo, 1))
+            add_row(3, self.speed_label, (self.speed_combo, 1), self.quick_menu_button, self.analysis_menu_button)
+        elif layout_mode == "compact":
+            add_row(1, self.model_label, (self.model_combo, 1), self.quick_menu_button, self.analysis_menu_button)
+            add_row(2, self.effort_label, (self.effort_combo, 1), self.mode_label,
+                    (self.mode_combo, 1), self.speed_label, (self.speed_combo, 1))
+        else:
+            add_row(1, self.effort_label, (self.effort_combo, 1), self.mode_label,
+                    (self.mode_combo, 1), self.speed_label, (self.speed_combo, 1),
+                    self.quick_menu_button, self.analysis_menu_button)
+        grid.setAlignment(Qt.AlignmentFlag.AlignTop)
+        grid.setColumnStretch(0, 1)
+        grid.invalidate()
+        parent = grid.parentWidget()
+        if parent is not None:
+            parent.updateGeometry()
 
     def _set_action_buttons_compact(self, compact):
         grid = getattr(self, "bottom_control_row", None)
         if grid is None:
             return
         self._clear_grid_layout(grid)
-        try:
-            self.refresh_button.hide()
-            self.refresh_button.setVisible(False)
-        except Exception:
-            pass
-        if compact:
-            grid.addWidget(self.toggle_workspace_button, 0, 0)
-            grid.addWidget(self.toggle_terminal_button, 0, 1)
-            grid.addWidget(self.toggle_selection_button, 0, 2)
-            grid.addWidget(self.open_action_pad_button, 1, 0)
-            grid.addWidget(self.open_display_controls_button, 1, 1)
-            grid.addWidget(self.open_sequence_panel_button, 1, 2)
-            grid.setColumnStretch(0, 1)
-            grid.setColumnStretch(1, 1)
-            grid.setColumnStretch(2, 1)
-        else:
-            grid.addWidget(self.toggle_workspace_button, 0, 0)
-            grid.addWidget(self.toggle_terminal_button, 0, 1)
-            grid.addWidget(self.toggle_selection_button, 0, 2)
-            grid.addWidget(self.open_action_pad_button, 1, 0)
-            grid.addWidget(self.open_display_controls_button, 1, 1)
-            grid.addWidget(self.open_sequence_panel_button, 1, 2)
-            for column in range(3):
-                grid.setColumnStretch(column, 1)
+        self.refresh_button.hide()
+        buttons = (self.toggle_workspace_button, self.toggle_terminal_button, self.toggle_selection_button,
+                   self.open_action_pad_button, self.open_display_controls_button, self.open_sequence_panel_button)
+        columns = getattr(self, "_action_columns", 3 if compact else 6)
+        for index, button in enumerate(buttons):
+            grid.addWidget(button, index // columns, index % columns)
+        for column in range(columns):
+            grid.setColumnStretch(column, 1)
 
     def _icon_path(self, icon_name):
         return os.path.join(os.path.dirname(__file__), "icons", icon_name)
@@ -1649,9 +1324,9 @@ class CodexAssistant(ToolInstance):
         if not os.path.exists(path):
             return
         button.setIcon(QIcon(path))
-        button.setIconSize(QSize(22, 22))
+        button.setIconSize(QSize(16, 16))
         try:
-            button.setMinimumHeight(34)
+            button.setMinimumHeight(24)
         except Exception:
             pass
 
@@ -1739,7 +1414,8 @@ class CodexAssistant(ToolInstance):
             self.content_tabs.setCurrentIndex(getattr(self, "workspace_tab_index", 1))
         else:
             self.content_tabs.setCurrentIndex(0)
-        self.toggle_workspace_button.setText("AI" if self._workspace_visible else "Context")
+        self.toggle_workspace_button.setText("Context")
+        self.toggle_workspace_button.setChecked(self._workspace_visible)
 
     def _toggle_selection_panel_visibility(self):
         self._set_selection_panel_visible(not self._selection_panel_visible)
@@ -1757,7 +1433,8 @@ class CodexAssistant(ToolInstance):
             self.selection_panel.activateWindow()
         else:
             self.selection_panel.hide()
-        self.toggle_selection_button.setText("Hide Sel" if self._selection_panel_visible else "Selection")
+        self.toggle_selection_button.setText("Selection")
+        self.toggle_selection_button.setChecked(self._selection_panel_visible)
 
     def _toggle_command_terminal_visibility(self):
         self._set_command_terminal_visible(not self._command_terminal_visible)
@@ -1765,14 +1442,16 @@ class CodexAssistant(ToolInstance):
     def _set_command_terminal_visible(self, visible):
         self._command_terminal_visible = bool(visible)
         self.terminal_panel.setVisible(self._command_terminal_visible)
-        if self._command_terminal_visible:
-            self.prompt_panel.setMaximumHeight(160)
-            self.interaction_vertical_splitter.setSizes([130, 80])
-        else:
-            self.prompt_panel.setMaximumHeight(160)
-            self.interaction_vertical_splitter.setSizes([130, 0])
+        self.interaction_panel.setVisible(self._command_terminal_visible)
         self._enforce_compact_assistant_heights()
-        self.toggle_terminal_button.setText("Hide Term" if self._command_terminal_visible else "Terminal")
+        if self._command_terminal_visible:
+            self.interaction_vertical_splitter.setSizes([140])
+            total_height = max(230, self.assistant_vertical_splitter.height())
+            self.assistant_vertical_splitter.setSizes([max(84, total_height - 145), 140])
+        else:
+            self.assistant_vertical_splitter.setSizes([self.assistant_vertical_splitter.height(), 0])
+        self.toggle_terminal_button.setText("Terminal")
+        self.toggle_terminal_button.setChecked(self._command_terminal_visible)
 
     def _workspace_text(self):
         from .semantic import format_figure_lab_report, format_selection_focus_report
@@ -2246,6 +1925,7 @@ class CodexAssistant(ToolInstance):
     def _show_assistant_tab(self):
         self._workspace_visible = False
         self.toggle_workspace_button.setText("Context")
+        self.toggle_workspace_button.setChecked(False)
         self.content_tabs.setCurrentIndex(0)
         self._focus_prompt()
 
@@ -2623,11 +2303,10 @@ class CodexAssistant(ToolInstance):
         else:
             selection_text = "none"
 
-        self.session_status_label.setText(
-            "Session: "
-            + f"{len(models)} model(s) | selection {selection_text} | "
-            + f"engine {self._backend_label()} | model {self._active_model_display(self._mode)} | "
-            + f"route {get_routing_mode(self.session)} | mode {self._mode} | speed {self._speed_text(self._mode)}"
+        self.session_status_label.setText(f"Session: {len(models)} model(s) · selection {selection_text}")
+        self.session_status_label.setToolTip(
+            f"Engine: {self._backend_label()}\nModel: {self._active_model_display(self._mode)}\n"
+            f"Route: {get_routing_mode(self.session)}\nMode: {self._mode}\nSpeed: {self._speed_text(self._mode)}"
         )
 
     def _update_sequence_status(self):
@@ -2720,26 +2399,14 @@ class CodexAssistant(ToolInstance):
         return f"motifs {text}" if text else ""
 
     def _set_result_status(self, text, tone="neutral"):
-        mono_qss = getattr(self, "_mono_qss", "")
-        color_map = {
-            "neutral": ("#15181b", "#c7ccd2", "#343a40"),
-            "running": ("#1b1f23", "#d8dde3", "#464d55"),
-            "success": ("#122018", "#c8efcf", "#2d5a3c"),
-            "warn": ("#21180f", "#f3d6a0", "#5b4625"),
-            "error": ("#241315", "#ffcad0", "#6d2d34"),
-        }
-        background, color, border = color_map.get(tone, color_map["neutral"])
+        accent = {"success": "#64916c", "warn": "#ad8a43", "error": "#b45454"}.get(tone)
+        border = f"border-left: 3px solid {accent}; padding-left: 5px;" if accent else ""
         self.result_status_label.setStyleSheet(
-            "QLabel {"
-            f" background: {background};"
-            f" color: {color};"
-            f" border: 1px solid {border};"
-            " border-radius: 6px;"
-            " padding: 6px 8px;"
-            f"{mono_qss}"
-            "}"
+            "QLabel { color: palette(window-text); background: transparent; border: none; "
+            "font-weight: 600; padding: 1px 0; " + border + " }"
         )
         display_text = " ".join(str(text or "").split())
+        self.result_status_label.setToolTip(display_text)
         if len(display_text) > 180:
             display_text = display_text[:177] + "..."
         self.result_status_label.setText("Result: " + display_text)
@@ -2760,66 +2427,35 @@ class CodexAssistant(ToolInstance):
     def _set_result_detail(self, text):
         mono_qss = getattr(self, "_mono_qss", "")
         lowered = str(text or "").lower()
-        if any(token in lowered for token in ("error", "failed", "traceback", "exception")):
-            self.result_detail_edit.setStyleSheet(
-                "QPlainTextEdit {"
-                " background: #1a0f12;"
-                " color: #ffd8dd;"
-                " border: 1px solid #74404a;"
-                " border-radius: 8px;"
-                " padding: 7px;"
-                f"{mono_qss}"
-                "}"
-            )
-        else:
-            self.result_detail_edit.setStyleSheet(
-                "QPlainTextEdit {"
-                " background: #101214;"
-                " color: #d9dde2;"
-                " border: 1px solid #343a40;"
-                " border-radius: 8px;"
-                " padding: 7px;"
-                f"{mono_qss}"
-                "}"
-            )
+        error_border = " border-left: 3px solid #b45454;" if any(
+            token in lowered for token in ("error", "failed", "traceback", "exception")
+        ) else ""
+        self.result_detail_edit.setStyleSheet(
+            "QPlainTextEdit { padding: 3px;" + mono_qss + error_border + " }"
+        )
         self.result_detail_edit.setPlainText(str(text or "").strip())
         self._enforce_compact_assistant_heights()
 
     def _enforce_compact_assistant_heights(self):
-        try:
-            from Qt.QtWidgets import QSizePolicy
-        except Exception:
+        from Qt.QtWidgets import QSizePolicy
+
+        if not hasattr(self, "prompt_panel"):
             return
-        try:
-            self.result_detail_edit.setFixedHeight(36)
-            self.result_detail_edit.setMaximumHeight(36)
-            self.result_detail_edit.setMinimumHeight(36)
-            self.result_detail_edit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        except Exception:
-            pass
-        try:
-            self.transcript_panel.setMaximumHeight(150)
-            self.transcript_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-        except Exception:
-            pass
-        try:
-            # Interaction panel needs to fit prompt panel (≥112) + a bit of
-            # spacing for the optional terminal panel collapse target.
-            self.interaction_panel.setMaximumHeight(220)
-            self.interaction_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-        except Exception:
-            pass
-        try:
-            self.terminal_edit.setMaximumHeight(140)
-            self.terminal_edit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-        except Exception:
-            pass
-        try:
-            self.prompt_panel.setMinimumHeight(112)
-            self.prompt_panel.setMaximumHeight(160)
-            self.prompt_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-        except Exception:
-            pass
+        self.result_detail_edit.setFixedHeight(44)
+        self.transcript_panel.setMaximumHeight(16777215)
+        self.transcript_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        self.terminal_edit.setMaximumHeight(16777215)
+        self.terminal_edit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        # Keep the complete composer readable, including in a short dock where
+        # the outer panel scrolls to reach it.
+        prompt_layout = self.prompt_panel.layout()
+        prompt_height = max(82, prompt_layout.sizeHint().height())
+        if self.prompt_panel.width() > 0 and prompt_layout.hasHeightForWidth():
+            prompt_height = max(prompt_height, prompt_layout.heightForWidth(self.prompt_panel.width()))
+        self.prompt_panel.setFixedHeight(prompt_height)
+        self.prompt_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.interaction_panel.setMaximumHeight(16777215)
+        self.interaction_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
 
     def _show_error_banner(self, text):
         message = " ".join(str(text or "").split())
@@ -3057,10 +2693,6 @@ class CodexAssistant(ToolInstance):
         return widgets or [dock_widget]
 
     def _clear_dock_width_constraints(self, dock_widgets):
-        try:
-            from Qt.QtWidgets import QWidget
-        except Exception:
-            return
         for dock_widget in tuple(dict.fromkeys(dock_widgets or [])):
             widgets = [dock_widget]
             root = None
@@ -3070,10 +2702,8 @@ class CodexAssistant(ToolInstance):
                 root = None
             if root is not None:
                 widgets.append(root)
-                try:
-                    widgets.extend(root.findChildren(QWidget))
-                except Exception:
-                    pass
+            # Only release dock-level sizing. Child controls keep their own
+            # readable label widths, slider widths, and resize-grip dimensions.
             for widget in tuple(dict.fromkeys(widgets)):
                 try:
                     widget.setMaximumWidth(16777215)
@@ -3957,6 +3587,7 @@ class CodexAssistant(ToolInstance):
         else:
             self.status_label.setText(message)
             self.stage_label.setText(str(message or "").replace("[", "").replace("]", ""))
+            self._enforce_compact_assistant_heights()
             self._append_system(message)
             self._set_result_status(message, tone="running")
 
@@ -4081,8 +3712,9 @@ class CodexAssistant(ToolInstance):
     def _resize_prompt(self):
         line_height = self.prompt_edit.fontMetrics().lineSpacing()
         blocks = max(2, min(self.prompt_edit.document().blockCount(), 4))
-        height = 22 + (line_height * blocks)
-        self.prompt_edit.setFixedHeight(height)
+        self.prompt_edit.setFixedHeight(16 + line_height * blocks)
+        if hasattr(self, "interaction_panel"):
+            self._enforce_compact_assistant_heights()
 
     def _cycle_mode(self):
         current_index = self._mode_order.index(self._mode)

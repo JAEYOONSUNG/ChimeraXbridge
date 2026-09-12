@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128">
+<title>HPEPDOCK peptide service</title>
+<desc>A dimensional silver service cloud shelters a cyan binding fold above a compact amber peptide chain.</desc>
+<defs>
+<linearGradient id="silver" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F1F6FA"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+<linearGradient id="cyan" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#A7E0E9"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+<linearGradient id="amber" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE3A0"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+<linearGradient id="coral" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F6BFB0"/><stop offset="1" stop-color="#C85F5B"/></linearGradient>
+</defs>
+<path d="M31 69C12 69 9 48 23 39C22 23 42 13 54 23C65 9 88 17 91 33C110 31 121 53 109 65C103 71 95 70 87 70Z" fill="url(#silver)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M23 49C26 44 30 43 34 43C28 29 43 21 52 30C66 16 81 22 86 35" fill="none" stroke="#F9FCFE" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<path d="M41 48C47 38 58 38 64 48C70 58 79 58 88 46" fill="none" stroke="#253544" stroke-width="11" stroke-linecap="round"/>
+<path d="M41 48C47 38 58 38 64 48C70 58 79 58 88 46" fill="none" stroke="url(#cyan)" stroke-width="5" stroke-linecap="round"/>
+<path d="M30 93L52 105L75 88L100 101" fill="none" stroke="#253544" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M30 93L52 105L75 88L100 101" fill="none" stroke="url(#amber)" stroke-width="4" stroke-linecap="round"/>
+<circle cx="30" cy="93" r="7" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/><path d="M26.85 90.9q1.4 -2.45 3.85 -2.1" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/><circle cx="52" cy="105" r="7" fill="url(#coral)" stroke="#253544" stroke-width="3.5"/><path d="M48.85 102.9q1.4 -2.45 3.85 -2.1" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/><circle cx="75" cy="88" r="7" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/><path d="M71.85 85.9q1.4 -2.45 3.85 -2.1" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/><circle cx="100" cy="101" r="7" fill="url(#coral)" stroke="#253544" stroke-width="3.5"/><path d="M96.85 98.9q1.4 -2.45 3.85 -2.1" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+</svg>

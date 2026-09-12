@@ -1401,6 +1401,7 @@ class CodexCaverTool(ToolInstance):
         title_font.setPointSize(13)
         title_font.setBold(True)
         title.setFont(title_font)
+        title.setWordWrap(True)
         layout.addWidget(title)
 
         caption = QLabel(
@@ -1453,8 +1454,8 @@ class CodexCaverTool(ToolInstance):
             button.setMinimumWidth(0)
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(callback)
-            button_grid.addWidget(button, index // 3, index % 3)
-        for column in range(3):
+            button_grid.addWidget(button, index // 2, index % 2)
+        for column in range(2):
             button_grid.setColumnStretch(column, 1)
 
         self.output = QPlainTextEdit(parent)
@@ -1462,6 +1463,8 @@ class CodexCaverTool(ToolInstance):
         self.output.setMinimumHeight(130)
         self.output.setMinimumWidth(0)
         layout.addWidget(self.output, 1)
+        from .panel_scroll import wrap_panel
+        self.scroll_area = wrap_panel(parent)
         self.tool_window.manage(placement="side")
         self.refresh()
 

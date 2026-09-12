@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128">
+<title>Signal peptide</title>
+<desc>A sculpted golden alpha helix with a short cyan peptide tail and a coral cleavage junction.</desc>
+<defs>
+<linearGradient id="cyan" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#A7E0E9"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+<linearGradient id="amber" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE3A0"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+<linearGradient id="amberBack" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#D5AA50"/><stop offset="1" stop-color="#8D611E"/></linearGradient>
+<linearGradient id="coral" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F6BFB0"/><stop offset="1" stop-color="#C85F5B"/></linearGradient>
+</defs>
+<path d="M26 29C42 39 76 43 99 33L99 47C78 59 44 51 26 41Z" fill="url(#amberBack)" stroke="#253544" stroke-width="3.5" stroke-linejoin="round"/>
+<path d="M26 56C45 67 78 70 99 59L99 73C78 85 45 78 26 69Z" fill="url(#amberBack)" stroke="#253544" stroke-width="3.5" stroke-linejoin="round"/>
+<path d="M27 83C46 94 70 98 84 90L87 103C67 115 44 105 27 96Z" fill="url(#amberBack)" stroke="#253544" stroke-width="3.5" stroke-linejoin="round"/>
+<path d="M19 31C34 16 78 12 106 28L103 42C76 28 42 29 22 43Z" fill="url(#amber)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M19 58C36 43 79 40 106 55L103 69C79 57 43 55 22 70Z" fill="url(#amber)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M19 85C36 70 79 67 106 82L103 96C79 84 44 84 22 97Z" fill="url(#amber)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M29 31C49 22 78 21 97 29M29 58C50 49 79 48 97 56M29 85C49 76 79 75 97 83" fill="none" stroke="#FFF1C6" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+<path d="M82 102L94 110L110 103" fill="none" stroke="#253544" stroke-width="9" stroke-linecap="round"/>
+<path d="M82 102L94 110L110 103" fill="none" stroke="url(#cyan)" stroke-width="5" stroke-linecap="round"/>
+<path d="M82 96L88 102L82 108L76 102Z" fill="url(#coral)" stroke="#253544" stroke-width="3"/>
+</svg>

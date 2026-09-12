@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <path d="M15 45 C18 24, 27 16, 33 18 C39 20, 43 29, 40 43" fill="#86EFAC" stroke="#111827" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M27 47 C30 26, 39 18, 45 20 C51 22, 55 31, 52 45" fill="#93C5FD" stroke="#111827" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M22 15 L42 49" stroke="#111827" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 4"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#8B98AA" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+  <title>Similar structures</title>
+  <path d="M4 18c0-6 3-12 8-11s5 9 1 11-7-2-5-5"/>
+  <path d="M18 25c-3-5-2-12 3-13s9 5 6 9-7 1-6-2" stroke="#659ACB"/>
+  <path d="m14 25 3-3-3-3M10 22h7"/>
 </svg>

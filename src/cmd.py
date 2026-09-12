@@ -191,6 +191,29 @@ def codex_selftest(session):
 codex_selftest_desc = CmdDesc()
 
 
+def codex_profile(session, name="jaeyoon", *, apply=False):
+    """Inspect or explicitly apply a portable UI profile, without credentials."""
+    import json
+    from .shared_profile import apply_profile, profile_info
+    try:
+        result = (apply_profile(session, name, refresh=session.ui.is_gui)
+                  if apply else profile_info(name))
+    except (ValueError, KeyError) as error:
+        raise UserError(str(error)) from error
+    title = "Applied UI profile" if apply else "Available UI profile"
+    message = title + "\n" + json.dumps(result, indent=2, ensure_ascii=False)
+    if not apply:
+        message += f"\nApply with: codex profile {name} apply true"
+    session.logger.info(message)
+    return result
+
+
+codex_profile_desc = CmdDesc(
+    optional=[("name", StringArg)],
+    keyword=[("apply", BoolArg)],
+)
+
+
 def codex_routing(session, name=None):
     ensure_session_preferences(session)
     if name is None:

@@ -1,19 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AI Assistant">
-  <defs>
-    <linearGradient id="asCard" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#374151"/>
-      <stop offset="1" stop-color="#111827"/>
-    </linearGradient>
-    <linearGradient id="asBubble" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#bfdbfe"/>
-      <stop offset=".55" stop-color="#60a5fa"/>
-      <stop offset="1" stop-color="#2563eb"/>
-    </linearGradient>
-  </defs>
-  <rect x="5" y="5" width="54" height="54" rx="10" fill="url(#asCard)" stroke="#030712" stroke-width="2"/>
-  <path d="M15 18h32c4 0 7 3 7 7v13c0 4-3 7-7 7H31l-10 8 2-8h-8c-4 0-7-3-7-7V25c0-4 3-7 7-7z" fill="url(#asBubble)" stroke="#0f172a" stroke-width="2"/>
-  <circle cx="23" cy="32" r="3" fill="#f8fafc"/>
-  <circle cx="32" cy="32" r="3" fill="#f8fafc"/>
-  <circle cx="41" cy="32" r="3" fill="#f8fafc"/>
-  <path d="M47 13l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#facc15" stroke="#0f172a" stroke-width="1"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#8B98AA" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+  <title>AI assistant</title>
+  <path d="M12 5H8a4 4 0 0 0-4 4v12a4 4 0 0 0 4 4h1v3l6-3h9a4 4 0 0 0 4-4v-7"/>
+  <path d="m21 4 1.8 5.2L28 11l-5.2 1.8L21 18l-1.8-5.2L14 11l5.2-1.8L21 4Z" stroke="#659ACB" fill="#659ACB" fill-opacity=".18"/>
+  <path d="M9 19h6"/>
 </svg>

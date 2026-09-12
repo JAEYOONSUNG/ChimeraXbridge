@@ -1,0 +1,192 @@
+{
+  "source_commit": "053d051a7b2baa7f013132bb1ddd39e1648ba84a",
+  "policy": "Imported artwork is preserved. Original-mode custom fallbacks use these detailed vectors. The separate minimal SVG theme remains available.",
+  "canvas": "128 x 128; resolution-independent SVG paths and gradients; transparent backgrounds",
+  "preserved": {
+    "alphafold-logo.png": {
+      "sha256": "d9fc406bdba31648019ec8e7e6d0fd4b58f819551553e3194039d5cbf35fbed6"
+    },
+    "blast-logo.png": {
+      "sha256": "fb0f2f20d00c31d53ccece355e68bf7fdeb67ff45e234f0c8e2f7442362b22fa"
+    },
+    "caverweb-logo.svg": {
+      "sha256": "67c3b1687c50841aa49c09e6b5528cb8cb4e6b2ef851e22b3d61eb7cb03b95fc"
+    },
+    "consurf-logo.png": {
+      "sha256": "260698ee6b385747e9fe0dd612366a289e803cfd7a1e150a24bc298245e9640b"
+    },
+    "folddisco-logo.png": {
+      "sha256": "4058b70d459235ac3413bcbb202dfc77ab09e109894b22ba036a118688021f43"
+    },
+    "foldmason-logo.png": {
+      "sha256": "a9a8c010aad529d80a0e2b8a6dd54e789efb7a9bd047d80cd38f36ba5612d92d"
+    },
+    "foldseek-logo.png": {
+      "sha256": "ca186e988e87eaf2c47700c895a1d26d716254efc3dea14b8867af0fed2a8ccd"
+    },
+    "hdock-logo.png": {
+      "sha256": "d49d2fd9270389b13a63c033c3757694e1d042ffa8fec08f44664ae3cce232ff"
+    },
+    "hhpred-logo.svg": {
+      "sha256": "88283886e922cc0e0d614f2032cc61a8b9ce20f9a36cab15acb5dd71d9cd2c5e"
+    },
+    "pdbefold-logo.png": {
+      "sha256": "d9997d64af37259d2ab2bb4aff45cfa3c0154d56f474788248f5d2fdbf4fff67"
+    },
+    "uniprot-logo.png": {
+      "sha256": "06a2ced9dcb2d1c9e0be0fba3a035cb78b7b02be0f63467b3e0a5f3d45e1ec9f"
+    }
+  },
+  "redraws": {
+    "ai-action-pad.svg": {
+      "file": "ai-action-pad.svg",
+      "original_sha256": "46f0c0c6c6bdd1f1bb33ebb5895ee0345094ee1c6e34363ad5a32cf9cb706479",
+      "sha256": "9417254c684681eaf021ae3b70a8bcc6e911cd12976483df29490bd5dc509c74"
+    },
+    "ai-alphafold.svg": {
+      "file": "afcomplex-logo.svg",
+      "original_sha256": "c6aaa20c8032b63c1f74d20c35f1d04fd0098a7ed88464b210a96233a9e95802",
+      "sha256": "b2babc66dfe2073c11525e1adca50bf1671aad540336feb3e3a2b755b3bae025"
+    },
+    "ai-analyze.svg": {
+      "file": "ai-analyze.svg",
+      "original_sha256": "55c054cfd5fceff49d6bfbe08018b176624806aedbd45ff02e6b5861f7200391",
+      "sha256": "7ad4580afab69a6177faf5a685c795c604bff110eaf58085bc3dccb01670e2f0"
+    },
+    "ai-assistant.svg": {
+      "file": "ai-assistant.svg",
+      "original_sha256": "0e6f20478974749e2cd6cacf0d5c42c0532a918552b6a6499b4007d891c147c2",
+      "sha256": "53bc5635e7b3b32e82bdefd6b948dcc6797e195fd8922bbbf1d8f984af06aade"
+    },
+    "ai-camera-bookmarks.svg": {
+      "file": "ai-camera-bookmarks.svg",
+      "original_sha256": "372f01a7827a95cb71da24c5d33d9cd099cf998419b52bae874f1552ee257956",
+      "sha256": "40cef12330bdd636869898b99fb9f1f177a759304f4e71fa473f01497db6cba2"
+    },
+    "ai-catalytic.svg": {
+      "file": "ai-catalytic.svg",
+      "original_sha256": "d2337f346af228386d45ebe2ed1c7c0fbcacc40b98dbbacee11cd77ac1cbfb28",
+      "sha256": "ed663fc557955c642c6474d76c53995a3b29a940118d086c09078d5916abe1be"
+    },
+    "ai-cavity.svg": {
+      "file": "ai-cavity.svg",
+      "original_sha256": "7ae620efee8048a0626fee6cc87776c1c54e7be500a095553e6b1fcefd55ef42",
+      "sha256": "da2dda6faed5def5fcc1cd15ea954ee5b0e18a9299c5fdacb8820eb5e7767d4f"
+    },
+    "ai-conserve.png": {
+      "file": "ai-conserve.svg",
+      "original_sha256": "9a27bffffda7a7025f16897645fd1cb2de1f010098436809b9755cfcb4cfe4a6",
+      "sha256": "1b75bb053171474acebce2724152f0ce19d5c04e5dee757383eba945b34fa3ac"
+    },
+    "ai-energy.svg": {
+      "file": "ai-energy.svg",
+      "original_sha256": "9e7777597b04268c78817cc7a8944490ff21b17d5c0158131714b8ff78ea284d",
+      "sha256": "19315f05eadea124d68819ce649692de81979258e7f5e591be2af5092967f0af"
+    },
+    "ai-figure.svg": {
+      "file": "ai-figure.svg",
+      "original_sha256": "98ad519630e46389d28733129ccb158d00a9fd90123a3da096b7552af16836c7",
+      "sha256": "9924c608d1095d768655c3dcd87ca282d944fe6b5f71f1f851bf80fbab7de426"
+    },
+    "ai-hydrophobicity.svg": {
+      "file": "ai-hydrophobicity.svg",
+      "original_sha256": "86eda6addbafd3f1dc56da9ac3a101729e1f0af187c98e3178b833b9cc0b36f4",
+      "sha256": "d16b1d589a0edac5fecb8f14ee0052dafc2ddfaed9f77cc997c17c75b3f6f59a"
+    },
+    "ai-interface.svg": {
+      "file": "ai-interface.svg",
+      "original_sha256": "b92827e00b42da9f43287f9f6728e1d237c7b0aecb90a6d58281660aa8418324",
+      "sha256": "12a11cf60ccd78999e60a7b8b23c6d85193e45e5b891a966f076febcbbb08356"
+    },
+    "ai-md.svg": {
+      "file": "ai-md.svg",
+      "original_sha256": "e8decea163f01f7a4f62b86a88019b636de75eb499ae25d7dca2a0012ad7eee7",
+      "sha256": "57bc1faa68ddbb239e79f5ae8aeddab806aed269f983f27f4565f182b14cad68"
+    },
+    "ai-membrane.svg": {
+      "file": "ai-membrane.svg",
+      "original_sha256": "d7df5183597ae57b9f5542dc43da2d30252f0f428a611d9b8e1d3045c8836905",
+      "sha256": "fa01b2aee7cb4aa8b5ce7f55de15b5ef9ca2f9514554ec1a890c5678a0b0dc02"
+    },
+    "ai-metal.svg": {
+      "file": "ai-metal.svg",
+      "original_sha256": "6ef2d5f641f987ad10cab601cacc812bf64e3405bd9e3b10419767be45b18787",
+      "sha256": "10e1778f7079217ae91f630ff8b54cc5f3a5d5fc273f11ddf82ffc44ef409efa"
+    },
+    "ai-pyrosetta.svg": {
+      "file": "ai-pyrosetta.svg",
+      "original_sha256": "38fe19c4ccb7c18ce0f9f572e7e78ca3e57e0d9518804b3d65e996bcd84b00c2",
+      "sha256": "1180ca9e97248334d24af02eabeb1a2fa57fe15f48977f23c208706a51962434"
+    },
+    "ai-rmsd.svg": {
+      "file": "ai-rmsd.svg",
+      "original_sha256": "7c7cb51f4bbd023a54b6d03ae4d1694fcdce3e0700cc9ef3fa4edd7010437cba",
+      "sha256": "9cd41218e1361f7ee429a6b12f446b6e6fcd0f3027fcc2815dc0c7c8aae86eea"
+    },
+    "ai-sequence-bar.svg": {
+      "file": "ai-sequence-bar.svg",
+      "original_sha256": "e26e83a30bb01046a76f26a1002490a07090a6a72725549a73bfe4b24195f9f2",
+      "sha256": "2abe92088c0512de0d6bdf5023a8fcad6fb4769eacbbf9f955b09b1f09b7ec27"
+    },
+    "ai-signalp.png": {
+      "file": "ai-signalp.svg",
+      "original_sha256": "ea7b94ff33ed33b0bfea3c42bcd2cde35127a5f8a6fcc0b7459bf72ad6669ba9",
+      "sha256": "e6380415f0cdd200d5cfbc40f3ce60dbf099b538f5e67027913e288ee47c0318"
+    },
+    "ai-site.svg": {
+      "file": "ai-site.svg",
+      "original_sha256": "2bd31b2c0375f6a7105a3c48605a5f3cfa3f386041c7de186532d7e419b558ae",
+      "sha256": "df0fca87c7386169d9c438f455a332b9c82139348265a8ef2fca59a5506a8bd1"
+    },
+    "ai-view.svg": {
+      "file": "ai-view.svg",
+      "original_sha256": "c8640b912680e15c6795c5b1ce117c04c220172a9df0935f095a75e2f46e7f35",
+      "sha256": "a629f10d1f5311fc14925f07c9362fa0d7e02b7e564014b430c7c7550a950027"
+    },
+    "ai-zoom.svg": {
+      "file": "ai-zoom.svg",
+      "original_sha256": "175107127a7f41fb0f875e5e4cb7bf43bbd88cf969ff1ecaf8ae8c96c516ead8",
+      "sha256": "802ff740fe48418e8b5224f44f708e0e249fed70b8e8f2b2b18fb7eeb0e8d8c4"
+    },
+    "boltz-logo.svg": {
+      "file": "boltz-logo.svg",
+      "original_sha256": "9944149a8463e56f19d6f9aa853d63787e708e2f62032426323bbb8fe664b260",
+      "sha256": "3cf17692d678ddc62a6a21fa03bbae1b551a34ee2a506c8c75579331d2712127"
+    },
+    "dali-logo.svg": {
+      "file": "dali-logo.svg",
+      "original_sha256": "658ddcece0070bc4ed37efbb7e8c0b32042bec135d0ee4dcf49ea8aed0356760",
+      "sha256": "75471990cd648b4d591eb7863cf43ed6b3fe5e59a7376fac1effdf54185fab2d"
+    },
+    "display-controls.svg": {
+      "file": "display-controls.svg",
+      "original_sha256": "ee1dd10f73667d9769ff7053ed32b946385fcde3ef13f4748085426569ecd295",
+      "sha256": "513b4914c66bcee1db9f37a8a490514dc2b4f8900c079b9523aafe3c095b512e"
+    },
+    "hpepdock-logo.svg": {
+      "file": "hpepdock-logo.svg",
+      "original_sha256": "024644a89237050e71318ba7091ffdf8508b8b9c1046637a051d622476e4fdd3",
+      "sha256": "d54354657266f4a4a60c61d7183d958393196d97b1c0239f5dcaf1cffd26e1ec"
+    },
+    "pisa-logo.svg": {
+      "file": "pisa-logo.svg",
+      "original_sha256": "fe4ba44904449a58547e143b9171c0bb82164b1671cd26d79666b2e15d31e2e5",
+      "sha256": "79a7d0e3932e0c5cc3e71c9c473a60af26a396d071a26864d55f12d64c84cd59"
+    },
+    "rapidock-logo.svg": {
+      "file": "rapidock-logo.svg",
+      "original_sha256": "2c42b0a7f55cc1cbe7ade0ccaaf48bcabd996f6687778fdfcb6d428a19d06739",
+      "sha256": "e42dfd197db27a582266896d7a0432519429155da461399699708efdf97b88b5"
+    },
+    "usalign-logo.svg": {
+      "file": "usalign-logo.svg",
+      "original_sha256": "e8a334a6c6146868893693e8ad9dd8225d95db26ae1c07cb341e4b56da3c7749",
+      "sha256": "0be0bdc0b5b1ac5f6467993f5b32cd13cec68000c562482bbb514a80508504ec"
+    },
+    "vast-logo.svg": {
+      "file": "vast-logo.svg",
+      "original_sha256": "6375c942ee612fdd9c022ad42e26a109bac2ff4c1de5f4b97460e5aa1be72d92",
+      "sha256": "022100bd985c7e3ea8dd90ea8358a32aabf6ddc9b6d49194c134f8a0a262bbf3"
+    }
+  }
+}

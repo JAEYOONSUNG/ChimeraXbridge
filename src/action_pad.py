@@ -1,7 +1,6 @@
 import threading
 
 from Qt.QtWidgets import (
-    QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -14,8 +13,8 @@ from Qt.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Qt.QtGui import QColor, QFontDatabase
-from Qt.QtCore import Qt, QTimer
+from Qt.QtGui import QPalette
+from Qt.QtCore import QSignalBlocker, Qt, QTimer
 
 from chimerax.core.tools import ToolInstance, get_singleton
 
@@ -27,6 +26,7 @@ from .display_color import (
 )
 from .integration import command_batch
 from .pick_mode import bind_pick_mode
+from .ui_theme import panel_stylesheet
 
 
 def _is_qt_main_thread():
@@ -76,11 +76,38 @@ def _run_command_thread_safe(session, command):
     return result_box.get("result")
 
 
+class _ElidedLabel(QLabel):
+    """Keep target and status text readable without widening the dock."""
+
+    def __init__(self, text, parent=None):
+        super().__init__(parent)
+        self._full_text = ""
+        self.setTextFormat(Qt.TextFormat.PlainText)
+        self.setMinimumWidth(0)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.setFixedHeight(18)
+        self.setText(text)
+
+    def setText(self, text):
+        self._full_text = str(text)
+        self.setToolTip(self._full_text)
+        self._elide_text()
+
+    def _elide_text(self):
+        super().setText(self.fontMetrics().elidedText(
+            self._full_text, Qt.TextElideMode.ElideRight, max(0, self.width())
+        ))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._elide_text()
+
+
 class ActionPadWidget(QWidget):
 
-    BUTTON_HEIGHT = 28
-    PANEL_MARGIN = 8
-    PANEL_GAP = 6
+    BUTTON_HEIGHT = 24
+    PANEL_MARGIN = 6
+    PANEL_GAP = 4
 
     def __init__(self, session, *, open_ai_callback=None, launch_ai_callback=None, parent=None):
         super().__init__(parent)
@@ -88,7 +115,12 @@ class ActionPadWidget(QWidget):
         self._open_ai_callback = open_ai_callback
         self._launch_ai_callback = launch_ai_callback
         self.handlers = []
+        self._closed = False
         self._refresh_pending = False
+        self._refresh_require_visible = False
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setSingleShot(True)
+        self._refresh_timer.timeout.connect(self._run_queued_refresh)
         self._build_ui()
 
     def _build_ui(self):
@@ -97,79 +129,64 @@ class ActionPadWidget(QWidget):
         layout.setSpacing(self.PANEL_GAP)
         self.setLayout(layout)
         self.setObjectName("ActionPadRoot")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setMinimumWidth(0)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.setStyleSheet(
-            "QWidget#ActionPadRoot { background: #171a1d; color: #e6eaee; }"
-            "QLabel { color: #dce1e6; background: transparent; border: none; }"
-            "QLabel#ActionPadHeader { color: #dce1e6; font-size: 12px; font-weight: 500; }"
-            "QLabel#ActionPadStatus { color: #adb6bf; font-size: 11px; }"
-            "QPushButton {"
-            " background: #22282e;"
-            " color: #eef2f5;"
-            " border: 1px solid #36424d;"
-            " border-radius: 6px;"
-            " padding: 1px 8px;"
-            " min-height: 22px;"
-            " max-height: 28px;"
-            " font-size: 12px;"
-            " font-weight: 400;"
-            "}"
-            "QPushButton:hover { background: #2b333a; border-color: #52616f; }"
-            "QPushButton:pressed { background: #11161a; }"
-            "QPushButton:disabled { color: #68717a; background: #191d21; border-color: #252b31; }"
+            panel_stylesheet("ActionPadRoot")
+            + "QTreeWidget::item { min-height: 24px; }"
+            "QToolButton[role='row-action'] { padding: 0px; min-height: 18px; }"
+            "QToolButton::menu-indicator { image: none; width: 0px; }"
         )
 
-        fixed_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
-
-        header = QLabel("Object actions")
-        header.setObjectName("ActionPadHeader")
-        layout.addWidget(header)
-
-        toolbar = QGridLayout()
+        toolbar = QHBoxLayout()
         toolbar.setContentsMargins(0, 0, 0, 0)
-        toolbar.setHorizontalSpacing(self.PANEL_GAP)
-        toolbar.setVerticalSpacing(self.PANEL_GAP)
+        toolbar.setSpacing(self.PANEL_GAP)
         self.refresh_button = QPushButton("Refresh", self)
+        self.refresh_button.setToolTip("Refresh the model, chain and current-selection rows")
         self.refresh_button.clicked.connect(self.refresh)
-        toolbar.addWidget(self.refresh_button, 0, 0)
+        toolbar.addWidget(self.refresh_button)
 
-        self.open_ai_button = QPushButton("AI Tab", self)
+        self.open_ai_button = QPushButton("Assistant", self)
+        self.open_ai_button.setToolTip("Open AI Assistant")
         self.open_ai_button.clicked.connect(self._open_ai)
-        toolbar.addWidget(self.open_ai_button, 0, 1)
-
-        self.pick_residue_button = QPushButton("Residue Pick", self)
-        self.pick_residue_button.clicked.connect(lambda: self._set_pick_mode("residue"))
-        toolbar.addWidget(self.pick_residue_button, 0, 2)
-
-        self.pick_chain_button = QPushButton("Chain Pick", self)
-        self.pick_chain_button.clicked.connect(lambda: self._set_pick_mode("chain"))
-        toolbar.addWidget(self.pick_chain_button, 1, 0)
-
-        self.pick_menu_button = QPushButton("Right-click Menu", self)
-        self.pick_menu_button.clicked.connect(lambda: self._set_pick_mode("menu"))
-        toolbar.addWidget(self.pick_menu_button, 1, 1)
-
-        self.pick_default_button = QPushButton("Default Mouse", self)
-        self.pick_default_button.clicked.connect(lambda: self._set_pick_mode("default"))
-        toolbar.addWidget(self.pick_default_button, 1, 2)
+        toolbar.addWidget(self.open_ai_button)
 
         self.ai_analyze_button = QPushButton("AI Analyze", self)
         self.ai_analyze_button.clicked.connect(
             lambda: self._launch_ai_prompt("Analyze the current ChimeraX scene with evidence and confidence.", "analyze")
         )
-        toolbar.addWidget(self.ai_analyze_button, 2, 0, 1, 2)
+        self.ai_analyze_button.setToolTip("Ask AI Assistant to analyze the current scene")
+        toolbar.addWidget(self.ai_analyze_button)
 
         self.conserve3d_button = QPushButton("3D Conserve", self)
         self.conserve3d_button.setToolTip(
             "Highlight sequence-unique residues across the structures currently open and aligned"
         )
         self.conserve3d_button.clicked.connect(self._open_3d_conserve)
-        toolbar.addWidget(self.conserve3d_button, 2, 2)
-
-        for column in range(3):
-            toolbar.setColumnStretch(column, 1)
+        toolbar.addWidget(self.conserve3d_button)
         layout.addLayout(toolbar)
+
+        pick_row = QHBoxLayout()
+        pick_row.setContentsMargins(0, 0, 0, 0)
+        pick_row.setSpacing(self.PANEL_GAP)
+        pick_row.addWidget(QLabel("Mouse", self))
+        self._pick_buttons = {}
+        for which, text, tip, attribute in (
+            ("residue", "Residue", "Left click selects a residue; Shift-left click adds residues.", "pick_residue_button"),
+            ("chain", "Chain", "Left click selects a chain; Shift-left click adds chains.", "pick_chain_button"),
+            ("menu", "Right menu", "Right click opens the residue context menu.", "pick_menu_button"),
+            ("default", "Default", "Restore the standard left and right mouse buttons.", "pick_default_button"),
+        ):
+            button = QPushButton(text, self)
+            button.setCheckable(True)
+            button.setToolTip(tip)
+            button.clicked.connect(lambda checked=False, mode=which: self._set_pick_mode(mode))
+            setattr(self, attribute, button)
+            self._pick_buttons[which] = button
+            pick_row.addWidget(button, 1)
+        layout.addLayout(pick_row)
+
         for button in (
             self.refresh_button,
             self.open_ai_button,
@@ -180,16 +197,16 @@ class ActionPadWidget(QWidget):
             self.ai_analyze_button,
             self.conserve3d_button,
         ):
-            button.setMinimumHeight(self.BUTTON_HEIGHT)
-            button.setMaximumHeight(self.BUTTON_HEIGHT)
             button.setFixedHeight(self.BUTTON_HEIGHT)
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-        self.status_label = QLabel("Ready.", self)
-        self.status_label.setFont(fixed_font)
+        self.pick_mode_label = _ElidedLabel("Mouse bindings unchanged", self)
+        self.pick_mode_label.setProperty("role", "caption")
+        layout.addWidget(self.pick_mode_label)
+
+        self.status_label = _ElidedLabel("Ready", self)
+        self.status_label.setProperty("role", "caption")
         self.status_label.setObjectName("ActionPadStatus")
-        self.status_label.setFixedHeight(16)
-        layout.addWidget(self.status_label)
 
         targets_layout = QVBoxLayout()
         targets_layout.setContentsMargins(0, 0, 0, 0)
@@ -197,95 +214,76 @@ class ActionPadWidget(QWidget):
         layout.addLayout(targets_layout, 1)
 
         self.tree = QTreeWidget(self)
-        self.tree.setFont(fixed_font)
         self.tree.setMinimumWidth(0)
-        self.tree.setMinimumHeight(150)
+        self.tree.setMinimumHeight(120)
         self.tree.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.tree.setColumnCount(6)
-        self.tree.setHeaderLabels(["Object", "A", "S", "H", "L", "C"])
+        self.tree.setHeaderLabels(["Object / chain", "Action", "Show", "Hide", "Label", "Color"])
         self.tree.setRootIsDecorated(True)
-        self.tree.setIndentation(14)
-        self.tree.setAlternatingRowColors(True)
+        self.tree.setIndentation(12)
+        self.tree.setAlternatingRowColors(False)
+        self.tree.setUniformRowHeights(True)
+        self.tree.setTextElideMode(Qt.TextElideMode.ElideMiddle)
+        self.tree.setToolTip("Select a row to use its target actions. Double-click to focus it.")
         self.tree.itemSelectionChanged.connect(self._update_current_spec_label)
+        self.tree.currentItemChanged.connect(self._update_current_spec_label)
         self.tree.itemDoubleClicked.connect(self._activate_current_item)
-        self.tree.setStyleSheet(
-            "QTreeWidget {"
-            " background: #101214;"
-            " color: #edf0f3;"
-            " border: 1px solid #343a40;"
-            " border-radius: 6px;"
-            " alternate-background-color: #171a1d;"
-            "}"
-            "QHeaderView::section {"
-            " background: #171a1d;"
-            " color: #d8dde3;"
-            " border: 0;"
-            " padding: 4px;"
-            "}"
-        )
         header_view = self.tree.header()
         header_view.setStretchLastSection(False)
-        header_view.setMinimumSectionSize(18)
+        header_view.setMinimumSectionSize(24)
         header_view.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for index in range(1, 6):
+        for index, width in enumerate((44, 36, 34, 36, 38), start=1):
             header_view.setSectionResizeMode(index, QHeaderView.ResizeMode.Fixed)
-            self.tree.setColumnWidth(index, 30)
+            self.tree.setColumnWidth(index, width)
+            self.tree.headerItem().setToolTip(index, (
+                "Select, focus, AI tools and object management",
+                "Show cartoon, atoms, surfaces or solvent",
+                "Hide cartoon, atoms, surfaces or solvent",
+                "Add residue or model labels; clear labels",
+                "Color by element, chain, model or a chosen color",
+            )[index - 1])
         targets_layout.addWidget(self.tree, 1)
 
-        self.current_spec_label = QLabel("Current target: (none)", self)
-        self.current_spec_label.setFont(fixed_font)
-        self.current_spec_label.setStyleSheet(
-            "QLabel {"
-            " background: #12161a;"
-            " color: #d9dde2;"
-            " border: 1px solid #343a40;"
-            " border-radius: 6px;"
-            " padding: 6px 8px;"
-            "}"
-        )
-        targets_layout.addWidget(self.current_spec_label)
-
-        current_header = QLabel("Current Target Actions", self)
-        current_header.setStyleSheet("QLabel { color: #d8dde3; font-weight: 700; }")
-        targets_layout.addWidget(current_header)
+        target_row = QHBoxLayout()
+        target_row.setContentsMargins(0, 0, 0, 0)
+        target_row.setSpacing(self.PANEL_GAP)
+        self.current_spec_label = _ElidedLabel("Target: select an object", self)
+        self.current_spec_label.setProperty("role", "heading")
+        target_row.addWidget(self.current_spec_label, 1)
+        self.current_clear_button = QPushButton("Clear selection", self)
+        self.current_clear_button.setToolTip("Clear the ChimeraX scene selection")
+        self.current_clear_button.clicked.connect(lambda: self._run_commands("Selection clear", ["select clear"]))
+        target_row.addWidget(self.current_clear_button)
+        targets_layout.addLayout(target_row)
 
         current_actions = QHBoxLayout()
         current_actions.setContentsMargins(0, 0, 0, 0)
         current_actions.setSpacing(self.PANEL_GAP)
         self.current_focus_button = QPushButton("Focus", self)
         self.current_focus_button.clicked.connect(self._focus_current_item)
-        current_actions.addWidget(self.current_focus_button)
+        self.current_focus_button.setToolTip("Select and focus the current target")
+        current_actions.addWidget(self.current_focus_button, 1)
 
-        self.current_clear_button = QPushButton("Clear Sel", self)
-        self.current_clear_button.clicked.connect(lambda: self._run_commands("Selection clear", ["select clear"]))
-        current_actions.addWidget(self.current_clear_button)
+        self.current_action_button = self._menu_button("Action", parent=self, compact=False)
+        current_actions.addWidget(self.current_action_button, 1)
 
-        self.current_action_button = self._menu_button("A", parent=self)
-        current_actions.addWidget(self.current_action_button)
+        self.current_show_button = self._menu_button("Show", parent=self, compact=False)
+        current_actions.addWidget(self.current_show_button, 1)
 
-        self.current_show_button = self._menu_button("S", parent=self)
-        current_actions.addWidget(self.current_show_button)
+        self.current_hide_button = self._menu_button("Hide", parent=self, compact=False)
+        current_actions.addWidget(self.current_hide_button, 1)
 
-        self.current_hide_button = self._menu_button("H", parent=self)
-        current_actions.addWidget(self.current_hide_button)
+        self.current_label_button = self._menu_button("Label", parent=self, compact=False)
+        current_actions.addWidget(self.current_label_button, 1)
 
-        self.current_label_button = self._menu_button("L", parent=self)
-        current_actions.addWidget(self.current_label_button)
-
-        self.current_color_button = self._menu_button("C", parent=self)
-        current_actions.addWidget(self.current_color_button)
-        current_actions.addStretch(1)
+        self.current_color_button = self._menu_button("Color", parent=self, compact=False)
+        current_actions.addWidget(self.current_color_button, 1)
         targets_layout.addLayout(current_actions)
         for button in (self.current_focus_button, self.current_clear_button):
-            button.setMinimumHeight(self.BUTTON_HEIGHT)
-            button.setMaximumHeight(self.BUTTON_HEIGHT)
             button.setFixedHeight(self.BUTTON_HEIGHT)
-            button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-
-        self.pick_mode_label = QLabel("Mouse: default", self)
-        self.pick_mode_label.setFont(fixed_font)
-        self.pick_mode_label.setStyleSheet("QLabel { color: #95f0b8; background: transparent; border: none; }")
-        targets_layout.addWidget(self.pick_mode_label)
+        layout.addWidget(self.status_label)
+        self._refresh_current_target_controls(None, None)
+        self._update_pick_mode_feedback()
 
     def install_handlers(self):
         if self.handlers:
@@ -297,6 +295,9 @@ class ActionPadWidget(QWidget):
         self.refresh()
 
     def cleanup(self):
+        self._closed = True
+        self._refresh_pending = False
+        self._refresh_timer.stop()
         for handler in self.handlers:
             try:
                 handler.remove()
@@ -305,15 +306,26 @@ class ActionPadWidget(QWidget):
         self.handlers = []
 
     def refresh(self):
-        from .semantic import get_session_semantics
+        if self._closed:
+            return
+        from .semantic import get_session_semantics, invalidate_semantic_cache
 
+        self._refresh_timer.stop()
         self._refresh_pending = False
+        # Scene edits and picks can happen without a command-finished event.
+        invalidate_semantic_cache(self.session)
         semantics = get_session_semantics(self.session)
         selected_token = self._selected_session_spec(semantics)
+        if not selected_token:
+            selected_token = self._current_spec()
 
+        expanded = self._tree_expansion_state()
+        scroll_position = self.tree.verticalScrollBar().value()
+        signal_blocker = QSignalBlocker(self.tree)
         self.tree.clear()
         model_count = 0
         selection_root = self._section_item("Current Selection")
+        self.tree.addTopLevelItem(selection_root)
         selection_count = 0
         for spec in semantics.get("selection", {}).get("ranges", []):
             self._add_spec_item(selection_root, spec, spec, spec, selected_token)
@@ -323,11 +335,11 @@ class ActionPadWidget(QWidget):
                 continue
             self._add_spec_item(selection_root, spec, spec, spec, selected_token)
             selection_count += 1
-        if selection_count:
-            self.tree.addTopLevelItem(selection_root)
-            selection_root.setExpanded(True)
+        selection_root.setHidden(not selection_count)
+        selection_root.setExpanded(True)
 
         models_root = self._section_item("Models")
+        self.tree.addTopLevelItem(models_root)
         for model in semantics.get("models", []):
             if not model.get("atomic"):
                 continue
@@ -349,13 +361,39 @@ class ActionPadWidget(QWidget):
         if model_count == 0:
             placeholder = QTreeWidgetItem(["No atomic models loaded", "", "", "", "", ""])
             placeholder.setFlags(placeholder.flags() & ~Qt.ItemFlag.ItemIsSelectable)
-            placeholder.setForeground(0, QColor("#89929b"))
+            placeholder.setForeground(0, self.palette().brush(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text))
             models_root.addChild(placeholder)
-        self.tree.addTopLevelItem(models_root)
         models_root.setExpanded(True)
 
+        self._restore_tree_expansion(expanded)
+        self.tree.doItemsLayout()
+        self.tree.verticalScrollBar().setValue(scroll_position)
+        del signal_blocker
         self._update_current_spec_label()
-        self.status_label.setText(f"{model_count} model row(s), {selection_count} selection row(s).")
+        self._update_pick_mode_feedback()
+        models_text = f"{model_count} model{'s' if model_count != 1 else ''}"
+        selections_text = f"{selection_count} selection target{'s' if selection_count != 1 else ''}"
+        self.status_label.setText(f"{models_text} · {selections_text}")
+
+    def _tree_expansion_state(self):
+        return {key: item.isExpanded() for key, item in self._tree_branches()}
+
+    def _tree_branches(self):
+        """Section plus target identifies branches independently of row order."""
+        def walk(parent, path):
+            for index in range(parent.childCount()):
+                item = parent.child(index)
+                key = path + (item.data(0, Qt.ItemDataRole.UserRole) or item.text(0),)
+                if item.childCount():
+                    yield key, item
+                    yield from walk(item, key)
+
+        yield from walk(self.tree.invisibleRootItem(), ())
+
+    def _restore_tree_expansion(self, expanded):
+        for key, item in self._tree_branches():
+            if key in expanded:
+                item.setExpanded(expanded[key])
 
     def _queue_command_refresh(self, _trigger_name=None, command=None, *_args):
         if _is_selection_only_command_text(command):
@@ -364,20 +402,26 @@ class ActionPadWidget(QWidget):
         self._queue_refresh(delay_ms=150)
 
     def _queue_selection_refresh(self, *_args, **_kwargs):
-        self._queue_refresh(delay_ms=500, require_visible=True)
+        self._queue_refresh(delay_ms=0, require_visible=True)
 
     def _queue_refresh(self, *_args, delay_ms=150, require_visible=False, **_kwargs):
-        if self._refresh_pending:
+        if self._closed:
             return
+        delay_ms = max(0, int(delay_ms))
+        if self._refresh_pending:
+            self._refresh_require_visible = self._refresh_require_visible and require_visible
+        else:
+            self._refresh_require_visible = require_visible
         self._refresh_pending = True
+        # A pick takes priority over a delayed command refresh already queued.
+        if not self._refresh_timer.isActive() or delay_ms < self._refresh_timer.remainingTime():
+            self._refresh_timer.start(delay_ms)
 
-        def run_refresh():
-            self._refresh_pending = False
-            if require_visible and not self.isVisible():
-                return
-            self.refresh()
-
-        QTimer.singleShot(int(delay_ms), lambda: self.session.ui.thread_safe(run_refresh))
+    def _run_queued_refresh(self):
+        self._refresh_pending = False
+        if self._closed or (self._refresh_require_visible and not self.isVisible()):
+            return
+        self.refresh()
 
     def _selected_session_spec(self, semantics):
         selection = semantics.get("selection", {})
@@ -390,42 +434,56 @@ class ActionPadWidget(QWidget):
     def _section_item(self, title):
         item = QTreeWidgetItem([title, "", "", "", "", ""])
         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+        font = item.font(0)
+        font.setBold(True)
+        item.setFont(0, font)
         return item
 
     def _add_spec_item(self, parent_item, text, spec, label, selected_token):
         item = QTreeWidgetItem([text, "", "", "", "", ""])
         item.setData(0, Qt.ItemDataRole.UserRole, spec)
+        item.setToolTip(0, f"{label}\nTarget: {spec}\nDouble-click to focus")
         parent_item.addChild(item)
         self._attach_row_buttons(item, spec, label=label)
         if selected_token and (spec == selected_token or selected_token.startswith(spec + ":")):
-            item.setSelected(True)
+            if self._current_spec() != selected_token:
+                self.tree.setCurrentItem(item)
         return item
 
     def _attach_row_buttons(self, item, spec, label):
-        self.tree.setItemWidget(item, 1, self._menu_button("A", self._action_menu(spec, label)))
-        self.tree.setItemWidget(item, 2, self._menu_button("S", self._show_menu(spec, label)))
-        self.tree.setItemWidget(item, 3, self._menu_button("H", self._hide_menu(spec, label)))
-        self.tree.setItemWidget(item, 4, self._menu_button("L", self._label_menu(spec, label)))
-        self.tree.setItemWidget(item, 5, self._menu_button("C", self._color_menu(spec, label)))
+        for column, text, title, factory in (
+            (1, "A", "Actions", self._action_menu),
+            (2, "S", "Show", self._show_menu),
+            (3, "H", "Hide", self._hide_menu),
+            (4, "L", "Label", self._label_menu),
+            (5, "C", "Color", self._color_menu),
+        ):
+            cell = QWidget(self.tree)
+            cell_layout = QHBoxLayout(cell)
+            cell_layout.setContentsMargins(0, 1, 0, 1)
+            cell_layout.setSpacing(0)
+            menu = factory(spec, label)
+            menu.aboutToShow.connect(lambda row=item: self.tree.setCurrentItem(row))
+            button = self._menu_button(text, menu, parent=cell)
+            button.setToolTip(f"{title}: {label}")
+            button.setAccessibleName(f"{title} for {label}")
+            cell_layout.addWidget(button, 0, Qt.AlignmentFlag.AlignCenter)
+            self.tree.setItemWidget(item, column, cell)
 
-    def _menu_button(self, text, menu=None, parent=None):
+    def _menu_button(self, text, menu=None, parent=None, *, compact=True):
         button = QToolButton(parent or self.tree)
         button.setText(text)
+        button.setToolTip(f"{text} menu for the current target")
         if menu is not None:
+            menu.setParent(button, menu.windowFlags())
             button.setMenu(menu)
             button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        button.setFixedSize(24, 22)
-        button.setStyleSheet(
-            "QToolButton {"
-            " background: #24282d;"
-            " color: #eef1f4;"
-            " border: 1px solid #464d55;"
-            " border-radius: 4px;"
-            " padding: 0px;"
-            " font-weight: 700;"
-            "}"
-            "QToolButton::menu-indicator { image: none; width: 0px; }"
-        )
+        if compact:
+            button.setProperty("role", "row-action")
+            button.setFixedSize(24, 22)
+        else:
+            button.setFixedHeight(self.BUTTON_HEIGHT)
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         return button
 
     def _action_menu(self, spec, label):
@@ -727,50 +785,71 @@ class ActionPadWidget(QWidget):
             commands.append(f"~surface {spec}")
         return commands
 
-    def _update_current_spec_label(self):
+    def _update_current_spec_label(self, *_args):
         spec = self._current_spec()
         if not spec:
-            self.current_spec_label.setText("Current target: (none)")
+            self.current_spec_label.setText("Target: select an object")
             self._refresh_current_target_controls(None, None)
             return
-        self.current_spec_label.setText(f"Current target: {spec}")
+        self.current_spec_label.setText(f"Target: {spec}")
+        self.current_spec_label.setToolTip(f"{self._current_label()}\nTarget: {spec}")
         self._refresh_current_target_controls(spec, self._current_label())
 
     def _refresh_current_target_controls(self, spec, label):
-        controls = (
-            self.current_action_button,
-            self.current_show_button,
-            self.current_hide_button,
-            self.current_label_button,
-            self.current_color_button,
-            self.current_focus_button,
-        )
-        if not spec:
-            for button in controls:
-                button.setEnabled(False)
-                if isinstance(button, QToolButton):
-                    button.setMenu(None)
+        target_key = (spec, label)
+        if getattr(self, "_current_target_key", None) == target_key:
+            return
+        self._current_target_key = target_key
+        self.current_focus_button.setEnabled(bool(spec))
+        for button, factory in (
+            (self.current_action_button, self._action_menu),
+            (self.current_show_button, self._show_menu),
+            (self.current_hide_button, self._hide_menu),
+            (self.current_label_button, self._label_menu),
+            (self.current_color_button, self._color_menu),
+        ):
+            old_menu = button.menu()
+            button.setMenu(None)
+            if old_menu is not None:
+                old_menu.deleteLater()
+            button.setEnabled(bool(spec))
+            button.setToolTip(
+                f"{button.text()}: {label}" if spec else "Select an object to use this menu"
+            )
+            if spec:
+                menu = factory(spec, label)
+                menu.setParent(button, menu.windowFlags())
+                button.setMenu(menu)
+                button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+
+    def _update_pick_mode_feedback(self):
+        mouse_modes = getattr(getattr(self.session, "ui", None), "mouse_modes", None)
+        try:
+            left = mouse_modes.mode("left", [], exact=True)
+            right = mouse_modes.mode("right", [], exact=True)
+        except (AttributeError, TypeError):
+            for button in self._pick_buttons.values():
+                button.setChecked(False)
+            self.pick_mode_label.setText("Mouse bindings unavailable")
             return
 
-        self.current_focus_button.setEnabled(True)
-        self.current_action_button.setEnabled(True)
-        self.current_show_button.setEnabled(True)
-        self.current_hide_button.setEnabled(True)
-        self.current_label_button.setEnabled(True)
-        self.current_color_button.setEnabled(True)
-        self.current_action_button.setMenu(self._action_menu(spec, label))
-        self.current_show_button.setMenu(self._show_menu(spec, label))
-        self.current_hide_button.setMenu(self._hide_menu(spec, label))
-        self.current_label_button.setMenu(self._label_menu(spec, label))
-        self.current_color_button.setMenu(self._color_menu(spec, label))
-        for button in (
-            self.current_action_button,
-            self.current_show_button,
-            self.current_hide_button,
-            self.current_label_button,
-            self.current_color_button,
+        residue = left is not None and left is getattr(self.session, "_codex_bridge_residue_pick_mode", None)
+        chain = left is not None and left is getattr(self.session, "_codex_bridge_chain_pick_mode", None)
+        menu = right is not None and right is getattr(self.session, "_codex_bridge_context_menu_mode", None)
+        left_name = "residues" if residue else "chains" if chain else getattr(left, "name", "unbound")
+        right_name = "context menu" if menu else getattr(right, "name", "unbound")
+        for which, active in (
+            ("residue", residue),
+            ("chain", chain),
+            ("menu", menu),
+            ("default", left_name == "rotate" and right_name == "translate"),
         ):
-            button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+            self._pick_buttons[which].setChecked(active)
+        self.pick_mode_label.setText(f"Left: {left_name} · Right: {right_name}")
+        self.pick_mode_label.setToolTip(
+            f"Left click: {left_name}. Right click: {right_name}.\n"
+            "In Residue or Chain mode, Shift-left click adds to the selection."
+        )
 
     def _run_display_action(self, spec, label, verb, variant):
         commands = self._show_commands(spec, variant) if verb == "show" else self._hide_commands(spec, variant)
@@ -800,9 +879,10 @@ class ActionPadWidget(QWidget):
         try:
             message = bind_pick_mode(self.session, which)
         except Exception as err:
+            self._update_pick_mode_feedback()
             self.status_label.setText(str(err) if str(err) else err.__class__.__name__)
             return
-        self.pick_mode_label.setText("Mouse: " + message.replace("Left click ", "").replace("Right click ", ""))
+        self._update_pick_mode_feedback()
         self.status_label.setText(message)
 
 
@@ -811,7 +891,7 @@ class CodexActionPad(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_action_pad.html"
-    UI_LAYOUT_VERSION = 16
+    UI_LAYOUT_VERSION = 20
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):
@@ -836,6 +916,7 @@ class CodexActionPad(ToolInstance):
 
     def _build_ui(self):
         parent = self.tool_window.ui_area
+        from .panel_scroll import PanelScrollArea
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         parent.setLayout(layout)
@@ -846,7 +927,9 @@ class CodexActionPad(ToolInstance):
             parent=parent,
         )
         self.widget.install_handlers()
-        layout.addWidget(self.widget)
+        self.scroll_area = PanelScrollArea(parent)
+        self.scroll_area.setWidget(self.widget)
+        layout.addWidget(self.scroll_area)
         if self._placement_tool is not None:
             self.tool_window.manage(placement=self._placement_tool)
         else:

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128">
+<title>DALI distance comparison</title>
+<desc>A tilted distance matrix with a blue diagonal and amber matched positions sits above paired structural alignment bars.</desc>
+<defs>
+<linearGradient id="silver" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F1F6FA"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+<linearGradient id="silverBack" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#AABAC7"/><stop offset="1" stop-color="#718698"/></linearGradient>
+<linearGradient id="cyan" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#A7E0E9"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+<linearGradient id="blue" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#B3CFF3"/><stop offset="1" stop-color="#486DB3"/></linearGradient>
+<linearGradient id="amber" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE3A0"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+</defs>
+<path d="M18 35L70 15L111 50L59 71Z" fill="url(#silver)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M18 35V44L59 80L111 59V50L59 71Z" fill="url(#silverBack)" stroke="#253544" stroke-width="3.5" stroke-linejoin="round"/>
+<path d="M35 29L76 64M53 22L94 57M31 47L82 26M45 59L96 38" fill="none" stroke="#8195A6" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M22 35L37 29L49 40L34 46ZM50 38L65 32L77 43L62 49ZM78 41L94 35L107 49L91 55Z" fill="url(#blue)" stroke="#253544" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M48 58L63 52L75 63L60 69Z" fill="url(#amber)" stroke="#253544" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M26 91H103M26 109H87" stroke="#253544" stroke-width="11" stroke-linecap="round"/>
+<path d="M26 91H103" stroke="url(#cyan)" stroke-width="5" stroke-linecap="round"/>
+<path d="M26 109H87" stroke="url(#amber)" stroke-width="5" stroke-linecap="round"/>
+<path d="M39 91V109M63 91V109M84 91V109" stroke="#253544" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M23 34L69 19" stroke="#F5FAFD" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+</svg>

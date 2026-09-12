@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128">
+<title>Rapid peptide docking</title>
+<desc>An amber peptide approaches a sculpted open cyan binding groove along a clear downward docking arrow.</desc>
+<defs>
+<linearGradient id="silver" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F1F6FA"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+<linearGradient id="cyan" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#A7E0E9"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+<linearGradient id="amber" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE3A0"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+<linearGradient id="coral" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F6BFB0"/><stop offset="1" stop-color="#C85F5B"/></linearGradient>
+</defs>
+<path d="M26 53C15 60 13 83 28 98C45 114 83 117 103 98C118 83 110 60 100 53L89 62C96 71 98 81 89 86C74 97 52 97 37 85C29 79 32 68 38 62Z" fill="url(#cyan)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M27 61C20 75 27 92 42 100M97 61C104 74 102 88 91 94" fill="none" stroke="#BFEAF0" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+<path d="M38 83C52 95 77 100 92 86" fill="none" stroke="#26829C" stroke-width="5" stroke-linecap="round"/>
+<path d="M38 24L63 36L89 24" fill="none" stroke="#253544" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M38 24L63 36L89 24" fill="none" stroke="url(#amber)" stroke-width="4" stroke-linecap="round"/>
+<path d="M59 51H69V68H80L64 83L48 68H59Z" fill="url(#silver)" stroke="#253544" stroke-width="3.5" stroke-linejoin="round"/>
+<circle cx="38" cy="24" r="8" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/><path d="M34.4 21.6q1.6 -2.8 4.4 -2.4" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/><circle cx="63" cy="36" r="8" fill="url(#coral)" stroke="#253544" stroke-width="3.5"/><path d="M59.4 33.6q1.6 -2.8 4.4 -2.4" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/><circle cx="89" cy="24" r="8" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/><path d="M85.4 21.6q1.6 -2.8 4.4 -2.4" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+</svg>

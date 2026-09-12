@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128">
+<title>AlphaFold complex</title>
+<desc>Two smoothly folded cyan and purple protein chains meet at a small amber interaction interface.</desc>
+<defs>
+<linearGradient id="cyan" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#A7E0E9"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+<linearGradient id="amber" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE3A0"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+<linearGradient id="purple" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#D5C3F3"/><stop offset="1" stop-color="#8460AF"/></linearGradient>
+</defs>
+<g transform="translate(2.5 2.5) scale(0.96)">
+<path d="M49 24C30 13 15 29 22 43C30 59 60 50 62 70C65 91 45 112 25 99" fill="none" stroke="#253544" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M49 24C30 13 15 29 22 43C30 59 60 50 62 70C65 91 45 112 25 99" fill="none" stroke="url(#cyan)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M47 20C33 14 21 23 22 34M38 104C48 101 58 89 59 80" fill="none" stroke="#F5FAFD" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+<path d="M102 27C83 14 66 29 73 43C81 59 109 52 106 73C103 94 83 112 65 101" fill="none" stroke="#253544" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M102 27C83 14 66 29 73 43C81 59 109 52 106 73C103 94 83 112 65 101" fill="none" stroke="url(#purple)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M100 23C85 16 73 24 73 33M86 103C96 96 101 86 102 78" fill="none" stroke="#F5FAFD" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+<path d="M44 62L69 63L86 77" fill="none" stroke="#253544" stroke-width="6" stroke-linecap="round"/><path d="M44 62L69 63L86 77" fill="none" stroke="url(#amber)" stroke-width="3" stroke-linecap="round"/><circle cx="45" cy="62" r="5" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/><path d="M42.75 60.5q1 -1.75 2.75 -1.5" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/><circle cx="69" cy="63" r="5" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/><path d="M66.75 61.5q1 -1.75 2.75 -1.5" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/><circle cx="85" cy="77" r="5" fill="url(#amber)" stroke="#253544" stroke-width="3.5"/><path d="M82.75 75.5q1 -1.75 2.75 -1.5" fill="none" stroke="#F7FBFD" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+</g>
+</svg>

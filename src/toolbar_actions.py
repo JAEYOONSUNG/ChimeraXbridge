@@ -6037,6 +6037,15 @@ def _launch_alphafold_server(session, model_hint=None):
 def run_toolbar_action(session, name):
     action = str(name or "").strip().lower()
 
+    from .quick_actions import PROVIDERS, run_quick_action
+    # Explicit scripted overrides retain the advanced legacy pipelines. The
+    # six normal toolbar buttons use the responsive, dialog-free quick path.
+    advanced = any(hasattr(session, key) for key in (
+        "_codex_target_model_force", "_codex_pocket_force_selection",
+        "_codex_cavity_force_options", "_codex_cavity_force_selection"))
+    if action in PROVIDERS and not advanced:
+        return run_quick_action(session, action)
+
     if action == "ai-quick-analyze":
         target_model_hint = _prompt_toolbar_target_model_spec(session, "Analyze")
         if target_model_hint is _TARGET_SELECTION_CANCELLED:

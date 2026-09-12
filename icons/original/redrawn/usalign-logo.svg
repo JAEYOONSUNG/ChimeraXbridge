@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128">
+<title>US-align structural alignment</title>
+<desc>Two matching blue and amber structural traces flow in parallel around a clear silver alignment arrow.</desc>
+<defs>
+<linearGradient id="silver" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#F1F6FA"/><stop offset="1" stop-color="#8195A6"/></linearGradient>
+<linearGradient id="cyan" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#A7E0E9"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+<linearGradient id="amber" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE3A0"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+</defs>
+<g transform="translate(2.5 2.5) scale(0.96)">
+<path d="M25 26C44 13 76 19 79 37C84 55 42 56 43 75C44 96 78 105 102 89" fill="none" stroke="#253544" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M25 26C44 13 76 19 79 37C84 55 42 56 43 75C44 96 78 105 102 89" fill="none" stroke="url(#cyan)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M26 22C41 14 62 17 71 25M52 89C65 98 81 99 93 93" fill="none" stroke="#F5FAFD" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+<path d="M25 45C44 32 76 38 79 56C84 74 42 75 43 94C44 109 72 114 94 105" fill="none" stroke="#253544" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M25 45C44 32 76 38 79 56C84 74 42 75 43 94C44 109 72 114 94 105" fill="none" stroke="url(#amber)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M28 40C43 32 60 37 69 43M52 104C65 111 79 110 88 106" fill="none" stroke="#F5FAFD" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+<path d="M51 58H73V47L95 65L73 83V72H51Z" fill="url(#silver)" stroke="#253544" stroke-width="3.5" stroke-linejoin="round"/><path d="M56 62H77V57" fill="none" stroke="#FAFDFF" stroke-width="2.5" stroke-linecap="round"/>
+</g>
+</svg>

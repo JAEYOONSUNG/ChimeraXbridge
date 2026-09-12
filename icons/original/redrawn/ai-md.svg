@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <title>Molecular dynamics</title>
+  <desc>A blue molecular cluster follows a cyan curved trajectory toward an amber direction arrow.</desc>
+  <defs>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D2F1F6"/><stop offset=".4" stop-color="#65BDD0"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+    <radialGradient id="blue" cx="30%" cy="24%" r="78%"><stop offset="0" stop-color="#D8E7FC"/><stop offset=".43" stop-color="#82AEEA"/><stop offset="1" stop-color="#486DB3"/></radialGradient>
+    <radialGradient id="silver" cx="30%" cy="24%" r="78%"><stop offset="0" stop-color="#F4F8FC"/><stop offset=".43" stop-color="#DDE7EF"/><stop offset="1" stop-color="#8195A6"/></radialGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF0C6"/><stop offset=".4" stop-color="#F6CB72"/><stop offset="1" stop-color="#C58A32"/></linearGradient>
+  </defs>
+  <g stroke="#253544" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 86C8 61 20 29 47 20C73 10 101 24 109 45" stroke="#DDE7EF" stroke-width="7"/>
+    <path d="M21 86C8 61 20 29 47 20C73 10 101 24 109 45" stroke="#26829C" stroke-width="4"/>
+    <path d="M96 42L110 54L115 35Z" fill="url(#amber)"/>
+    <path d="M33 97C57 116 91 110 106 87" stroke="#8195A6" stroke-width="4" stroke-dasharray="5 9"/>
+    <path d="M43 52L76 66L54 93" stroke="#253544" stroke-width="13"/>
+    <path d="M43 52L76 66L54 93" stroke="url(#silver)" stroke-width="7"/>
+    <path d="M76 66L98 59" stroke="#253544" stroke-width="11"/>
+    <path d="M76 66L98 59" stroke="url(#silver)" stroke-width="5"/>
+    <circle cx="43" cy="52" r="13" fill="url(#blue)"/>
+    <circle cx="76" cy="66" r="16" fill="url(#blue)"/>
+    <circle cx="54" cy="93" r="11" fill="url(#silver)"/>
+    <circle cx="100" cy="57" r="9" fill="url(#silver)"/>
+    <path d="M35 49C36 44 39 42 44 42M66 62C68 56 73 53 79 54" stroke="#F4F8FC" stroke-width="2.5" opacity=".7"/>
+  </g>
+</svg>

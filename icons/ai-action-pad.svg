@@ -1,12 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <!-- Pad body -->
-  <rect x="10" y="12" width="44" height="40" rx="5" fill="#F8FAFC" stroke="#111827" stroke-width="4"/>
-  <!-- Header strip -->
-  <rect x="10" y="12" width="44" height="8"  rx="3" fill="#A5B4FC" stroke="#111827" stroke-width="4"/>
-  <!-- Three rows of buttons (filled, color-coded for A/S/H/L/C feel) -->
-  <rect x="16" y="26" width="14" height="6"  rx="2" fill="#FCA5A5" stroke="#111827" stroke-width="3"/>
-  <rect x="34" y="26" width="14" height="6"  rx="2" fill="#FCD34D" stroke="#111827" stroke-width="3"/>
-  <rect x="16" y="36" width="14" height="6"  rx="2" fill="#86EFAC" stroke="#111827" stroke-width="3"/>
-  <rect x="34" y="36" width="14" height="6"  rx="2" fill="#93C5FD" stroke="#111827" stroke-width="3"/>
-  <rect x="22" y="46" width="20" height="4"  rx="2" fill="#D8B4FE" stroke="#111827" stroke-width="3"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#8B98AA" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+  <title>Molecular action pad</title>
+  <rect x="4.5" y="4.5" width="9" height="9" rx="2" stroke="#659ACB" fill="#659ACB" fill-opacity=".18"/>
+  <rect x="18.5" y="4.5" width="9" height="9" rx="2"/>
+  <rect x="4.5" y="18.5" width="9" height="9" rx="2"/>
+  <rect x="18.5" y="18.5" width="9" height="9" rx="2"/>
 </svg>

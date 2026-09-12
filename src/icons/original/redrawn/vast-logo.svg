@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="128" height="128" viewBox="0 0 128 128">
+<title>VAST structural search</title>
+<desc>A sculpted blue protein helix leads into a broad green structural-search arrow.</desc>
+<defs>
+<linearGradient id="cyan" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#A7E0E9"/><stop offset="1" stop-color="#26829C"/></linearGradient>
+<linearGradient id="blue" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#B3CFF3"/><stop offset="1" stop-color="#486DB3"/></linearGradient>
+<linearGradient id="blueBack" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#7195CE"/><stop offset="1" stop-color="#354F85"/></linearGradient>
+<linearGradient id="green" x1="24" y1="18" x2="97" y2="112" gradientUnits="userSpaceOnUse"><stop stop-color="#B6E1C9"/><stop offset="1" stop-color="#438C79"/></linearGradient>
+</defs>
+<path d="M28 27C46 38 64 40 78 30L78 47C63 58 43 52 28 41ZM28 59C47 70 62 72 76 62L76 79C61 90 43 84 28 74Z" fill="url(#blueBack)" stroke="#253544" stroke-width="3.5" stroke-linejoin="round"/>
+<path d="M18 29C30 14 56 14 79 25L75 42C56 34 37 31 22 44Z" fill="url(#blue)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M18 60C31 45 58 46 79 56L75 73C55 64 37 64 22 76Z" fill="url(#cyan)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M18 91C29 78 52 77 70 86L67 102C48 94 37 96 22 108Z" fill="url(#blue)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M28 28C41 22 57 22 68 26M28 59C41 53 57 53 68 57M29 90C40 85 50 85 59 89" fill="none" stroke="#DCEFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+<path d="M79 76H96V64L114 86L96 108V95H74Z" fill="url(#green)" stroke="#253544" stroke-width="4" stroke-linejoin="round"/>
+<path d="M84 81H100L101 76" fill="none" stroke="#D8F3E5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -22,15 +22,11 @@ AI에게 자연어로 작업을 맡기려면 사용하는 서비스의 본인 �
    ```
 
    다운로드 폴더가 다르면 실제 경로로 바꾸세요. 공백이 있는 경로는 따옴표로 감쌉니다.
-3. ChimeraX를 다시 시작합니다. 아래 명령으로 공유 설정을 확인한 뒤 적용합니다.
+3. ChimeraX를 다시 시작하면 설치가 끝납니다. 서열 패널·북마크·이미지 저장·Quick 버튼을 바로 사용할 수 있습니다.
 
-   ```chimerax
-   codex profile
-   codex profile jaeyoon apply true
-   ```
-
-   `codex profile`은 안내만 표시합니다. `apply true`가 있어야 설정을 변경합니다.
-   기존 화면 설정을 유지하려면 적용 명령을 생략하세요.
+설치 파일은 일반 ChimeraX 플러그인용 `.whl`입니다. Codex에서 계정이나 프로필을
+받는 과정은 없습니다. 화면 설정까지 JaeYoon 프리셋으로 맞추고 싶을 때만 아래의
+[선택적 UI 설정](#optional-share-the-same-ui-settings)을 적용하세요.
 
 [v0.2.0 릴리스](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.0) ·
 [설치·업데이트·AI 연결 상세 안내](INSTALL_REPRODUCIBLE.md)
@@ -163,9 +159,15 @@ hide, label and color to the indicated model, chain, residue or selection.
 named selections and rainbow palettes. Empty targets are explained next to the
 controls, and valid hidden representations remain editable.
 
-## Share the same settings
+## Optional: share the same UI settings
 
-The bundled **jaeyoon** profile is applied only when explicitly requested:
+`codex profile`은 **이 플러그인에 추가한 선택적 UI 설정 명령**입니다.
+OpenAI Codex의 계정 프로필이나 다운로드 기능이 아니며, 설치에 필요한 단계도 아닙니다.
+`.whl`에 함께 들어 있는 **jaeyoon** 설정 프리셋을 적용할 때만 사용합니다.
+
+The `codex` prefix belongs to this plugin's existing ChimeraX commands. This
+optional command applies a bundled UI preset; it does not download a Codex
+profile, require a Codex login, or install the plugin:
 
 ```chimerax
 codex profile jaeyoon

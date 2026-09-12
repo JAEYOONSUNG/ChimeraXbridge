@@ -32,6 +32,9 @@ every ChimeraX version. ChimeraX dependency ranges are declared in
 4. Restart ChimeraX. If installation was deferred because the old plugin was in
    use, restarting completes the update.
 
+Installation is complete at this point. The plugin's local tools work without
+running `codex profile`, signing in to Codex, or downloading any account profile.
+
 The quoted path must identify the wheel on your computer. `~` expands to your
 home folder in the ChimeraX installer. Use a quoted absolute path if your
 download folder is elsewhere, for example:
@@ -45,9 +48,14 @@ original filename or rename the duplicate before installing. Do not use a
 GitHub web-page URL as the local wheel path, and do not install the bundle into
 system Python with `pip`.
 
-## Reproduce the shared workspace
+## Optional: apply the shared UI preset
 
-After restarting, inspect and explicitly apply the built-in profile:
+`codex profile` is a custom **ChimeraXbridge setting command**, not an OpenAI
+Codex account profile or an installation method. The preset is already included
+in the wheel. Skip this section to keep your current UI preferences.
+
+To match JaeYoon's panel, color and image-export preferences, inspect and
+explicitly apply the bundled preset inside ChimeraX:
 
 ```chimerax
 codex profile

@@ -314,8 +314,11 @@ class DisplayControlsWidget(QWidget):
     def _install_handlers(self):
         if self._handlers:
             return
+        from chimerax.core.models import ADD_MODELS, REMOVE_MODELS
         for name, callback in (("selection changed", self._selection_changed),
-                               ("command finished", self._queue_refresh)):
+                               ("command finished", self._queue_refresh),
+                               (ADD_MODELS, self._queue_refresh),
+                               (REMOVE_MODELS, self._queue_refresh)):
             self._handlers.append(self.session.triggers.add_handler(name, callback))
         from chimerax.atomic import get_triggers
         self._handlers.append(get_triggers().add_handler("changes done", self._queue_refresh))
@@ -393,6 +396,10 @@ class DisplayControlsWidget(QWidget):
         body.setSpacing(4)
         layout.addLayout(body, 1)
 
+        from .compound_selection import CompoundSelectionWidget
+        self.compound_selection = CompoundSelectionWidget(self.session, self)
+        self.compound_selection.selectionAboutToChange.connect(self._selection_changed)
+        body.addWidget(self.compound_selection)
         self._build_color_controls(body)
         row = self._section(body, "Layers")
         self.layer_scope_label = QLabel("", self)
@@ -1017,6 +1024,7 @@ class DisplayControlsWidget(QWidget):
             self.scope_label.setToolTip(spec or "Layer controls apply to all structures when nothing is selected.")
             self.layer_scope_label.setText("Selection · transparency" if selected else "All structures · transparency")
             self.status_label.setText("")
+            self.compound_selection.refresh()
             self.selection_transparency.setEnabled(selected and count > 0)
             self.clear_transparency_button.setEnabled(selected and count > 0)
             self._sync_selection_transparency_from_scene()
@@ -1353,7 +1361,7 @@ class CodexDisplayControls(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 24
+    UI_LAYOUT_VERSION = 25
     help = "help:user/tools/codex_assistant.html"
 
     @classmethod

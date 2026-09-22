@@ -15,8 +15,14 @@ for tool in list(session.tools.list()):
         tool.delete()
 for target in (Path.home() / "Library/Application Support/ChimeraX").glob("*/lib/python/site-packages/chimerax/codex_bridge/display_controls.py"):
     shutil.copy2(source, target)
+    shutil.copy2(source.with_name("compound_selection.py"), target.with_name("compound_selection.py"))
     shutil.copy2(source.with_name("ui_theme.py"), target.with_name("ui_theme.py"))
     shutil.copy2(source.with_name("panel_scroll.py"), target.with_name("panel_scroll.py"))
+dependency_name = "chimerax.codex_bridge.compound_selection"
+dependency_spec = importlib.util.spec_from_file_location(dependency_name, source.with_name("compound_selection.py"))
+dependency_module = importlib.util.module_from_spec(dependency_spec)
+sys.modules[dependency_name] = dependency_module
+dependency_spec.loader.exec_module(dependency_module)
 spec = importlib.util.spec_from_file_location(name, source)
 module = importlib.util.module_from_spec(spec)
 sys.modules[name] = module

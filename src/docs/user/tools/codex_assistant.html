@@ -33,6 +33,9 @@ and command changes so the tool can be used as a structure-analysis workbench
 instead of a standalone chat box.</p>
 
 <h2>Select nonprotein compounds</h2>
+<p>The same molecule-selection controls are also available directly in
+<b>Models → Chains &amp; molecules → Molecules (non-protein)</b>. The Models
+window keeps its own molecule scope and expansion preferences.</p>
 <p>In <b>Display Controls → Compounds</b>, choose all open structures or one
 model in <b>Models</b>, then click <b>Select</b> to replace the current selection.
 <b>Compounds</b> includes nonpolymer ligands and ions; protein, DNA/RNA and solvent
@@ -48,6 +51,19 @@ preferences are saved, and the chosen model is retained when reopening the panel
 within the same ChimeraX session. Press <b>Space</b> on the focused action button
 to toggle selection. If a selection action fails, its message remains visible
 until retrying or changing scope.</p>
+
+<h2>Control chains in the Models window</h2>
+<p>The <b>Chains &amp; molecules</b> tab lists each molecular model and its chains.
+<b>Show</b> toggles the chain's atoms, cartoons and existing molecular surfaces.
+Mixed states use a dash. Display changes made in other panels or commands update
+the checkboxes automatically. A hide/show cycle restores the preceding display
+styles; ChimeraX Undo also restores visibility changes.</p>
+<p><b>Select</b> adds or removes a row's atoms while retaining other selected
+objects. Search by chain ID, model name or molecule name. Highlight a row and
+click <b>Only this</b> to isolate it, or <b>Show all chains</b> to show all open
+molecular chains. These actions leave colors and the camera unchanged.
+<b>Advanced models</b> retains the original model tree, surface controls, model
+IDs and native actions. Both tabs remain scrollable in a short dock.</p>
 
 </body>
 </html>

@@ -88,6 +88,8 @@ models.tree.setCurrentItem(models._items[0])
 native_buttons = list(models.tool_window.ui_area.findChildren(QPushButton))
 buttons = {button.text(): button for button in native_buttons if button.text()}
 style_model_panel(models)
+assert models._codex_model_views.currentIndex() == 0
+models._codex_model_views.setCurrentIndex(1)
 scroll = models._codex_models_scroll
 content = scroll.widget()
 for _ in range(4):

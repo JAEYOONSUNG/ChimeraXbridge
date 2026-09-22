@@ -122,6 +122,8 @@ def style_model_panel(panel):
     # action rows and optional sequential controls below it.
     from .panel_scroll import wrap_panel
     panel._codex_models_scroll = wrap_panel(parent)
+    from .model_chain_controls import install_model_chain_controls
+    install_model_chain_controls(panel)
     update_model_panel_columns(panel)
 
 

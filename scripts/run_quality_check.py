@@ -16,6 +16,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 # (script basename, required success marker, plain Python instead of ChimeraX)
 SUITES = {
+    "model_chains": [("check_model_chain_controls.py", "MODEL_CHAIN_CONTROLS_OK", False)],
     "compound_selection": [("check_compound_selection.py", "COMPOUND_SELECTION_OK", False)],
     "install_defaults": [("check_install_defaults.py", "INSTALL_DEFAULTS_OK", False)],
     "ai_connection": [("check_ai_connection.py", "AI_CONNECTION_OK", False)],

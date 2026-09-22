@@ -50,6 +50,13 @@ explains the fallback used and does not invent cavity measurements.
 
 ## Workspace features
 
+Current source builds add **Models → Chains & molecules**: live per-chain
+**Show** and **Select** checkboxes, chain search, **Only this**, **Show all chains**,
+and a visible nonprotein molecule selector in the Models window. Atom, cartoon
+and existing molecular-surface visibility update together, including changes
+made elsewhere in ChimeraX. The original model/surface tree remains under
+**Advanced models**. See the [chain controls guide](docs/model-chain-controls.md).
+
 - The sequence panel opens at startup, with guides every 10 residues, muted
   nucleotide palettes, and a persistent search count, including overlapping motifs.
 - Eight right-side panels scroll through their complete contents. Nested lists

@@ -12,11 +12,14 @@ class CompoundSelectionSettings(Settings):
     AUTO_SAVE = {"all_nonprotein": False, "expanded": True}
 
 
-def _settings(session):
-    settings = getattr(session, "_codex_compound_selection_settings", None)
+def _settings(session, preference_key="default"):
+    attribute = ("_codex_models_compound_selection_settings" if preference_key == "models"
+                 else "_codex_compound_selection_settings")
+    settings = getattr(session, attribute, None)
     if settings is None:
-        settings = CompoundSelectionSettings(session, "Codex Compound Selection")
-        session._codex_compound_selection_settings = settings
+        name = "Codex Models Molecules" if preference_key == "models" else "Codex Compound Selection"
+        settings = CompoundSelectionSettings(session, name)
+        setattr(session, attribute, settings)
     return settings
 
 
@@ -59,13 +62,15 @@ class CompoundSelectionWidget(QWidget):
 
     selectionAboutToChange = Signal()
 
-    def __init__(self, session, parent=None):
+    def __init__(self, session, parent=None, *, preference_key="default"):
         super().__init__(parent)
         self.session = session
-        self._settings = _settings(session)
+        self._settings = _settings(session, preference_key)
+        self._target_attribute = ("_codex_models_compound_target_model" if preference_key == "models"
+                                  else "_codex_compound_target_model")
         self._action_error = ""
         self._selection_in_progress = False
-        self._target_model = getattr(session, "_codex_compound_target_model", None)
+        self._target_model = getattr(session, self._target_attribute, None)
         self._target_present = True
         self._model_signature = None
         self.setMinimumWidth(0)
@@ -155,7 +160,7 @@ class CompoundSelectionWidget(QWidget):
 
     def _model_changed(self, *_args):
         self._target_model = self.model_combo.currentData()
-        self.session._codex_compound_target_model = self._target_model
+        setattr(self.session, self._target_attribute, self._target_model)
         self._action_error = ""
         self.refresh()
 

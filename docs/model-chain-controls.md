@@ -13,18 +13,27 @@ Offscreen example with synthetic structures; the labels are not analysis results
 Each model expands into its actual molecular chains. Protein and DNA/RNA chains
 are labeled by type; other rows show their residue names, such as ADP or ZN.
 Blank chain IDs are labeled **(blank)**.
+Protein chains that also contain nonpolymer ligands name those compounds in the
+row, for example **A · Protein + ADP**. Searching for ADP also finds a ligand
+when it shares its chain ID with the protein.
 
 - Click a chain's **Show** checkbox to control its atoms, cartoons and existing
   molecular surfaces together. A model row applies to all its chains.
+- The whole **Show** or **Select** cell is clickable, including the area beside
+  its checkbox. Each click performs one toggle.
 - A checked box means the chain is shown; an empty box means hidden; a dash
   means only part of the chain is represented. Hidden parent models count as
   hidden even if their atom flags remain enabled.
+- Hidden crystal waters sharing a protein chain ID do not make that chain look
+  partly shown. Showing or isolating a protein chain preserves its water display
+  choices instead of revealing all solvent. Use a solvent-only row to control
+  waters explicitly.
 - Turning a chain off and on restores its previous display styles. Colors,
   molecular coordinates and the camera are retained. ChimeraX Undo/Redo works
   with these actions.
 - Highlight a row and click **Only this** to show it and hide the other
   molecular chains. **Show all chains** acts on all open molecular chains,
-  including rows excluded by the search filter.
+  including rows excluded by the search filter, while preserving solvent styles.
 
 Commands and changes in other panels update the checkboxes automatically.
 Searching, refreshing or switching tabs does not change the scene. Search can
@@ -33,6 +42,14 @@ or a molecule name. Exact chain IDs take precedence over name substrings.
 Searching expands matching model groups; clearing search restores their
 previous expansion state.
 
+Keyboard users can highlight a row and press **Space** on its name or Show
+column to toggle visibility. **Shift+Space** toggles scene selection; **Space**
+also toggles selection when the Select column has focus. **Only this** is disabled
+when its highlighted chain is hidden under a collapsed or filtered model row.
+
+Plugin UI reloads retain saved chain display styles and their Undo/Redo history,
+as well as the highlighted row, search query and expansion state.
+
 ## Select molecules without amino-acid chains
 
 Use the visible **Molecules (non-protein)** section at the top of the same tab.
@@ -40,7 +57,7 @@ Use the visible **Molecules (non-protein)** section at the top of the same tab.
 1. In **Models**, choose all open structures or a particular structure.
 2. Leave the type as **Compounds** to select nonpolymer molecules such as ADP,
    other ligands and ions. This excludes protein, DNA/RNA and solvent.
-3. Click **Select**. This replaces the current scene selection; hidden atoms
+3. Click **Select only**. This replaces the current scene selection; hidden atoms
    are included. **Deselect** removes the target atoms.
 
 Choose **All nonprotein** when DNA/RNA and solvent should also be included.
@@ -48,7 +65,8 @@ ChimeraX's native polymer classification is used, so a free amino acid is a
 small compound, while amino-acid residues in a protein chain are excluded.
 
 The separate **Select** checkbox in a chain row adds or removes that row's
-atoms while preserving other selected objects. Pending appearance edits in
+atoms and internal molecular connections while preserving other selected objects.
+Distance annotations are not added. Pending appearance edits in
 Display Controls are canceled before either selection action can change its
 target.
 
@@ -70,4 +88,5 @@ chain and molecule selection, filtering, short-dock scrolling and cleanup.
 
 ```bash
 python3 scripts/run_quality_check.py model_chains
+python3 scripts/run_quality_check.py user_workflows
 ```

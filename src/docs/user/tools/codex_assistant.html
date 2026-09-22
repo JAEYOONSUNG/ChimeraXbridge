@@ -36,6 +36,8 @@ instead of a standalone chat box.</p>
 <p>The same molecule-selection controls are also available directly in
 <b>Models → Chains &amp; molecules → Molecules (non-protein)</b>. The Models
 window keeps its own molecule scope and expansion preferences.</p>
+<p>In Models, the button is labeled <b>Select only</b> to distinguish replacement
+selection from the chain table's additive <b>Select</b> checkboxes.</p>
 <p>In <b>Display Controls → Compounds</b>, choose all open structures or one
 model in <b>Models</b>, then click <b>Select</b> to replace the current selection.
 <b>Compounds</b> includes nonpolymer ligands and ions; protein, DNA/RNA and solvent
@@ -64,6 +66,20 @@ click <b>Only this</b> to isolate it, or <b>Show all chains</b> to show all open
 molecular chains. These actions leave colors and the camera unchanged.
 <b>Advanced models</b> retains the original model tree, surface controls, model
 IDs and native actions. Both tabs remain scrollable in a short dock.</p>
+
+<p>Search also finds ligands sharing a chain ID with a protein; mixed rows name
+the ligand, such as <b>Protein + ADP</b>. Press <b>Space</b> on a row name or Show
+cell to toggle visibility, or <b>Shift+Space</b> to toggle selection. Space on a
+Select cell toggles that checkbox. Hidden rows under collapsed model groups are
+not targets for <b>Only this</b>. UI reloads preserve saved chain display styles
+and native Undo/Redo history.</p>
+<p>The entire Show or Select cell is clickable. Crystal waters sharing a protein
+chain ID retain their existing display choices when that chain is shown or
+isolated; hidden solvent does not make the chain's Show box partly checked.
+Undo safely skips atoms or residues deleted after a visibility change.
+Selection updates avoid recalculating surface visibility, and coordinate-only
+model movement does not rebuild the chain controls. Color, transparency and
+lighting commands avoid full visibility scans when surface state is unchanged.</p>
 
 </body>
 </html>

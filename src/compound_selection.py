@@ -68,6 +68,7 @@ class CompoundSelectionWidget(QWidget):
         self._settings = _settings(session, preference_key)
         self._target_attribute = ("_codex_models_compound_target_model" if preference_key == "models"
                                   else "_codex_compound_target_model")
+        self._select_label = "Select only" if preference_key == "models" else "Select"
         self._action_error = ""
         self._selection_in_progress = False
         self._target_model = getattr(session, self._target_attribute, None)
@@ -213,7 +214,7 @@ class CompoundSelectionWidget(QWidget):
         finally:
             self.select_button.blockSignals(blocked)
         self.select_button.setEnabled(bool(count) and not self._selection_in_progress)
-        action_name = "Deselect" if all_selected else "Select"
+        action_name = "Deselect" if all_selected else self._select_label
         self.select_button.setText(action_name)
         self.select_button.setAccessibleName(f"{action_name} {target_name}")
         model_scope = ("All open structures" if self._target_model is None else

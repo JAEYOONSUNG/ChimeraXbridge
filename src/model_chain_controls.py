@@ -1,6 +1,6 @@
 """Live chain controls inside the native Models tool."""
 
-from Qt.QtCore import QPoint, Qt, QTimer
+from Qt.QtCore import QEvent, QPoint, Qt, QTimer
 from Qt.QtWidgets import (
     QAbstractItemView, QHeaderView, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem,
@@ -8,14 +8,14 @@ from Qt.QtWidgets import (
 )
 
 from .chain_visibility import ChainVisibilityController
-from .compound_selection import CompoundSelectionWidget
+from .compound_selection import CompoundSelectionWidget, _molecular_pseudobonds
 
 
 class ModelChainControls(QWidget):
-    def __init__(self, session, parent=None):
+    def __init__(self, session, parent=None, *, controller=None):
         super().__init__(parent)
         self.session = session
-        self.controller = ChainVisibilityController(session)
+        self.controller = controller if controller is not None else ChainVisibilityController(session)
         self.rows = {}
         self._keys = ()
         self._syncing = False
@@ -23,6 +23,9 @@ class ModelChainControls(QWidget):
         self._handlers = []
         self._filter_expansion = None
         self._refresh_error = ""
+        self._refresh_kind = 0
+        self._pressed_check = None
+        self._surface_signature = None
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._refresh_visible)
@@ -42,7 +45,7 @@ class ModelChainControls(QWidget):
         self.search.setAccessibleName("Find model or chain")
         self.search.textChanged.connect(self._filter_rows)
         layout.addWidget(self.search)
-        hint = QLabel("Show toggles the whole chain. A dash means partly shown or selected.", self)
+        hint = QLabel("Space: toggle · Shift+Space: select. A dash means partly shown or selected.", self)
         hint.setWordWrap(True)
         hint.setProperty("role", "caption")
         layout.addWidget(hint)
@@ -65,6 +68,11 @@ class ModelChainControls(QWidget):
         self.tree.headerItem().setToolTip(2, "Add or remove this row's atoms from the scene selection.")
         self.tree.itemChanged.connect(self._item_changed)
         self.tree.itemSelectionChanged.connect(self._update_buttons)
+        self.tree.itemCollapsed.connect(self._update_buttons)
+        self.tree.itemExpanded.connect(self._update_buttons)
+        self.tree.installEventFilter(self)
+        self.tree.viewport().installEventFilter(self)
+        self.tree.setAccessibleName("Molecular chains: Space toggles visibility, Shift+Space toggles selection")
         layout.addWidget(self.tree, 1)
 
         actions = QHBoxLayout()
@@ -93,17 +101,79 @@ class ModelChainControls(QWidget):
             MODEL_NAME_CHANGED, MODEL_ID_CHANGED,
         )
         for name in (ADD_MODELS, REMOVE_MODELS, MODEL_DISPLAY_CHANGED,
-                     MODEL_NAME_CHANGED, MODEL_ID_CHANGED, "selection changed", "command finished"):
+                     MODEL_NAME_CHANGED, MODEL_ID_CHANGED):
             self._handlers.append(self.session.triggers.add_handler(name, self._queue_refresh))
-        self._handlers.append(get_triggers().add_handler("changes done", self._queue_refresh))
+        self._handlers.append(self.session.triggers.add_handler("selection changed", self._queue_selection))
+        self._handlers.append(self.session.triggers.add_handler("command finished", self._command_finished))
+        self._handlers.append(get_triggers().add_handler("changes", self._atomic_changes))
 
-    def _queue_refresh(self, *_args):
+    def _queue_refresh(self, *_args, selection_only=False):
+        self._refresh_kind |= 1 if selection_only else 2
         if not self._closed and not self._timer.isActive():
             self._timer.start(0)
 
+    def _queue_selection(self, *_args):
+        self._queue_refresh(selection_only=True)
+
+    def _command_finished(self, _trigger, command):
+        # Atomic/model triggers cover visibility, selection and topology. The
+        # command hook only needs to catch surface-mask edits, including aliases
+        # or scripts. Appearance-only commands must not rescan every surface.
+        signature = self._surface_fingerprint()
+        if signature != self._surface_signature:
+            self._surface_signature = signature
+            self._queue_refresh()
+
+    def _surface_fingerprint(self):
+        from chimerax.atomic import MolecularSurface
+        return tuple((id(surface), surface.display, id(surface.triangle_mask),
+                      id(surface.show_atoms), len(surface.show_atoms), id(surface.triangles))
+                     for surface in self.session.models.list(type=MolecularSurface))
+
+    def _atomic_changes(self, _trigger, changes):
+        if (changes.num_deleted_atoms() or changes.num_deleted_residues()
+                or len(changes.created_atoms(include_new_structures=False))
+                or len(changes.created_residues(include_new_structures=False))):
+            self._queue_refresh()
+            return
+        reasons = set().union(changes.atom_reasons(), changes.residue_reasons(),
+                              changes.bond_reasons(), changes.chain_reasons(),
+                              changes.structure_reasons(), changes.pseudobond_reasons())
+        reasons = {reason.replace("_", " ").lower() for reason in reasons}
+        ignored = {"coord changed", "scene coord changed", "coordset changed", "active coordset changed", "position changed",
+                   "color changed", "ribbon color changed", "ring color changed", "radius changed",
+                   "draw mode changed", "selected changed"}
+        if reasons - ignored:
+            self._queue_refresh()
+        elif "selected changed" in reasons:
+            self._queue_selection()
+
     def _refresh_visible(self):
+        kind, self._refresh_kind = self._refresh_kind, 0
         if not self._closed and self.isVisible():
-            self.refresh()
+            if kind & 2 or not self._keys:
+                self.refresh()
+            else:
+                try:
+                    self._refresh_selection()
+                except Exception:
+                    self.refresh()
+
+    def _refresh_selection(self):
+        """Selection changes do not require re-reading all molecular surfaces."""
+        blocked = self.tree.blockSignals(True)
+        self._syncing = True
+        try:
+            for item in self.rows.values():
+                atoms = self._row_atoms(item)
+                selected = atoms.selected if len(atoms) else []
+                item.setCheckState(2, Qt.CheckState.Unchecked if not len(atoms) or not selected.any() else
+                    Qt.CheckState.Checked if selected.all() else Qt.CheckState.PartiallyChecked)
+        finally:
+            self.tree.blockSignals(blocked)
+            self._syncing = False
+        self.compounds.refresh()
+        self._update_buttons()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -151,6 +221,11 @@ class ModelChainControls(QWidget):
             kinds.append("Protein")
         if Residue.PT_NUCLEIC in types:
             kinds.append("DNA/RNA")
+        if kinds and Residue.PT_NONE in types:
+            atoms = residues.filter(residues.polymer_types == Residue.PT_NONE).atoms
+            names = sorted(set(atoms.filter(atoms.structure_categories != "solvent").unique_residues.names))
+            if names:
+                kinds.append(", ".join(names[:3]) + (", …" if len(names) > 3 else ""))
         if not kinds:
             names = sorted(set(residues.names))
             kinds.append(", ".join(names[:4]) + (", …" if len(names) > 4 else ""))
@@ -209,6 +284,9 @@ class ModelChainControls(QWidget):
                 item.setText(0, label)
                 spec = f"#{key[0].id_string}" + (f"/{key[1]}" if key[1] is not None else "")
                 item.setToolTip(0, f"{spec} {key[0].name}\n{label}\n{len(atoms):,} atoms")
+                # Bound ligands commonly share an author chain ID with the
+                # protein. Search all residue names, not only the chain type.
+                item._search_names = frozenset(str(name).casefold() for name in atoms.unique_residues.names)
                 visible = self.controller.state(atoms) if len(atoms) else "hidden"
                 states = {"shown": Qt.CheckState.Checked, "hidden": Qt.CheckState.Unchecked,
                           "mixed": Qt.CheckState.PartiallyChecked}
@@ -228,6 +306,7 @@ class ModelChainControls(QWidget):
         if self.status.text() in ("", "Open a structure to control its chains."):
             self.status.setText("" if entries else "Open a structure to control its chains.")
         self._update_buttons()
+        self._surface_signature = self._surface_fingerprint()
 
     def _filter_rows(self, *_args):
         query = self.search.text().strip().casefold()
@@ -243,7 +322,8 @@ class ModelChainControls(QWidget):
             for i in range(parent.childCount()):
                 item = parent.child(i)
                 visible = (str(item._chain_key[1]).casefold() == query if exact_chain else
-                           parent_matches or query in item.text(0).casefold() or query in item.toolTip(0).casefold())
+                           parent_matches or query in item.text(0).casefold() or query in item.toolTip(0).casefold()
+                           or any(query in name for name in item._search_names))
                 item.setHidden(not visible)
                 matched |= visible
             parent.setHidden(not (parent_matches or matched))
@@ -257,14 +337,59 @@ class ModelChainControls(QWidget):
 
     def _current_item(self):
         item = self.tree.currentItem()
-        if item is None or item.isHidden() or (item.parent() is not None and item.parent().isHidden()):
+        if item is None or item.isHidden():
             return None
+        ancestor = item.parent()
+        while ancestor is not None:
+            if ancestor.isHidden() or not ancestor.isExpanded():
+                return None
+            ancestor = ancestor.parent()
         return item
+
+    def eventFilter(self, watched, event):
+        if self._closed:
+            return False
+        if (event.type() in
+                (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick, QEvent.Type.MouseButtonRelease)
+                and watched is self.tree.viewport()
+                and event.button() == Qt.MouseButton.LeftButton):
+            index = self.tree.indexAt(event.pos())
+            item = self.tree.itemFromIndex(index) if index.isValid() else None
+            key = (item._chain_key, index.column()) if item is not None and index.column() in (1, 2) else None
+            if event.type() == QEvent.Type.MouseButtonRelease:
+                pressed, self._pressed_check = self._pressed_check, None
+                if pressed is not None:
+                    if key == pressed:
+                        self._toggle_item(item, index.column())
+                    event.accept()
+                    return True
+            elif key is not None:
+                self._pressed_check = key
+                self.tree.setCurrentItem(item, index.column())
+                self.tree.setFocus(Qt.FocusReason.MouseFocusReason)
+                event.accept()
+                return True
+        if (watched is self.tree and event.type() == QEvent.Type.KeyPress
+                and event.key() == Qt.Key.Key_Space
+                and event.modifiers() in (Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.ShiftModifier)):
+            item = self._current_item()
+            if item is not None and not event.isAutoRepeat():
+                column = 2 if (event.modifiers() == Qt.KeyboardModifier.ShiftModifier
+                               or self.tree.currentColumn() == 2) else 1
+                self._toggle_item(item, column)
+            event.accept()
+            return True
+        return super().eventFilter(watched, event)
+
+    def _toggle_item(self, item, column):
+        if not self._closed:
+            item.setCheckState(column, Qt.CheckState.Unchecked
+                if item.checkState(column) == Qt.CheckState.Checked else Qt.CheckState.Checked)
 
     def _update_buttons(self, *_args):
         self.only_button.setEnabled(bool(len(self._row_atoms(self._current_item()))))
 
-    def _act(self, callback):
+    def _act(self, callback, *, selection_only=False):
         if self._closed:
             return
         self.status.setText("")
@@ -273,7 +398,7 @@ class ModelChainControls(QWidget):
         except Exception as error:
             self.status.setText(str(error) or type(error).__name__)
             self.session.logger.warning("Chain controls: " + self.status.text())
-        self._queue_refresh()
+        self._queue_refresh(selection_only=selection_only)
 
     def _item_changed(self, item, column):
         if self._syncing or self._closed or column not in (1, 2):
@@ -290,7 +415,8 @@ class ModelChainControls(QWidget):
             from chimerax.std_commands.select import select_add, select_subtract
             self._before_selection()
             self._act(lambda: (select_add if checked else select_subtract)(
-                self.session, Objects(atoms=atoms, bonds=atoms.intra_bonds)))
+                self.session, Objects(atoms=atoms, bonds=atoms.intra_bonds,
+                                      pseudobonds=_molecular_pseudobonds(atoms))), selection_only=True)
 
     def _isolate(self):
         atoms = self._row_atoms(self._current_item())
@@ -308,13 +434,31 @@ def install_model_chain_controls(panel):
             tabs = panel._codex_model_views
             current = tabs.currentIndex()
             query = old.search.text()
-            old.cleanup()
-            replacement = ModelChainControls(panel.session)
+            expanded = {key: item.isExpanded() for key, item in old.rows.items()}
+            selected = getattr(old.tree.currentItem(), "_chain_key", None)
+            position = old.tree.verticalScrollBar().value()
+            filter_expansion = old._filter_expansion
+            # Preserve the controller's identity: native Undo entries refer to
+            # it, and it owns the display styles saved before chains were hidden.
+            # This pure-Python class has the same state schema across UI reloads.
+            controller = ChainVisibilityController.adopt(old.controller)
+            replacement = ModelChainControls(panel.session, controller=controller)
+            for key, item in replacement.rows.items():
+                item.setExpanded(expanded.get(key, True))
+            replacement._filter_expansion = filter_expansion
             replacement.search.setText(query)
+            if selected in replacement.rows:
+                replacement.tree.setCurrentItem(replacement.rows[selected])
+            # Transfer ownership before invoking even an older page's cleanup
+            # implementation, which always disposes its attached controller.
+            old.controller = ChainVisibilityController(panel.session)
+            old.cleanup()
             panel._codex_chain_controls = replacement
             tabs.removeTab(0)
             tabs.insertTab(0, replacement, "Chains && molecules")
             tabs.setCurrentIndex(current)
+            QTimer.singleShot(0, lambda: None if replacement._closed else
+                              replacement.tree.verticalScrollBar().setValue(position))
             old.deleteLater()
         panel.tool_window.fill_context_menu = panel._codex_chain_context_menu
         return panel._codex_chain_controls

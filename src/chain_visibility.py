@@ -13,6 +13,23 @@ def _same(a, b):
     return a is b or (a is not None and b is not None and np.array_equal(a, b))
 
 
+def _deleted(obj):
+    return obj.deleted
+
+
+def _without_solvent(atoms):
+    """Return the atoms whose visibility defines a molecular chain.
+
+    Crystal waters commonly share a protein's chain ID and are hidden by
+    default. They must not make that chain look partly shown or be revealed
+    by it. A target consisting only of solvent remains explicitly controllable.
+    """
+    if not len(atoms):
+        return atoms
+    solvent = atoms.structure_categories == "solvent"
+    return atoms if solvent.all() or not solvent.any() else atoms.filter(~solvent)
+
+
 def _displayed(model):
     while model is not None:
         positions = model.display_positions
@@ -60,12 +77,35 @@ class ChainVisibilityController:
     operation raises UserError before leaving any scene changes in place.
     """
 
+    # Instance state with a factory for its initial value. adopt() fills in
+    # any field that an older controller class did not create.
+    _STATE_FIELDS = (("_atom_memory", dict), ("_ribbon_memory", dict),
+                     ("_surface_memory", dict), ("_closed", bool))
+
     def __init__(self, session):
         self.session = session
-        self._atom_memory = {}
-        self._ribbon_memory = {}
-        self._surface_memory = {}
-        self._closed = False
+        for name, factory in self._STATE_FIELDS:
+            setattr(self, name, factory())
+
+    @classmethod
+    def adopt(cls, controller):
+        """Upgrade a live controller from a reloaded module to this class.
+
+        The identity is kept, so native Undo entries and remembered styles
+        stay valid. A closed controller is never revived; a new one is
+        returned instead.
+        """
+        session = getattr(controller, "session", None)
+        if session is None:
+            raise TypeError(f"Cannot adopt {type(controller).__name__} as a chain visibility controller")
+        if getattr(controller, "_closed", False):
+            return cls(session)
+        if type(controller) is not cls:
+            controller.__class__ = cls
+        for name, factory in cls._STATE_FIELDS:
+            if not hasattr(controller, name):
+                setattr(controller, name, factory())
+        return controller
 
     def _all_atoms(self):
         from chimerax.atomic import Atoms, all_atomic_structures, concatenate
@@ -98,7 +138,7 @@ class ChainVisibilityController:
         """Report visible residue coverage, including existing surface patches."""
         if self._closed:
             return "hidden"
-        atoms = self._live(atoms)
+        atoms = _without_solvent(self._live(atoms))
         if not len(atoms):
             return "hidden"
         residues = atoms.unique_residues
@@ -162,7 +202,11 @@ class ChainVisibilityController:
             if objects:
                 values = lambda source: tuple(source[obj] if index is None else source[obj][index]
                                               for obj in objects)
-                undo.add(objects, attribute, values(old), values(new), option="S")
+                # Atoms and residues are Cython objects whose "deleted" is
+                # not a Python property. Native Undo's default check misses
+                # them and reports a ChimeraX bug after "delete" or "close".
+                undo.add(objects, attribute, values(old), values(new), option="S",
+                         deleted_check=_deleted)
         for surface, old in before["surfaces"].items():
             new = after["surfaces"].get(surface)
             if new is not None and not self._surface_equal(old, new):
@@ -344,26 +388,29 @@ class ChainVisibilityController:
             if surface.display:
                 represented_surfaces.update((surface.show_atoms & target).unique_residues)
         from chimerax.atomic import Residue
+        # Fallback styles apply to the chain itself. Previously hidden solvent
+        # in a mixed target stays hidden; remembered solvent was restored above.
+        scope = _without_solvent(atoms)
         # With no remembered appearance, use an existing representation. Only
         # completely unrepresented residues receive a sensible initial style.
-        for residue in atoms.unique_residues:
+        for residue in scope.unique_residues:
             if (residue in remembered_residues or residue in represented_surfaces
                     or residue.ribbon_display or residue.atoms.displays.any()):
                 continue
             if residue.polymer_type != Residue.PT_NONE:
                 residue.ribbon_display = True
             else:
-                local = residue.atoms & atoms
+                local = residue.atoms & scope
                 local.displays = True
         # An explicit Show still has to reveal a chain whose remembered state
         # was entirely hidden (for example, after Hide all then Show all).
-        for _model, _chain, residues in atoms.unique_residues.by_chain:
-            local = residues.atoms & atoms
+        for _model, _chain, residues in scope.unique_residues.by_chain:
+            local = residues.atoms & scope
             if self.state(local) != "hidden":
                 continue
             polymers = residues.filter(residues.polymer_types != Residue.PT_NONE)
             polymers.ribbon_displays = True
-            nonpolymer = residues.filter(residues.polymer_types == Residue.PT_NONE).atoms & atoms
+            nonpolymer = residues.filter(residues.polymer_types == Residue.PT_NONE).atoms & scope
             nonpolymer.displays = True
         atoms.update_ribbon_backbone_atom_visibility()
 

@@ -289,4 +289,164 @@ assert controller.state(a) == "hidden"
 controller.cleanup()
 controller.cleanup()
 assert not controller._atom_memory and not controller._surface_memory
+
+
+# Native Undo swallows exceptions and reports them as ChimeraX bugs, so record
+# the logger rather than relying on the post-Undo scene alone.
+logged_bugs = []
+original_bug, original_report = session.logger.bug, session.logger.report_exception
+session.logger.bug = lambda message, *args, **kwargs: logged_bugs.append(str(message))
+session.logger.report_exception = lambda *args, **kwargs: logged_bugs.append(str(args or kwargs))
+
+
+def make_crystal(name):
+    """Protein chain A with an in-chain ligand and waters, plus solvent-only chain W."""
+    model, a_atoms, b_atoms = make_model(name)
+    ligand = model.new_residue("LIG", "A", 50)
+    for index, element in enumerate(("C", "C", "O")):
+        atom = model.new_atom(f"C{index}", element)
+        ligand.add_atom(atom)
+        atom.coord = (index * 1.4, 0, 8)
+    for first, second in zip(ligand.atoms, ligand.atoms[1:]):
+        model.new_bond(first, second)
+    def water(chain, number, x):
+        residue = model.new_residue("HOH", chain, number)
+        atom = model.new_atom("O", "O")
+        residue.add_atom(atom)
+        atom.coord = (x, 5, 5)
+        return residue
+    chain_waters = [water("A", 100 + i, i * 3.0) for i in range(4)]
+    solvent_chain = [water("W", 200 + i, i * 3.0 + 40) for i in range(3)]
+    check_for_changes(session)
+    residues = model.residues
+    chain_a = residues.filter(residues.chain_ids == "A").atoms
+    chain_w = residues.filter(residues.chain_ids == "W").atoms
+    waters_a = Atoms([r.atoms[0] for r in chain_waters])
+    assert set(waters_a.structure_categories) == {"solvent"}
+    assert "solvent" not in set(ligand.atoms.structure_categories)
+    # ChimeraX's default crystal style: cartoon protein, ligand sticks, waters
+    # hidden except one near the ligand.
+    model.atoms.displays = False
+    residues.filter(residues.polymer_types != 0).ribbon_displays = True
+    ligand.atoms.displays = True
+    waters_a[0].display = True
+    return model, chain_a, b_atoms, chain_w, waters_a, ligand
+
+
+crystal_controller = ChainVisibilityController(session)
+crystal, chain_a, chain_b, chain_w, waters_a, ligand = make_crystal("Crystal fixture")
+all_waters = crystal.atoms.filter(crystal.atoms.structure_categories == "solvent")
+def shown_waters():
+    return set(all_waters.filter(all_waters.displays).pointers)
+default_waters = shown_waters()
+assert default_waters == {waters_a[0].cpp_pointer}
+# Hidden in-chain waters do not make a normally shown chain or model look partial.
+assert crystal_controller.state(chain_a) == "shown", crystal_controller.state(chain_a)
+assert crystal_controller.state(crystal.atoms) == "shown"
+assert crystal_controller.state(chain_w) == "hidden"
+# Show on an already shown chain, Only this and Show all never add waters.
+crystal_controller.set_visible(chain_a, True)
+assert shown_waters() == default_waters
+crystal_controller.isolate(chain_a)
+assert crystal_controller.state(chain_b) == "hidden" and crystal_controller.state(chain_a) == "shown"
+assert shown_waters() == default_waters, "Only this revealed in-chain waters"
+session.undo.undo()
+assert crystal_controller.state(chain_b) == "shown" and shown_waters() == default_waters
+crystal_controller.show_all()
+assert shown_waters() == default_waters, "Show all revealed crystal waters"
+# Hide -> Show restores exactly the waters that were visible before.
+crystal_controller.set_visible(chain_a, False)
+assert not chain_a.displays.any() and crystal_controller.state(chain_a) == "hidden"
+crystal_controller.set_visible(chain_a, True)
+assert shown_waters() == default_waters and ligand.atoms.displays.all()
+# With no remembered style, initial-style and forced-show fallbacks reveal the
+# protein and ligand but leave previously hidden solvent hidden.
+crystal.atoms.displays = False
+crystal.residues.ribbon_displays = False
+crystal_controller.show_all()
+assert crystal_controller.state(chain_a) == "shown" and crystal_controller.state(chain_b) == "shown"
+assert ligand.atoms.displays.all() and not shown_waters()
+crystal_controller.set_visible(crystal.atoms, False)
+crystal_controller.set_visible(crystal.atoms, True)
+assert ligand.atoms.displays.all() and not shown_waters()
+# A solvent-only row is still explicitly controllable, with Undo.
+crystal_controller.set_visible(chain_w, True)
+assert chain_w.displays.all() and crystal_controller.state(chain_w) == "shown"
+assert not waters_a.displays.any(), "Solvent-only target changed other chains' waters"
+session.undo.undo()
+assert not chain_w.displays.any()
+session.undo.redo()
+crystal_controller.set_visible(chain_w, False)
+assert crystal_controller.state(chain_w) == "hidden"
+assert not logged_bugs, logged_bugs
+print("CHAIN_VISIBILITY_CRYSTAL_SOLVENT_OK")
+
+# Undo after deleting part of a hidden chain skips freed atoms/residues and
+# restores the survivors without reporting a ChimeraX bug.
+waters_a[0].display = True
+crystal_controller.set_visible(chain_a, False)
+waters_a.unique_residues[1:].delete()
+chain_a[0].delete()
+settle()
+session.undo.undo()
+assert not logged_bugs, logged_bugs
+survivors = crystal.residues.filter(crystal.residues.chain_ids == "A")
+assert survivors.filter(survivors.polymer_types != 0).ribbon_displays.all()
+assert ligand.atoms.displays.all() and waters_a[0].display
+session.undo.redo()
+assert not logged_bugs, logged_bugs
+assert not survivors.atoms.displays.any()
+session.undo.undo()
+# Undo after closing a model hidden, or revealed through a hidden parent.
+crystal_controller.set_visible(chain_b, False)
+crystal.display = False
+crystal_controller.set_visible(chain_a, True)
+assert crystal.display
+session.models.close([crystal])
+settle()
+session.undo.undo()
+session.undo.undo()
+assert not logged_bugs, logged_bugs
+assert crystal_controller.state(chain_a) == "hidden"
+crystal_controller.cleanup()
+print("CHAIN_VISIBILITY_DELETED_UNDO_OK")
+
+# UI hot reload: adopt keeps the live identity and remembered styles, upgrades
+# the class, fills fields an older class lacked, and never revives a closed one.
+old_spec = importlib.util.spec_from_file_location("codex_chain_visibility_previous",
+                                                  root / "src/chain_visibility.py")
+old_module = importlib.util.module_from_spec(old_spec)
+old_spec.loader.exec_module(old_module)
+previous = old_module.ChainVisibilityController(session)
+reloaded, reload_a, reload_b = make_model("Reload fixture")
+reloaded.atoms.displays = True
+reloaded.residues.ribbon_displays = False
+reload_a.displays = [True, False] * 4
+sparse = reload_a.displays.copy()
+previous.set_visible(reload_a, False)
+del previous._surface_memory
+remembered = previous._atom_memory
+adopted = ChainVisibilityController.adopt(previous)
+assert adopted is previous and type(adopted) is ChainVisibilityController
+assert adopted._atom_memory is remembered and adopted._surface_memory == {} and not adopted._closed
+session.undo.undo()
+assert np.array_equal(reload_a.displays, sparse)
+session.undo.redo()
+adopted.set_visible(reload_a, True)
+assert np.array_equal(reload_a.displays, sparse), "Adopted controller lost remembered styles"
+assert ChainVisibilityController.adopt(adopted) is adopted
+adopted.cleanup()
+fresh = ChainVisibilityController.adopt(adopted)
+assert fresh is not adopted and adopted._closed and not fresh._closed and not fresh._atom_memory
+try:
+    ChainVisibilityController.adopt(object())
+except TypeError:
+    pass
+else:
+    raise AssertionError("adopt accepted an object without a session")
+session.models.close([reloaded])
+fresh.cleanup()
+assert not logged_bugs, logged_bugs
+session.logger.bug, session.logger.report_exception = original_bug, original_report
+print("CHAIN_VISIBILITY_ADOPT_OK")
 print("CHAIN_VISIBILITY_OK")

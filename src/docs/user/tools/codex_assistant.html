@@ -33,14 +33,21 @@ and command changes so the tool can be used as a structure-analysis workbench
 instead of a standalone chat box.</p>
 
 <h2>Select nonprotein compounds</h2>
-<p>In <b>Display Controls → Compounds</b>, click <b>Select compounds</b> to
-replace the current selection with nonpolymer compounds, including ligands and
-ions, from all open structures. Protein, DNA/RNA and solvent are excluded by
-default. Choose <b>All nonprotein</b> to include DNA/RNA and solvent.
-Click the selected toggle again to deselect those atoms while preserving any
-other selected objects. The count follows the current selection, and ChimeraX
-Undo restores the previous selection. Use the arrow to collapse this section;
-all controls remain in the tab's scrollable area.</p>
+<p>In <b>Display Controls → Compounds</b>, choose all open structures or one
+model in <b>Models</b>, then click <b>Select</b> to replace the current selection.
+<b>Compounds</b> includes nonpolymer ligands and ions; protein, DNA/RNA and solvent
+are excluded. <b>All nonprotein</b> also includes DNA/RNA and solvent. Both modes
+include hidden atoms. Internal molecular coordination connections are selected,
+but distance annotations are not added.</p>
+<p><b>Deselect</b> removes the target atoms while preserving other selected
+objects. ChimeraX Undo restores the previous selection. Counts identify selected
+atoms, residues and matching models. A closed target remains unavailable until
+you choose another model; reusing its number does not change the target.</p>
+<p>The arrow collapses this section inside the scrollable tab. Mode and expansion
+preferences are saved, and the chosen model is retained when reopening the panel
+within the same ChimeraX session. Press <b>Space</b> on the focused action button
+to toggle selection. If a selection action fails, its message remains visible
+until retrying or changing scope.</p>
 
 </body>
 </html>

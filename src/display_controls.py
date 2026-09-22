@@ -314,11 +314,13 @@ class DisplayControlsWidget(QWidget):
     def _install_handlers(self):
         if self._handlers:
             return
-        from chimerax.core.models import ADD_MODELS, REMOVE_MODELS
+        from chimerax.core.models import ADD_MODELS, REMOVE_MODELS, MODEL_NAME_CHANGED, MODEL_ID_CHANGED
         for name, callback in (("selection changed", self._selection_changed),
                                ("command finished", self._queue_refresh),
                                (ADD_MODELS, self._queue_refresh),
-                               (REMOVE_MODELS, self._queue_refresh)):
+                               (REMOVE_MODELS, self._queue_refresh),
+                               (MODEL_NAME_CHANGED, self._queue_refresh),
+                               (MODEL_ID_CHANGED, self._queue_refresh)):
             self._handlers.append(self.session.triggers.add_handler(name, callback))
         from chimerax.atomic import get_triggers
         self._handlers.append(get_triggers().add_handler("changes done", self._queue_refresh))
@@ -362,7 +364,8 @@ class DisplayControlsWidget(QWidget):
     def _build_ui(self):
         self.setObjectName("DisplayControlsRoot")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setMinimumSize(280, 0)
+        # Reserve room for the inspector's compact rows and scrollbar gutter.
+        self.setMinimumSize(300, 0)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setStyleSheet(self._stylesheet())
         from .panel_scroll import PanelScrollArea
@@ -1361,7 +1364,7 @@ class CodexDisplayControls(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 25
+    UI_LAYOUT_VERSION = 26
     help = "help:user/tools/codex_assistant.html"
 
     @classmethod

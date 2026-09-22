@@ -6,30 +6,32 @@ ChimeraXbridge adds a searchable sequence panel, compact molecular controls,
 camera bookmarks, publication image export, six local Quick actions, and an
 optional AI assistant inside ChimeraX.
 
-**서열·표시 제어·북마크·이미지 저장·Quick 버튼은 AI 계정 없이 사용할 수 있습니다.**
-AI에게 자연어로 작업을 맡기려면 사용하는 서비스의 본인 로그인이나 API 키를
-별도로 설정하세요. 외부 분석 프로그램과 개인 인증 정보는 플러그인에 포함되지 않습니다.
+**The sequence panel, display controls, bookmarks, image export and Quick buttons work without an AI account.**
+To give the AI assistant tasks in natural language, sign in to your chosen service
+or configure your own API key separately. External analysis programs and personal
+credentials are not included in the plugin.
 
-## 설치: 다른 컴퓨터에서도 같은 플러그인 사용하기
+## Installation: use the same plugin on another computer
 
-1. [최신 릴리스](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest)에서
-   **[ChimeraX_CodexBridge-0.2.1-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.1/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl)**을 다운로드합니다.
-   GitHub의 **Source code** 압축파일 대신 `.whl` 파일을 받으면 빌드할 필요가 없습니다.
-2. ChimeraX 명령창에서 다운로드한 파일의 경로로 설치합니다.
+1. Download **[ChimeraX_CodexBridge-0.2.1-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.1/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl)**
+   from the [latest release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest).
+   Download the `.whl` file instead of GitHub's **Source code** archive to skip the build step.
+2. Install it from the ChimeraX command line using the path to the downloaded file.
 
    ```chimerax
    toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl"
    ```
 
-   다운로드 폴더가 다르면 실제 경로로 바꾸세요. 공백이 있는 경로는 따옴표로 감쌉니다.
-3. ChimeraX를 다시 시작하면 설치가 끝납니다. 새 설치에서는 서열 패널 자동 열림,
-   탭형 우측 패널, 차분한 DNA/RNA 색상, 투명 PNG·300 DPI가 기본으로 준비됩니다.
+   Adjust the path if you downloaded the file to a different folder. Put paths containing spaces in quotes.
+3. Restart ChimeraX to finish installation. On a fresh installation, the sequence
+   panel opens automatically, the right-side panels use tabs, DNA/RNA colors are
+   muted, and image export defaults to transparent PNG at 300 DPI.
 
-**설치 → 재시작만 하면 됩니다.** 추가 설정 명령이나 Codex 계정은 필요하지 않습니다.
-업데이트할 때는 사용자가 이미 저장한 화면 설정을 유지합니다.
+**Just install → restart.** No extra setup commands or Codex account are required.
+Updates preserve your saved display settings.
 
-[v0.2.1 릴리스](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.1) ·
-[설치·업데이트·AI 연결 상세 안내](INSTALL_REPRODUCIBLE.md)
+[v0.2.1 release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.1) ·
+[Detailed installation, update and AI connection guide](INSTALL_REPRODUCIBLE.md)
 
 The wheel contains the plugin code, toolbar icons, built-in help and workspace
 defaults. Install it through **ChimeraX**, rather than system Python.
@@ -194,9 +196,10 @@ It leaves molecular coordinates, 3D colors, selection and camera intact.
 
 ## Optional AI assistant
 
-AI 연결은 아래 명령으로 패널을 연 뒤 **Setup**에서 시작합니다.
-설치한 CLI의 계정 로그인 또는 OpenAI API 키 입력을 선택하세요.
-구독 구매·결제 관리는 각 서비스에서 진행하며, OpenAI API 사용료는 ChatGPT 구독과 별개입니다.
+To connect an AI service, open the panel with the commands below, then use **Setup**.
+Choose account sign-in through an installed CLI or enter an OpenAI API key.
+Manage subscriptions and billing directly with each service; OpenAI API usage is
+billed separately from a ChatGPT subscription.
 
 ```chimerax
 codex tool
@@ -229,7 +232,7 @@ After configuring an available backend, these are example **ChimeraX commands**:
 
 ```chimerax
 codex context
-ai 현재 선택한 잔기 주변의 리간드 접촉을 설명해줘
+ai Explain the ligand contacts around the currently selected residues
 ai Align #2 to #1 using the catalytic core and explain the domain shift
 codex ask Explain the evidence for a possible metal-binding site in the current selection
 ```

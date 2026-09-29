@@ -170,12 +170,12 @@ class ActionPadWidget(QWidget):
         pick_row = QHBoxLayout()
         pick_row.setContentsMargins(0, 0, 0, 0)
         pick_row.setSpacing(self.PANEL_GAP)
-        pick_row.addWidget(QLabel("Mouse", self))
+        pick_row.addWidget(QLabel("Click selects", self))
         self._pick_buttons = {}
         for which, text, tip, attribute in (
             ("residue", "Residue", "Left click selects a residue; Shift-left click adds residues.", "pick_residue_button"),
             ("chain", "Chain", "Left click selects a chain; Shift-left click adds chains.", "pick_chain_button"),
-            ("menu", "Right menu", "Right click opens the residue context menu.", "pick_menu_button"),
+            ("menu", "Right-click", "Right click opens the residue context menu.", "pick_menu_button"),
             ("default", "Default", "Restore the standard left and right mouse buttons.", "pick_default_button"),
         ):
             button = QPushButton(text, self)
@@ -212,6 +212,11 @@ class ActionPadWidget(QWidget):
         targets_layout.setContentsMargins(0, 0, 0, 0)
         targets_layout.setSpacing(self.PANEL_GAP)
         layout.addLayout(targets_layout, 1)
+
+        hint = QLabel("Choose a row, then use its Show, Hide or Color menu.", self)
+        hint.setWordWrap(True)
+        hint.setProperty("role", "caption")
+        targets_layout.addWidget(hint)
 
         self.tree = QTreeWidget(self)
         self.tree.setMinimumWidth(0)
@@ -791,7 +796,9 @@ class ActionPadWidget(QWidget):
             self.current_spec_label.setText("Target: select an object")
             self._refresh_current_target_controls(None, None)
             return
-        self.current_spec_label.setText(f"Target: {spec}")
+        label = self._current_label()
+        description = f"{label} · {spec}" if label != spec else f"Selection · {spec}"
+        self.current_spec_label.setText(f"Target: {description}")
         self.current_spec_label.setToolTip(f"{self._current_label()}\nTarget: {spec}")
         self._refresh_current_target_controls(spec, self._current_label())
 
@@ -891,7 +898,7 @@ class CodexActionPad(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_action_pad.html"
-    UI_LAYOUT_VERSION = 20
+    UI_LAYOUT_VERSION = 21
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True, **kw):

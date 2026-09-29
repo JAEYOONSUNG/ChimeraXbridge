@@ -4,10 +4,11 @@ from pathlib import Path
 
 from .backends import ensure_session_preferences, get_routing_mode
 from .nl_intent import canonical_intent_hints, normalize_user_phrase, remember_user_alias
+from .user_paths import codex_bridge_user_dir
 
 
 def _user_data_dir():
-    return Path.home() / "Library" / "Application Support" / "ChimeraX" / "1.10" / "codex_bridge_user"
+    return codex_bridge_user_dir()
 
 
 def _events_path():

@@ -3,6 +3,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from .user_paths import codex_bridge_user_dir
+
 
 def canonical_intent_hints(text):
     lowered = normalize_user_phrase(text)
@@ -123,7 +125,7 @@ def normalize_user_phrase(text):
 
 
 def _user_data_dir():
-    return Path.home() / "Library" / "Application Support" / "ChimeraX" / "1.10" / "codex_bridge_user"
+    return codex_bridge_user_dir()
 
 
 def _alias_path():

@@ -120,7 +120,7 @@ class CameraBookmarks(ToolInstance):
     SESSION_SAVE = False
     help = None
 
-    UI_LAYOUT_VERSION = 6
+    UI_LAYOUT_VERSION = 7
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -196,7 +196,7 @@ class CameraBookmarks(ToolInstance):
 
         pivot_row = QHBoxLayout()
         pivot_row.setSpacing(5)
-        pivot_row.addWidget(QLabel("Pivot"))
+        pivot_row.addWidget(QLabel("Rotate around"))
         self.cofr_combo = _BookmarkCombo()
         self.cofr_combo.addItems(["Current", "Selection", "All models"])
         self.cofr_combo.setMinimumContentsLength(8)
@@ -204,7 +204,7 @@ class CameraBookmarks(ToolInstance):
         self.cofr_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.cofr_combo.setToolTip("Rotate around the current pivot, the selected atoms, or all models.")
         pivot_row.addWidget(self.cofr_combo, 1)
-        pivot_row.addWidget(QLabel("Step"))
+        pivot_row.addWidget(QLabel("Angle"))
         self.step_combo = _BookmarkCombo()
         self.step_combo.addItems(["15°", "30°", "45°", "90°", "180°"])
         self.step_combo.setCurrentText("90°")
@@ -246,7 +246,7 @@ class CameraBookmarks(ToolInstance):
         # Image output settings are always visible beside the compact axes.
         self.export_group = self._build_export_controls()
         controls.addWidget(self.export_group, 1)
-        self.focus_btn = QPushButton("Focus sel")
+        self.focus_btn = QPushButton("Focus selection")
         self.focus_btn.setToolTip("Center and zoom on the current selection.")
         self.focus_btn.clicked.connect(self._center_on_selection)
         rotation_layout.addWidget(self.focus_btn)
@@ -286,7 +286,7 @@ class CameraBookmarks(ToolInstance):
         save_row.addWidget(self.name_input, 1)
         self.bookmark_options_button = QToolButton()
         self.bookmark_options_button.setObjectName("bookmark_options")
-        self.bookmark_options_button.setText("Options")
+        self.bookmark_options_button.setText("Save contents")
         self.bookmark_options_button.setToolTip("Choose which scene conditions a bookmark remembers.")
         self.bookmark_options_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         bookmark_menu = QMenu(self.bookmark_options_button)
@@ -295,7 +295,8 @@ class CameraBookmarks(ToolInstance):
         bookmark_menu.addAction(options_action)
         self.bookmark_options_button.setMenu(bookmark_menu)
         save_row.addWidget(self.bookmark_options_button)
-        self.save_btn = QPushButton("Bookmark")
+        self.save_btn = QPushButton("Save bookmark")
+        self.save_btn.setToolTip("Remember the current view and chosen scene contents so you can restore them later.")
         self.save_btn.setObjectName("bookmark_save")
         self.save_btn.setMinimumWidth(62)
         self.save_btn.setEnabled(any(self._save_options().values()))
@@ -404,7 +405,7 @@ class CameraBookmarks(ToolInstance):
         from Qt.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QLabel,
                                   QSpinBox, QCheckBox, QPushButton, QToolButton, QMenu)
         from .image_export import MAX_DIMENSION, MAX_DPI
-        group = QGroupBox("이미지 내보내기 · px")
+        group = QGroupBox("Save image · pixels")
         group.setObjectName("bookmark_image_export")
         layout = QVBoxLayout(group)
         layout.setContentsMargins(8, 9, 8, 6)
@@ -455,11 +456,11 @@ class CameraBookmarks(ToolInstance):
         self.export_lock_ratio.setToolTip("Keep the image's current width-to-height ratio while editing its dimensions.")
         ratio_row.addWidget(self.export_lock_ratio)
         self.export_current_button = QToolButton()
-        self.export_current_button.setText("Current")
+        self.export_current_button.setText("View size")
         self.export_current_button.setObjectName("bookmark_export_size")
         self.export_current_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         self.export_current_button.setToolTip(
-            "Click Current for the graphics view size. The arrow offers common widths, 2× view, and Fit to limit. DPI stays unchanged.")
+            "Click View size for the graphics view size. The arrow offers common widths, 2× view, and Fit to limit. DPI stays unchanged.")
         self.export_current_button.clicked.connect(self._use_current_image_size)
         self.export_size_menu = QMenu(self.export_current_button)
         self.export_size_menu.setToolTipsVisible(True)
@@ -476,7 +477,7 @@ class CameraBookmarks(ToolInstance):
         self.export_current_button.setMenu(self.export_size_menu)
         ratio_row.addWidget(self.export_current_button)
         layout.addLayout(ratio_row)
-        self.export_transparent = QCheckBox("Transparent bg")
+        self.export_transparent = QCheckBox("Transparent background")
         self.export_transparent.setChecked(settings.transparent)
         self.export_transparent.setToolTip("Transparent background for PNG and TIFF. JPEG uses the current background color.")
         layout.addWidget(self.export_transparent)
@@ -908,7 +909,7 @@ class CameraBookmarks(ToolInstance):
                 self.list_widget.setCurrentItem(item)
         self.list_label.setText(f"Saved bookmarks ({len(names)}) · click to restore")
         if not names:
-            self._set_status("Choose conditions above, then save a bookmark.")
+            self._set_status("Position the view, then click Save bookmark. Save contents chooses what to remember.")
 
     @staticmethod
     def _conditions_text(options):

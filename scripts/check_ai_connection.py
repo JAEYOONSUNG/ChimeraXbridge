@@ -131,7 +131,7 @@ with patch.dict(os.environ,{'OPENAI_API_KEY':environment_key},clear=False):
     with patch.object(ui,'check_openai_connection',side_effect=slow_check):
         started=time.monotonic();dialog.check_button.click()
         assert time.monotonic()-started<.2
-        wait_for(entered.is_set);QTest.qWait(30)
+        wait_for(entered.is_set);wait_for(lambda:len(ticks)>=2)  # event loop keeps running while the worker blocks
         dialog._check();assert len(calls)==1 and len(ticks)>=2
         dialog.key_edit.setText('test_'+'changed-draft')
         release.set();wait_for(lambda:not dialog._busy)

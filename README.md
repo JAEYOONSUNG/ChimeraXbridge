@@ -1,6 +1,6 @@
 # ChimeraXbridge
 
-**Version 0.2.1 · UCSF ChimeraX 1.10.x · tested on macOS with ChimeraX 1.10.1**
+**Version 0.2.2 · UCSF ChimeraX 1.10.x · tested on macOS with ChimeraX 1.10.1**
 
 ChimeraXbridge adds a searchable sequence panel, compact molecular controls,
 camera bookmarks, publication image export, six local Quick actions, and an
@@ -13,13 +13,13 @@ credentials are not included in the plugin.
 
 ## Installation: use the same plugin on another computer
 
-1. Download **[ChimeraX_CodexBridge-0.2.1-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.1/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl)**
+1. Download **[ChimeraX_CodexBridge-0.2.2-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.2/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl)**
    from the [latest release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest).
    Download the `.whl` file instead of GitHub's **Source code** archive to skip the build step.
 2. Install it from the ChimeraX command line using the path to the downloaded file.
 
    ```chimerax
-   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl"
+   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl"
    ```
 
    Adjust the path if you downloaded the file to a different folder. Put paths containing spaces in quotes.
@@ -30,7 +30,7 @@ credentials are not included in the plugin.
 **Just install → restart.** No extra setup commands or Codex account are required.
 Updates preserve your saved display settings.
 
-[v0.2.1 release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.1) ·
+[v0.2.2 release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.2) ·
 [Detailed installation, update and AI connection guide](INSTALL_REPRODUCIBLE.md)
 
 The wheel contains the plugin code, toolbar icons, built-in help and workspace
@@ -39,8 +39,18 @@ Local sequence, display, bookmark, export and Quick workflows need no AI login.
 Geometric cavity analysis requires optional `pyKVFinder`; without it, the result
 explains the fallback used and does not invent cavity measurements.
 
-## What is new in 0.2.1
+## What is new in 0.2.2
 
+- Display controls show the exact color target and label **Width**, **Thickness**,
+  and the transparency scale. Slider and preset changes are identified as immediate.
+- **Save contents**, **Save bookmark**, and **View size** explain the bookmark
+  and image workflow. **Ask AI** and **Run command** distinguish the two inputs.
+- Action Pad shows target names and an instruction for its row menus; the cavity
+  empty state points to **AI → Quick → Cavity**.
+
+- **Palette…** replaces the ambiguous **Pick** button. Colorful swatches,
+  a screen eyedropper, **Copy HEX**, and **Apply color** separate choosing a
+  color from changing the structure. The current application target stays visible.
 - A fresh installation starts with the shared UI defaults after restarting;
   existing saved preferences are preserved when upgrading.
 - **Setup** now accepts an OpenAI API key directly in a masked dialog, with
@@ -68,6 +78,8 @@ made elsewhere in ChimeraX. The original model/surface tree remains under
   indicator, and CSV/JSON/Markdown reports that retain every candidate.
 - **Bookmarks** combines saved scene conditions, compact X/Y/Z controls, and
   PNG/JPEG/TIFF export with size, DPI, aspect lock and convenient size presets.
+- **Display Controls → Palette…** provides colorful swatches, RGB/HEX editing,
+  a screen eyedropper, **Copy HEX**, and a separate **Apply color** action.
 - Collapsed Action Pad branches, candidate filters, **Hide All**, and zero
   transparency settings survive the relevant panel refreshes.
 
@@ -76,7 +88,7 @@ made elsewhere in ChimeraX. The original model/surface tree remains under
 ![AI toolbar with Analyze, View, Pocket, Cavity, Figure and Zoom](docs/images/release-0.2.0-toolbar.png)
 
 The sequence/report/export examples below were rendered offscreen for 0.2.0
-using synthetic data. These controls also apply to 0.2.1; the displayed candidates
+using synthetic data. These controls also apply to 0.2.2; the displayed candidates
 are not scientific results.
 
 | Sequence search and palette controls | Filtered candidate and preview status | Image size, DPI and bookmarks |
@@ -146,7 +158,7 @@ codex structalign
 ### 3. Save the exact view, then export a figure
 
 1. Open **Molecule Display → Bookmarks**. Use **X / Y / Z** for compact axis controls.
-2. In **Options** beside **Bookmark**, choose the conditions to remember: camera,
+2. In **Save contents** beside **Save bookmark**, choose the conditions to remember: camera,
    pivot, clipping/model positions, display styles, colors/transparency,
    lighting/background, and optionally selection. Save the bookmark.
 3. Save the ChimeraX session as `.cxs` to retain those bookmarks with the structure.
@@ -156,7 +168,7 @@ codex structalign
    Click **Export** and choose a destination.
 
 **Quick Results → Export image** also opens and scrolls directly to these controls.
-The **Current** button uses the current viewport size; its arrow offers **2× view**,
+The **View size** button uses the current viewport size; its arrow offers **2× view**,
 widths **1600 / 2400 / 3840 px**, and **Fit to 32 MP limit**. These presets preserve
 the aspect ratio and DPI.
 
@@ -165,6 +177,22 @@ DPI is written into the file metadata and is distinct from pixel dimensions.
 The panel explains sizes beyond the 32 MP / 16,384 px-per-side limit before saving.
 
 ### 4. Keep controls usable in a small window
+
+In **Display Controls → Compounds**, choose **All open structures** or one model
+in **Models**, then click **Select**. The selection is replaced with nonpolymer
+compounds, including ligands and ions; hidden atoms are included. Protein,
+DNA/RNA and solvent are excluded by default. Choose **All nonprotein** to include
+DNA/RNA and solvent. **Deselect** removes the target atoms while keeping other
+selected objects, and ChimeraX Undo restores the previous selection. Molecular
+coordination connections are included; distance annotations are not added.
+Counts show selected atoms, residues and matching models. Closing a target model
+requires an explicit new choice, even if its model number is reused.
+
+Collapse **Compounds** with its arrow; the controls stay in the tab's scrollable
+area. The mode and expansion state are saved, and the selected model is retained
+when reopening the panel within the same ChimeraX session. With the action button
+focused, **Space** toggles selection. See the
+[ten-round improvement report](docs/compound-selection-improvements.md) for validation details.
 
 **AI Assistant**, **Display Controls**, **Action Pad**, **Camera Bookmarks**,
 **Quick Results**, **Models**, **CAVER**, and **Cavity Browser** all have full-panel
@@ -178,9 +206,38 @@ hide, label and color to the indicated model, chain, residue or selection.
 named selections and rainbow palettes. Empty targets are explained next to the
 controls, and valid hidden representations remain editable.
 
+### 5. Choose, sample, copy or apply a color
+
+1. Open **Molecule Display → Display Ctrl → Color → Palette…**. Choose a swatch
+   from the colorful grid or adjust the hue/RGB/HEX controls.
+2. To match a color already on your screen, click **Pick screen color**, then
+   click the pixel you want. **Esc** cancels sampling.
+3. Click **Copy HEX** to copy a value such as `#33AADD`, or check the **Apply to:**
+   caption and click **Apply color** to color that scope and representation.
+
+Choosing colors, sampling the screen and copying values in the palette do not
+recolor the structure. Only **Apply color** does. The palette also works with
+no model open: copying is available, while applying requires a valid target.
+The palette stays open after applying so you can compare other colors.
+**Whole models** colors entire models containing the selection and uses one
+transparency value per model; the target caption states this before applying.
+**Close** leaves the structure as it is, including any colors already applied.
+
+For example, choose **Selection** and **Cartoon** in Display Controls to color
+only the selected cartoon. Choose **All models** to color that representation
+across all open models. The palette's target caption makes that choice visible
+before you apply.
+
+
+The updated 0.2.2 controls below were rendered offscreen with synthetic models.
+
+| Display targets and dimensions | Choose, copy or apply color | Save bookmarks and images |
+| --- | --- | --- |
+| ![Display controls with explicit target and width/thickness labels](docs/images/release-0.2.2-display-controls.png) | ![Color palette with screen sampling, Copy HEX and Apply color](docs/images/release-0.2.2-color-palette.png) | ![Bookmark contents, save action and image export settings](docs/images/release-0.2.2-bookmarks.png) |
+
 ## Default workspace settings
 
-These are the defaults for a fresh 0.2.1 installation. No profile command is
+These are the defaults for a fresh 0.2.2 installation. No profile command is
 needed. Upgrades preserve saved choices, including older color/export defaults.
 
 | Preference | Initial value |
@@ -219,8 +276,9 @@ The AI Assistant's backend selector and **Setup** menu provide two connection ro
 - **Account/CLI login:** choose Codex, Claude or Gemini and use **Setup** to start
   that installed CLI's sign-in flow. Authentication finishes in its terminal/browser;
   the CLI manages its own saved login. Refresh engine status after signing in.
-- **OpenAI API key:** choose **OpenAI API** and open **Setup**. Enter your own key
-  in the masked field, then click **Use key**. **Check connection** is optional;
+- **OpenAI API key:** open **Setup → Setup OpenAI API**. This works even before
+  OpenAI is available in the backend selector. Enter your key in the masked
+  field, then click **Use key** to select that backend. **Check connection** is optional;
   checking alone does not save or activate the key. **Clear session key** removes
   a key activated in this app. The plugin does not save it to disk, shell
   environment, logs or the clipboard; quitting ChimeraX removes it.
@@ -234,6 +292,11 @@ Choose **Model** and **Reasoning** in the UI, or use `codex model` and `codex ef
 available models depend on the selected service and account. `codex model default`
 clears a model override. [Detailed connection steps](INSTALL_REPRODUCIBLE.md#optional-ai-connection)
 explain key lifetime, checking, clearing and CLI setup.
+
+![OpenAI connection dialog with an empty masked key field and separate check, use and clear controls](docs/images/release-0.2.1-ai-setup.png)
+
+Offscreen example with a simulated configured state; no real account or API key
+is shown.
 
 After configuring an available backend, these are example **ChimeraX commands**:
 
@@ -262,6 +325,24 @@ show sel
 ```
 
 Use **Enter** to submit an assistant request and **Shift+Enter** for a newline.
+A **Stop** button appears while a request runs; it ends the request at its next
+checkpoint and kills the backend CLI process immediately, so the prompt is never
+locked behind a slow service. Closing the panel does the same.
+
+Commands that an AI reply asks ChimeraX to run pass through one safety gate
+before execution, on every path (agent action batches, commands embedded in an
+analysis reply, and OpenAI tool calls). Commands that run scripts or code
+(`runscript`, `pyscript`, `open` of `.py`/`.cxc` files, shell escapes),
+install software (`toolshed`, `pip`), redefine commands (`alias`) or quit the
+application are rejected and reported in the transcript. Commands you type in
+the in-app terminal are yours and are not filtered.
+
+Transient OpenAI API failures (rate limits, server errors, network drops) are
+retried with backoff. Optional environment variables:
+`CODEX_BRIDGE_BACKEND_TIMEOUT` (seconds per backend call, default 300),
+`CODEX_BRIDGE_OPENAI_ATTEMPTS` (default 3) and `CODEX_BRIDGE_USER_DIR`
+(where natural-language aliases and event logs are stored; the default follows
+ChimeraX's per-user data directory on each platform).
 `codex auto false` disables natural-language fallback in the main ChimeraX command
 line. `codex routing` describes the routing modes; `codex selftest` reports local
 integration and backend availability. Missing AI credentials do not disable the
@@ -291,7 +372,7 @@ the terminal's `/setup` explain available setup routes. See
 For the exact release source:
 
 ```bash
-git clone --branch v0.2.1 https://github.com/JAEYOONSUNG/ChimeraXbridge.git
+git clone https://github.com/JAEYOONSUNG/ChimeraXbridge.git
 cd ChimeraXbridge
 ```
 
@@ -301,8 +382,8 @@ Then run this **inside ChimeraX**, replacing the path with the absolute clone pa
 devel install "/absolute/path/to/ChimeraXbridge"
 ```
 
-Restart after installation. For development on the latest source, clone the
-default branch instead. [The install guide](INSTALL_REPRODUCIBLE.md) covers
+Restart after installation. Record the checkout commit with `git rev-parse HEAD`
+to reproduce a source build. [The install guide](INSTALL_REPRODUCIBLE.md) covers
 updates, same-version reinstalls and reproducibility checks.
 
 Run checks without opening or activating a desktop window:
@@ -321,6 +402,7 @@ widgets, supplied-pixel encoder output, state restoration and background work.
 It does not recheck the native OpenGL renderer. Older visible GUI runners are
 disabled unless `CODEX_ALLOW_VISIBLE_GUI_TESTS=1` is explicitly enabled after
 desktop interaction is authorized.
+Palette checks run offscreen and do not validate actual desktop screen sampling.
 
 Plugin license: [MIT](license.txt). UCSF ChimeraX and optional services/tools are
 distributed under their own terms.

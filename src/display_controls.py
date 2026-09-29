@@ -283,7 +283,12 @@ class _ColorPreview(QWidget):
         clip = QPainterPath()
         clip.addRoundedRect(rect, 3, 3)
         p.setClipPath(clip)
-        colors = self.colors or [QColor("#303f51")]
+        if not self.colors:
+            p.fillRect(rect, self.palette().base())
+            p.setPen(QPen(self.palette().mid().color(), 1))
+            p.drawLine(rect.topLeft(), rect.bottomRight())
+            return
+        colors = self.colors
         width = rect.width() / len(colors)
         for i, color in enumerate(colors):
             p.fillRect(QRectF(rect.left() + i * width, rect.top(), width + 1, rect.height()), color)
@@ -307,6 +312,10 @@ class DisplayControlsWidget(QWidget):
         self._refresh_pending = False
         self._syncing = False
         self._closed = False
+        self._palette_dialog = None
+        self._palette_context = None
+        self._palette_models = ()
+        self._palette_last_color = "#d9d3c7"
         self._handlers = []
         self._build_ui()
         self._install_handlers()
@@ -351,6 +360,14 @@ class DisplayControlsWidget(QWidget):
 
     def cleanup(self):
         self._closed = True
+        dialog, self._palette_dialog = self._palette_dialog, None
+        if dialog is not None:
+            try:
+                dialog.close()
+            except RuntimeError:
+                pass
+        self._palette_context = None
+        self._palette_models = ()
         self._apply_timer.stop()
         self._pending.clear()
         for handler in self._handlers:
@@ -385,6 +402,7 @@ class DisplayControlsWidget(QWidget):
         self.scope_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         header.addWidget(self.scope_label, 1)
         self.refresh_button = QPushButton("Refresh", self)
+        self.refresh_button.setToolTip("Read the current selection and appearance without changing the scene.")
         self.refresh_button.clicked.connect(self.refresh)
         header.addWidget(self.refresh_button)
         layout.addLayout(header)
@@ -404,10 +422,15 @@ class DisplayControlsWidget(QWidget):
         self.compound_selection.selectionAboutToChange.connect(self._selection_changed)
         body.addWidget(self.compound_selection)
         self._build_color_controls(body)
-        row = self._section(body, "Layers")
+        row = self._section(body, "Show / hide")
+        note = QLabel("Transparency (%)", self)
+        note.setObjectName("Caption")
+        row.addWidget(note)
         self.layer_scope_label = QLabel("", self)
         self.layer_scope_label.setObjectName("Caption")
-        row.addWidget(self.layer_scope_label)
+        self.layer_scope_label.setWordWrap(True)
+        self.layer_scope_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        body.addWidget(self.layer_scope_label)
         for title, key in (("Cartoon", "cartoon"), ("Surface", "surface"), ("Atoms", "atoms")):
             check, slider = self._build_layer_row(body, title, key)
             setattr(self, key + "_visible_check", check)
@@ -418,18 +441,29 @@ class DisplayControlsWidget(QWidget):
         self.selection_transparency.title_label.setFixedWidth(58)
         self.selection_transparency.setToolTip("Transparency of selected atoms, bonds and surfaces. Cartoon is unchanged.")
         row.addWidget(self.selection_transparency, 1)
-        self.clear_transparency_button = QPushButton("Opaque", self)
+        self.clear_transparency_button = QPushButton("Make solid", self)
+        self.clear_transparency_button.setToolTip("Set selected atoms, bonds and surfaces to 0% transparency. Cartoon is unchanged.")
         self.clear_transparency_button.clicked.connect(lambda: self._set_selection_transparency(0))
         row.addWidget(self.clear_transparency_button)
         body.addLayout(row)
 
-        row = self._section(body, "Cartoon")
+        row = self._section(body, "Cartoon shape")
         note = QLabel("Per model", self)
         note.setObjectName("Caption")
         row.addWidget(note)
         self.reset_cartoon_button = QPushButton("Reset", self)
         self.reset_cartoon_button.clicked.connect(self._reset_cartoon)
         row.addWidget(self.reset_cartoon_button)
+        dimensions = QHBoxLayout()
+        dimensions.setSpacing(4)
+        spacer = QLabel("", self)
+        spacer.setFixedWidth(49)
+        dimensions.addWidget(spacer)
+        for title in ("Width (Å)", "Thickness (Å)"):
+            label = QLabel(title, self)
+            label.setObjectName("Caption")
+            dimensions.addWidget(label, 1)
+        body.addLayout(dimensions)
         self._geometry_titles = {}
         self.protein_width, self.protein_thickness = self._build_cartoon_row(body, "Protein", "protein")
         self.helix_width, self.helix_thickness = self._build_cartoon_row(body, "Helix", "helix")
@@ -533,8 +567,10 @@ class DisplayControlsWidget(QWidget):
         label.setFixedWidth(49)
         self._geometry_titles[key] = label
         row.addWidget(label)
-        width = self._slider("w", 5, 60, 20, key, " Å", 0.1)
-        thickness = self._slider("t", 1, 30, 4, key, " Å", 0.1)
+        width = self._slider("", 5, 60, 20, key, " Å", 0.1)
+        thickness = self._slider("", 1, 30, 4, key, " Å", 0.1)
+        width.slider.setAccessibleName(title + " cartoon width in angstroms")
+        thickness.slider.setAccessibleName(title + " cartoon thickness in angstroms")
         width.setToolTip("Cartoon width in angstroms, for models in the current scope.")
         thickness.setToolTip("Cartoon thickness in angstroms, for models in the current scope.")
         row.addWidget(width, 1)
@@ -544,20 +580,27 @@ class DisplayControlsWidget(QWidget):
 
     def _build_color_controls(self, layout):
         row = self._section(layout, "Color")
+        row.setStretch(1, 0)
         self.color_scope_combo = QComboBox(self)
         self.color_scope_combo.addItem("Selection", "sel")
         self.color_scope_combo.addItem("All models", "all")
         self.color_scope_combo.setAccessibleName("Color scope")
         self.color_target_combo = QComboBox(self)
-        for label, target in (("All reps", "abcsp"), ("Cartoon", "c"),
-                              ("Atoms & bonds", "ab"), ("Surface", "s"), ("Models", "m")):
+        for label, target in (("All appearances", "abcsp"), ("Cartoon", "c"),
+                              ("Atoms & bonds", "ab"), ("Surface", "s"), ("Whole models", "m")):
             self.color_target_combo.addItem(label, target)
         self.color_target_combo.setAccessibleName("Color representation")
         for combo in (self.color_scope_combo, self.color_target_combo):
             combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
             combo.setMinimumContentsLength(7)
             combo.currentIndexChanged.connect(self._queue_refresh)
-            row.addWidget(combo)
+            row.addWidget(combo, 1)
+        self.color_target_hint = QLabel(self)
+        self.color_target_hint.setObjectName("Caption")
+        self.color_target_hint.setTextFormat(Qt.TextFormat.PlainText)
+        self.color_target_hint.setWordWrap(True)
+        self.color_target_hint.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        layout.addWidget(self.color_target_hint)
         row = QHBoxLayout()
         row.setSpacing(4)
         self.color_preview = _ColorPreview(self)
@@ -573,11 +616,12 @@ class DisplayControlsWidget(QWidget):
         row.addWidget(self.color_hex_edit)
         self.rainbow_ramp = _RainbowRamp(self._rainbow_color_changed, self)
         self.rainbow_ramp.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.rainbow_ramp.setToolTip("Choose a hue and immediately color the target shown above. Open Palette to browse colors before applying.")
         row.addWidget(self.rainbow_ramp, 1)
-        self.pick_color_button = QPushButton("Pick", self)
+        self.pick_color_button = QPushButton("Palette…", self)
         self.pick_color_button.clicked.connect(self._pick_color)
         row.addWidget(self.pick_color_button)
-        self.apply_color_button = QPushButton("Apply", self)
+        self.apply_color_button = QPushButton("Apply color", self)
         self.apply_color_button.clicked.connect(self._apply_color_from_text)
         row.addWidget(self.apply_color_button)
         layout.addLayout(row)
@@ -599,6 +643,10 @@ class DisplayControlsWidget(QWidget):
             setattr(self, attr, button)
             row.addWidget(button, 1)
         layout.addLayout(row)
+        hint = QLabel("Sliders and color presets apply immediately.", self)
+        hint.setObjectName("Caption")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
 
     def _make_horizontal_slider(self, title, minimum, maximum, value, formatter, callback, layout):
         block = _SliderBlock(title, minimum, maximum, value, formatter, callback, self,
@@ -683,32 +731,162 @@ class DisplayControlsWidget(QWidget):
                 self.refresh()
 
     def _pick_color(self):
-        from Qt.QtGui import QColor
-        from Qt.QtWidgets import QColorDialog
-
-        current = self._normalized_color_code() or "#d9d3c7"
-        color = QColorDialog.getColor(QColor(current), self, "Choose ChimeraX color")
-        if not color.isValid():
+        if self._closed:
             return
-        self.color_hex_edit.setText(color.name())
-        self._apply_color(color.name())
+        from .color_palette import ColorPaletteDialog
+        dialog = self._palette_dialog
+        try:
+            if dialog is not None and not dialog._disposed:
+                self._sync_palette_target()
+                dialog.show()
+                dialog.raise_()
+                return
+        except RuntimeError:
+            pass
+        current = self._normalized_color_code()
+        # ChimeraX's optional alpha suffix is RGBA; the palette edits RGB only.
+        if current:
+            current = current[:7]
+        elif self.color_preview.colors:
+            current = self.color_preview.colors[0].name()
+        else:
+            current = self._palette_last_color
+        dialog = ColorPaletteDialog(current, self)
+        self._palette_dialog = dialog
+        dialog.colorApplied.connect(lambda color, source=dialog: self._apply_palette_color(source, color))
+        dialog.currentColorChanged.connect(self._remember_palette_color)
+        dialog.finished.connect(lambda *_args, source=dialog: self._palette_finished(source))
+        self._sync_palette_target()
+        dialog.show()
+
+    def _remember_palette_color(self, color):
+        if color.isValid():
+            self._palette_last_color = color.name()
+
+    def _palette_finished(self, dialog):
+        if dialog is self._palette_dialog:
+            self._palette_dialog = None
+            self._palette_context = None
+            self._palette_models = ()
+
+    def _palette_target(self):
+        """Describe the exact displayed target without editing the scene."""
+        scope = self.color_scope_combo.currentData() or "sel"
+        target = self.color_target_combo.currentData() or "abcsp"
+        representation = self.color_target_combo.currentText()
+        if scope == "all":
+            models = tuple(self.session.models.list())
+            signature = ()
+            label = f"All models ({len(models)})"
+            available = bool(models)
+        else:
+            from chimerax.atomic import selected_atoms, selected_bonds, selected_pseudobonds
+            atoms = selected_atoms(self.session)
+            signature = tuple(collection.pointers.tobytes() for collection in
+                              (atoms, selected_bonds(self.session), selected_pseudobonds(self.session)))
+            models = tuple(self.session.selection.models())
+            available = _has_selection(self.session)
+            ids = ", ".join("#" + m.id_string for m in models[:3])
+            label = ("Whole selected models" if target == "m" else
+                     f"Selection · {len(atoms):,} atoms" if len(atoms) else "Selected models")
+            if ids:
+                label += " · " + ids + (", …" if len(models) > 3 else "")
+        # Strong references prevent Python identity reuse while this target is
+        # shown. Atom/bond pointers also catch a selection change before its
+        # queued refresh reaches the controls.
+        identities = []
+        for model in models:
+            positions = getattr(model, "selected_positions", None) if scope == "sel" else None
+            identities.append((id(model), model.id, None if positions is None else positions.tobytes()))
+        context = (scope, target, tuple(identities), signature)
+        if target == "m":
+            representation += " · one transparency per model"
+        label = f"{label} · {representation}" if available else (
+            "No target: select atoms or a model, or choose All models. You can still pick and copy colors.")
+        return context, label, available, models
+
+    def _sync_palette_target(self):
+        dialog = self._palette_dialog
+        if dialog is None or self._closed:
+            return
+        try:
+            if dialog._disposed:
+                return
+            context, label, available, models = self._palette_target()
+            self._palette_context = context
+            self._palette_models = models
+            dialog.set_apply_target(label, available)
+        except RuntimeError:
+            self._palette_dialog = None
+            self._palette_models = ()
+
+    def _apply_palette_color(self, dialog, color):
+        if self._closed or dialog is not self._palette_dialog:
+            return
+        current, _label, available, _models = self._palette_target()
+        if not available or current != self._palette_context:
+            self._sync_palette_target()
+            dialog.status_label.setText("Target changed. Check Apply to above, then apply again.")
+            return
+        chosen = QColor(color)
+        if not chosen.isValid():
+            return
+        self.color_hex_edit.setText(chosen.name())
+        applied = self._apply_color(chosen.name())
+        if applied:
+            dialog.status_label.setText(f"Applied {chosen.name().upper()}")
+        else:
+            dialog.status_label.setText("Color was not applied. Check the target in Display Controls.")
 
     def _apply_color(self, color, transparency=None):
         scope = self._color_scope()
         if scope is None:
-            return
+            return False
         target = self.color_target_combo.currentData() or "abcsp"
         command = f"color {scope} {color} target {target}"
         if transparency is not None:
             command += f" transparency {int(transparency)}"
         try:
-            _run(self.session, command)
+            from chimerax.core.commands import ColorArg
+            from chimerax.core.undo import UndoState
+            from .display_color import objects_for_spec
+
+            # Native RGB coloring preserves atom/cartoon alpha, but replaces
+            # bond RGBA and ignores the transparency option for bonds. Apply
+            # the same alpha policy to every RGB entry point in this panel.
+            bond_alpha = []
+            if "b" in target or "p" in target:
+                parsed_color, _used, _rest = ColorArg.parse(color, self.session)
+                if transparency is not None or not getattr(parsed_color, "explicit_transparency", False):
+                    objects = objects_for_spec(self.session, scope)
+                    for key, bonds in (("b", objects.bonds), ("p", objects.pseudobonds)):
+                        if key not in target or not len(bonds):
+                            continue
+                        alpha = bonds.colors[:, 3].copy()
+                        if transparency is not None:
+                            # Match ChimeraX's atom/cartoon opacity conversion.
+                            alpha[:] = min(255, max(0, int(2.56 * (100 - int(transparency)))))
+                        bond_alpha.append((bonds, alpha))
+            with self.session.undo.aggregate("Apply color"):
+                _run(self.session, command)
+                self._preserve_charge_tips(scope, target)
+                undo = UndoState("Set bond transparency")
+                for bonds, alpha in bond_alpha:
+                    before = bonds.colors.copy()
+                    if (before[:, 3] == alpha).all():
+                        continue
+                    after = before.copy()
+                    after[:, 3] = alpha
+                    undo.add(bonds, "colors", before, after)
+                    bonds.colors = after
+                if undo.state:
+                    self.session.undo.register(undo)
+                self._auto_name_region(scope, color)
         except Exception as err:
             self.status_label.setText(str(err) if str(err) else err.__class__.__name__)
-            return
-        self._preserve_charge_tips(scope, target)
-        self._auto_name_region(scope, color)
+            return False
         self.refresh()
+        return True
 
     def _apply_color_scheme(self, scheme, transparency=None):
         scope = self._color_scope()
@@ -1025,7 +1203,9 @@ class DisplayControlsWidget(QWidget):
                 f"{len(groups):,} chains  ·  {residues:,} residues  ·  {count:,} atoms" if count else
                 "Open a structure to start editing its appearance.")
             self.scope_label.setToolTip(spec or "Layer controls apply to all structures when nothing is selected.")
-            self.layer_scope_label.setText("Selection · transparency" if selected else "All structures · transparency")
+            self.layer_scope_label.setText(
+                ("Applies to: selection" if selected else "Applies to: all structures")
+                + " · 0% solid, 100% invisible")
             self.status_label.setText("")
             self.compound_selection.refresh()
             self.selection_transparency.setEnabled(selected and count > 0)
@@ -1073,12 +1253,20 @@ class DisplayControlsWidget(QWidget):
         has_target = has_models if all_models else _has_selection(self.session)
         empty_hint = ("Open a structure to color its atoms, cartoon or surface." if not has_models else
                       "Select atoms, residues or a model, or choose All models in Color scope.")
-        for widget in (self.color_hex_edit, self.pick_color_button, self.apply_color_button,
+        for widget in (self.color_hex_edit, self.apply_color_button,
                        self.by_chain_button, self.by_element_button, self.by_model_button):
             widget.setEnabled(has_target)
             widget.setToolTip("Apply color to the chosen scope and representation." if has_target else empty_hint)
         self.color_scope_combo.setToolTip(
             "Color scope is independent of the layer controls below." if has_target else empty_hint)
+        self.pick_color_button.setEnabled(True)
+        self.pick_color_button.setToolTip("Open a color palette, pick a color from the screen, or copy its HEX code. Apply color changes the indicated target.")
+        if has_target:
+            self.apply_color_button.setToolTip(
+                f"Apply the entered color to {self.color_scope_combo.currentText()} · {self.color_target_combo.currentText()}. An 8-digit HEX value also sets transparency.")
+        _context, description, available, _models = self._palette_target()
+        self.color_target_hint.setText(("Apply to: " if available else "") + description)
+        self._sync_palette_target()
         colors = []
         if atoms is not None and len(atoms):
             if target in ("c", "abcsp"):
@@ -1107,7 +1295,7 @@ class DisplayControlsWidget(QWidget):
             self.color_hex_edit.setPlaceholderText(
                 "No color" if has_target else "Select first" if has_models else "Open model")
             self.color_hex_edit.setToolTip(
-                "No displayed color in this representation. Enter a color or use Pick to color the target."
+                "No displayed color in this representation. Enter a color or open Palette to color the target."
                 if has_target else empty_hint)
             self.color_preview.set_colors([])
             self.color_name_label.setText("No displayed color in this representation" if has_target else empty_hint)
@@ -1364,7 +1552,7 @@ class CodexDisplayControls(ToolInstance):
 
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 26
+    UI_LAYOUT_VERSION = 27
     help = "help:user/tools/codex_assistant.html"
 
     @classmethod

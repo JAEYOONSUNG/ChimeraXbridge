@@ -11,6 +11,7 @@ from chimerax.core.state import State, StateManager, copy_state
 DEFAULT_OPTIONS = dict(camera=True, visibility=True, colors=True,
                        lighting=True, selection=False)
 _STATE_TAG = "codex camera bookmarks"
+_RIBBON_SCALES = ("helix", "sheet", "coil", "nucleic", "helix_arrow", "sheet_arrow")
 
 
 def _native_views(session):
@@ -216,6 +217,9 @@ def _capture_model(model, chosen):
             atom_attrs += ["displays", "hides", "draw_modes"]
             bond_attrs += ["displays", "hides"]
             residue_attrs += ["ribbon_displays", "ring_displays"]
+            record["ribbon_dimensions"] = _attributes(
+                model.ribbon_xs_mgr,
+                ["scale_" + kind for kind in _RIBBON_SCALES] + ["tube_radius"])
         if chosen["colors"]:
             atom_attrs += ["colors"]
             bond_attrs += ["colors", "halfbonds"]
@@ -251,6 +255,9 @@ def _restore_model(record):
             if name == "triangle_mask" and (model.triangles is None or len(value) != len(model.triangles)):
                 continue
         setattr(model, name, copy_state(value))
+    dimensions = record.get("ribbon_dimensions")
+    if dimensions is not None:
+        _restore_ribbon_dimensions(model.ribbon_xs_mgr, dimensions)
     from chimerax.atomic import Atoms, Bonds, Residues, Pseudobonds
     classes = dict(atoms=Atoms, bonds=Bonds, residues=Residues, pseudobonds=Pseudobonds)
     for kind, saved in record["collections"].items():
@@ -274,6 +281,19 @@ def _restore_model(record):
                 current_indices, previous_indices = zip(*matched)
                 restored[list(current_indices)] = values[list(previous_indices)]
             setattr(model, name, restored)
+
+
+def _restore_ribbon_dimensions(manager, dimensions):
+    # Use the native setters: assigning scale attributes alone leaves cached
+    # cross sections in place and does not schedule ribbon geometry rebuilding.
+    for kind in _RIBBON_SCALES:
+        scale = dimensions.get("scale_" + kind)
+        if scale is None:
+            continue
+        values = (*scale[0], *scale[1]) if kind.endswith("_arrow") else scale
+        getattr(manager, "set_" + kind + "_scale")(*values)
+    if "tube_radius" in dimensions:
+        manager.set_tube_radius(dimensions["tube_radius"])
 
 
 def _pruned_record(record):

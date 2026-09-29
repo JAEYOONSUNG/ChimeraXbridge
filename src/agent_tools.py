@@ -1,5 +1,6 @@
 import json
 
+from .command_safety import UnsafeCommandError, validate_chimerax_command
 from .builtin_actions import run_figure_mode
 from .docs_index import format_docs_snippets, likely_command_aliases
 from .semantic import (
@@ -337,11 +338,11 @@ def _single_command(command):
     command = str(command or "").strip()
     if not command:
         raise ValueError("command is required")
-    if "\n" in command or "\r" in command:
-        raise ValueError("Only one ChimeraX command line can be run per command tool call")
-    if command.startswith(("!", "sh ")):
-        raise ValueError("Shell commands are not allowed through ChimeraX agent tools")
-    return command
+    # Shared gate for every AI-originated command (see command_safety.py).
+    try:
+        return validate_chimerax_command(command)
+    except UnsafeCommandError as err:
+        raise ValueError(f"Command rejected: {err}") from None
 
 
 def _string_result(value):

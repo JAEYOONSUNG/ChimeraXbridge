@@ -21,7 +21,7 @@ def _hydrate_rapidock_env():
     if not _os.path.exists(rc):
         return
     try:
-        with open(rc) as fh:
+        with open(rc, encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line.startswith("export "):

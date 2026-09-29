@@ -407,7 +407,7 @@ def split_multimodel_pdb(multi_pdb_text, output_dir, *, top_n=5, prefix="rank"):
             if current:
                 idx = len(written) + 1
                 target = output_dir / f"{prefix}{idx}.pdb"
-                target.write_text("\n".join(current) + "\nEND\n")
+                target.write_text("\n".join(current) + "\nEND\n", encoding="utf-8")
                 written.append(target)
                 if len(written) >= int(top_n):
                     break
@@ -419,7 +419,7 @@ def split_multimodel_pdb(multi_pdb_text, output_dir, *, top_n=5, prefix="rank"):
         text = multi_pdb_text.strip()
         if text:
             target = output_dir / f"{prefix}1.pdb"
-            target.write_text(text + "\nEND\n")
+            target.write_text(text + "\nEND\n", encoding="utf-8")
             written.append(target)
     return written
 
@@ -457,7 +457,7 @@ def extract_results(tarball_path, output_dir, *, top_n=5):
                         per_model[int(m.group(1))] = f.read()
 
     if score_text:
-        (output_dir / "hpepdock_all.out").write_text(score_text)
+        (output_dir / "hpepdock_all.out").write_text(score_text, encoding="utf-8")
 
     if per_model:
         written = []
@@ -1710,7 +1710,7 @@ def run_hpepdock_pipeline(
 
     # Critic P6: signal the watcher that all poses are fully written before it loads.
     try:
-        (output_dir / ".codex_rapidock_done").write_text(time.strftime("%Y-%m-%d %H:%M:%S\n"))
+        (output_dir / ".codex_rapidock_done").write_text(time.strftime("%Y-%m-%d %H:%M:%S\n"), encoding="utf-8")
     except Exception:
         pass
     log(f"Wrote {len(written)} ranked pose(s): {[p.name for p in written]}")

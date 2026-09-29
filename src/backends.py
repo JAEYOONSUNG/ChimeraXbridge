@@ -122,7 +122,7 @@ def _cached_codex_models():
     if not cache_path.exists():
         return []
     try:
-        data = json.loads(cache_path.read_text())
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
     except Exception:
         return []
     return [m.get("slug") for m in data.get("models", []) if m.get("slug")]

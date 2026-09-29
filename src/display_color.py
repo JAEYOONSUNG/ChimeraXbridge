@@ -348,6 +348,11 @@ def install_auto_chemistry_restore(session):
         if not m:
             return
         spec = m.group(1)
+        # A cartoon/surface/model-only color must not touch atom colors.
+        # Display Controls always supplies the native target flags explicitly.
+        target_match = re.search(r"\btarget\s+([a-z]+)\b", text[m.end():], re.IGNORECASE)
+        if target_match is not None and "a" not in target_match.group(1).lower():
+            return
         # Skip if spec includes a target like "color sel byhetero target ab"
         if "byhetero" in text or "byelement" in text or "bychain" in text:
             return

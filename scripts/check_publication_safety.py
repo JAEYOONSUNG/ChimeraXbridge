@@ -89,8 +89,8 @@ def allowed_candidate(name):
         return len(path.parts) == 2 and suffix == ".whl"
     if first == "scripts":
         return len(path.parts) == 2 and suffix == ".py" and (
-            path.name.startswith(("check_", "reload_", "run_"))
-            or path.name in {"headless_ui_fixture.py", "nl_eval.py"})
+            path.name.startswith(("check_", "reload_", "run_", "diagnose_"))
+            or path.name in {"headless_ui_fixture.py", "nl_eval.py", "windows_selfcheck.py"})
     return (path.parts[:2] == (".github", "workflows") and len(path.parts) == 3
             and suffix in {".yml", ".yaml"})
 

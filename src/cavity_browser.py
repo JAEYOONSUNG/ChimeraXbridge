@@ -137,7 +137,7 @@ def apply_cavity_display(
 class CodexCavityBrowser(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
-    UI_LAYOUT_VERSION = 3
+    UI_LAYOUT_VERSION = 4
     help = "help:user/tools/codex_assistant.html"
 
     @classmethod
@@ -228,7 +228,7 @@ class CodexCavityBrowser(ToolInstance):
 
         bottom = QHBoxLayout()
         layout.addLayout(bottom)
-        self.select_lining_button = QPushButton("Select Lining", parent)
+        self.select_lining_button = QPushButton("Select cavity residues", parent)
         self.select_lining_button.clicked.connect(self.select_lining)
         bottom.addWidget(self.select_lining_button)
 
@@ -266,7 +266,7 @@ class CodexCavityBrowser(ToolInstance):
             self.session._codex_cavity_selected_ranks = self._selected_ranks()
             self.transparency_spin.setValue(max(0, min(100, transparency)))
             if not candidates:
-                summary = "No cavity candidates. Run the Cavity action to find candidates."
+                summary = "No cavities yet. Open a structure, then choose AI → Quick → Cavity to find candidates."
             else:
                 prefix = f"{strategy}: " if strategy else ""
                 state = "All hidden. " if not self._selected_ranks() else ""

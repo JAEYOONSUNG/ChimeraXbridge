@@ -4,8 +4,8 @@ from functools import lru_cache
 from pathlib import Path
 
 
+# Fallback for plain-Python tests run outside ChimeraX on the dev Mac.
 APP_ROOT = Path("/Applications/ChimeraX-1.10.1.app")
-DOCS_DIR = APP_ROOT / "Contents/share/docs/user/commands"
 STOPWORDS = {
     "the", "and", "for", "with", "from", "that", "this", "into", "then", "plus",
     "show", "view", "display", "command", "commands", "request", "user", "using",
@@ -117,21 +117,37 @@ def docs_index_stats():
     }
 
 
+def _doc_roots():
+    """(core command docs dir, chimerax package dir) for the running ChimeraX.
+
+    Resolved from ChimeraX itself so Windows/Linux installs and other
+    versions work; the hard-coded Mac app is only a fallback.
+    """
+    try:
+        import chimerax
+        core = Path(chimerax.app_data_dir) / "docs" / "user" / "commands"
+        package = Path(chimerax.__file__).resolve().parent
+        return core, package
+    except Exception:
+        return (APP_ROOT / "Contents/share/docs/user/commands",
+                APP_ROOT / "Contents/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/chimerax")
+
+
 def iter_command_doc_paths():
-    if DOCS_DIR.exists():
-        for path in sorted(DOCS_DIR.glob("*.html")):
+    core, package = _doc_roots()
+    if core.exists():
+        for path in sorted(core.glob("*.html")):
             yield path
-    pattern = "Contents/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/chimerax/*/docs/user/commands/*.html"
-    for path in sorted(APP_ROOT.glob(pattern)):
+    for path in sorted(package.glob("*/docs/user/commands/*.html")):
         yield path
 
 
 def _doc_source_label(path):
-    rel = str(path.relative_to(APP_ROOT))
-    if "site-packages/chimerax/" not in rel:
+    _core, package = _doc_roots()
+    try:
+        return path.relative_to(package).parts[0]
+    except ValueError:
         return "core"
-    frag = rel.split("site-packages/chimerax/", 1)[1]
-    return frag.split("/", 1)[0]
 
 
 def _extract_title(html):

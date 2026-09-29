@@ -238,7 +238,7 @@ def _geometry_candidates(model, kv, progress, cancelled):
         driver.write_text('import sys, runpy\n'
                           'sys.path[:] = %r\n' % worker_paths +
                           'sys.argv = [%r, %r, %r]\n' % (str(__file__), str(source), str(destination)) +
-                          'runpy.run_path(%r, run_name="__main__")\n' % str(__file__))
+                          'runpy.run_path(%r, run_name="__main__")\n' % str(__file__), encoding="utf-8")
         # No shell and no application startup. -I avoids user site startup
         # hooks; dependency paths are then restored explicitly by our driver.
         with (directory / 'stderr.txt').open('w+b') as errors:

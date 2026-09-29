@@ -14,15 +14,17 @@ visualization planning, and interactive command execution.</p>
 <ol>
   <li>Open the tool with <code>codex tool</code> or from the Tools menu.</li>
   <li>Use the control bar to switch backend, model, reasoning effort, mode, and speed profile. The default mode is <b>agent</b>, which can directly change the ChimeraX scene.</li>
-  <li>Unavailable engines are disabled. Use <b>Setup</b> to launch CLI login helpers or copy the OpenAI API-key environment template.</li>
-  <li>The <b>Model</b> and <b>Reasoning</b> controls are real overrides passed to Codex CLI, OpenAI Responses API, Claude, or Gemini when supported.</li>
+  <li>Unavailable engines are disabled. Use <b>Setup</b> for CLI login helpers or <b>Setup OpenAI API</b> to enter a session-only API key in a masked dialog.</li>
+  <li>The <b>AI model</b> and <b>Reasoning</b> controls are real overrides passed to Codex CLI, OpenAI Responses API, Claude, or Gemini when supported.</li>
   <li>Use the <b>Settings</b> popup for secondary mode/backend/model shortcuts, or <b>Analysis</b> for grouped local, sequence, modeling, and structure-search actions.</li>
   <li>Use <b>Display Ctrl</b> in the ChimeraX <b>Molecule Display</b> toolbar when you need selection transparency, cartoon width/thickness, or palette edits.</li>
   <li>Use <b>Action Pad</b> to open the PyMOL-style target panel for selecting, showing, hiding, labeling, and coloring model targets.</li>
   <li>Review the live workspace pane for current ChimeraX context, selection focus, and figure recommendations.</li>
   <li>Use sequence quick buttons such as <b>Top Seq</b>, <b>Report</b>, <b>Motif</b>, and <b>View</b> for current-chain workflows.</li>
-  <li>Type a request into the prompt at the bottom of the transcript and press <b>Enter</b> to run the agent, or <b>Shift+Enter</b> to insert a new line.</li>
-  <li>Use the in-app terminal for raw commands: plain input runs ChimeraX commands, and lines starting with <code>!</code> run shell commands.</li>
+  <li>Type a request into the prompt at the bottom of the transcript and click <b>Ask AI</b> or press <b>Enter</b> to run the agent, or <b>Shift+Enter</b> to insert a new line.</li>
+  <li>Click <b>Stop</b> while a request runs to end it at its next checkpoint; the backend CLI process is killed immediately and the prompt unlocks as <i>Stopped</i>. Closing the panel also stops a running request.</li>
+  <li>Commands proposed by an AI reply pass through a safety gate before ChimeraX runs them: script or code execution (<code>runscript</code>, <code>pyscript</code>, <code>open</code> of <code>.py</code>/<code>.cxc</code> files, shell escapes), software installation, command aliasing and quitting are rejected and reported in the transcript. Commands you type in the terminal are not filtered.</li>
+  <li>Use the in-app terminal and <b>Run command</b> for raw commands: plain input runs ChimeraX commands, and lines starting with <code>!</code> run shell commands.</li>
   <li>Double-click an interactive suggestion or use <b>Apply Suggestion</b> to push an AI recommendation back into ChimeraX.</li>
 </ol>
 
@@ -66,7 +68,6 @@ click <b>Only this</b> to isolate it, or <b>Show all chains</b> to show all open
 molecular chains. These actions leave colors and the camera unchanged.
 <b>Advanced models</b> retains the original model tree, surface controls, model
 IDs and native actions. Both tabs remain scrollable in a short dock.</p>
-
 <p>Search also finds ligands sharing a chain ID with a protein; mixed rows name
 the ligand, such as <b>Protein + ADP</b>. Press <b>Space</b> on a row name or Show
 cell to toggle visibility, or <b>Shift+Space</b> to toggle selection. Space on a
@@ -81,5 +82,23 @@ Selection updates avoid recalculating surface visibility, and coordinate-only
 model movement does not rebuild the chain controls. Color, transparency and
 lighting commands avoid full visibility scans when surface state is unchanged.</p>
 
+<h2>Color and appearance</h2>
+<p>In <b>Display Controls → Color</b>, choose a scope and representation.
+The <b>Apply to</b> caption shows which target will change. Open <b>Palette…</b>
+to browse swatches, edit RGB/HEX, or <b>Pick screen color</b>.
+<b>Copy HEX</b> copies the chosen code; <b>Apply color</b> changes the indicated
+target and keeps the palette open. You can browse and copy with no model open.
+<b>Whole models</b> colors entire models containing the selection and uses
+one transparency value per model, as shown in the target caption.
+Main-panel sliders and color presets apply immediately. Under <b>Show / hide</b>,
+0% transparency is solid and 100% is invisible. <b>Cartoon shape</b> labels
+width and thickness in angstroms.</p>
+<h2>Save a view or image</h2>
+<p>Open <b>Molecule Display → Bookmarks</b>. Use <b>Save contents</b> to choose
+what the bookmark remembers, then click <b>Save bookmark</b>. Click a saved
+bookmark to restore it. To save an image, choose its format and pixel dimensions
+under <b>Save image</b>, then click <b>Export PNG…</b> (or JPEG/TIFF).
+<b>View size</b> uses the current graphics view dimensions; its arrow provides
+size presets. Save the ChimeraX session to retain bookmarks with your models.</p>
 </body>
 </html>

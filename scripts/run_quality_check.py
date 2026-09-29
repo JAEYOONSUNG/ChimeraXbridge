@@ -14,11 +14,24 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+CHECK_TIMEOUT = float(os.environ.get("CODEX_BRIDGE_CHECK_TIMEOUT", "180"))
+
+
+def _write_text(path, text):
+    try:
+        path.write_text(text, encoding="utf-8")
+    except OSError as error:  # a full disk must not hide the real result
+        print(f"warning: could not write {path}: {error}", flush=True)
+
 # (script basename, required success marker, plain Python instead of ChimeraX)
 SUITES = {
     "user_workflows": [("check_user_workflows.py", "USER_WORKFLOWS_OK", False)],
     "model_chains": [("check_model_chain_controls.py", "MODEL_CHAIN_CONTROLS_OK", False)],
     "compound_selection": [("check_compound_selection.py", "COMPOUND_SELECTION_OK", False)],
+    "ai_request_lifecycle": [("check_ai_request_lifecycle.py", "AI_REQUEST_LIFECYCLE_OK", False),
+                             ("check_command_safety.py", "COMMAND_SAFETY_OK", True)],
+    "color_palette": [("check_color_palette.py", "COLOR_PALETTE_OK", False)],
+    "display_palette": [("check_display_palette.py", "DISPLAY_PALETTE_OK", False)],
     "install_defaults": [("check_install_defaults.py", "INSTALL_DEFAULTS_OK", False)],
     "ai_connection": [("check_ai_connection.py", "AI_CONNECTION_OK", False)],
     "shared_profile": [("check_shared_profile.py", "SHARED_PROFILE_OK", False)],
@@ -79,15 +92,15 @@ def run_check(filename, marker, plain):
         try:
             process = subprocess.run(command, cwd=ROOT, env=environment,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                encoding="utf-8", errors="replace", timeout=180)
+                encoding="utf-8", errors="replace", timeout=CHECK_TIMEOUT)
         except subprocess.TimeoutExpired as error:
             output = error.stdout or b""
             if isinstance(output, bytes):
                 output = output.decode("utf-8", errors="replace")
-            (Path(tempfile.gettempdir()) / f"quality-{script.stem}.log").write_text(output, encoding="utf-8")
-            raise RuntimeError(f"{filename}: exceeded 180 seconds") from error
+            _write_text(Path(tempfile.gettempdir()) / f"quality-{script.stem}.log", output)
+            raise RuntimeError(f"{filename}: exceeded {CHECK_TIMEOUT} seconds") from error
     log = Path(tempfile.gettempdir()) / f"quality-{script.stem}.log"
-    log.write_text(process.stdout, encoding="utf-8")
+    _write_text(log, process.stdout)
     if process.returncode or marker not in process.stdout:
         raise RuntimeError(f"{filename}: exit={process.returncode}, marker={marker!r}\n"
                            + process.stdout[-12000:])
@@ -95,19 +108,91 @@ def run_check(filename, marker, plain):
             "log": str(log), "mode": "plain" if plain else "headless/offscreen"}
 
 
+def _suite_labels(argument):
+    if argument == "all":
+        return list(SUITES)
+    if argument in SUITES:
+        return [argument]
+    matches = [label for label in SUITES if argument and argument in label]
+    if not matches:
+        raise SystemExit("Choose all, --list, or one of: " + ", ".join(SUITES))
+    return matches
+
+
 def main():
-    label = sys.argv[1] if len(sys.argv) == 2 else ""
-    if label not in SUITES:
-        raise SystemExit("Choose " + ", ".join(SUITES))
-    results = []
-    for check in SUITES[label]:
-        result = run_check(*check)
-        results.append(result)
-        print(f"PASS {result['script']} ({result['seconds']} s)", flush=True)
-    report = {"ok": True, "suite": label, "checks": results, "visible_windows": False}
-    path = Path(tempfile.gettempdir()) / f"quality-{label}-report.json"
-    path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    print(f"QUALITY_{label.upper()}_OK {len(results)} checks; report={path}")
+    arguments = sys.argv[1:]
+    if arguments in ([], ["-h"], ["--help"]):
+        raise SystemExit(
+            "usage: run_quality_check.py <suite>|all|--list\n"
+            "Suites: " + ", ".join(SUITES))
+    if arguments == ["--list"]:
+        for label, checks in SUITES.items():
+            print(f"{label}: " + ", ".join(check[0] for check in checks))
+        return
+    if len(arguments) != 1:
+        raise SystemExit("Pass exactly one suite label, 'all', or --list.")
+    label = arguments[0]
+    labels = _suite_labels(label)
+    started = time.monotonic()
+    suite_reports = []
+    failures = []
+    for suite in labels:
+        results = []
+        for check in SUITES[suite]:
+            try:
+                result = run_check(*check)
+            except Exception as error:
+                failures.append((suite, check[0], str(error)))
+                print(f"FAIL {check[0]} ({suite})", flush=True)
+                print(str(error)[-4000:], flush=True)
+                continue
+            results.append(result)
+            print(f"PASS {result['script']} ({result['seconds']} s)", flush=True)
+        ok = not any(suite == failed for failed, _, _ in failures)
+        report = {"ok": ok, "suite": suite, "checks": results, "visible_windows": False,
+                  "failures": [name for failed, name, _ in failures if failed == suite]}
+        path = Path(tempfile.gettempdir()) / f"quality-{suite}-report.json"
+        _write_json(path, report)
+        suite_reports.append(report)
+        if ok:
+            print(f"QUALITY_{suite.upper()}_OK {len(results)} checks; report={path}", flush=True)
+        else:
+            print(f"QUALITY_{suite.upper()}_FAILED {len(report['failures'])} of "
+                  f"{len(SUITES[suite])} checks; report={path}", flush=True)
+
+    if len(labels) > 1:
+        summary = {
+            "ok": not failures,
+            "git": _git_head(),
+            "seconds": round(time.monotonic() - started, 2),
+            "suites": suite_reports,
+        }
+        path = Path(tempfile.gettempdir()) / "quality-all-report.json"
+        _write_json(path, summary)
+        passed = sum(len(report["checks"]) for report in suite_reports)
+        print(f"QUALITY_SUMMARY passed={passed} failed={len(failures)} "
+              f"suites={len(labels)} seconds={summary['seconds']} report={path}")
+        for suite, name, _ in failures:
+            print(f"  failed: {suite}/{name}")
+        if not failures:
+            print("QUALITY_ALL_OK")
+    if failures:
+        raise SystemExit(1)
+
+
+def _write_json(path, payload):
+    try:
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    except OSError as error:
+        print(f"warning: could not write {path}: {error}", flush=True)
+
+
+def _git_head():
+    try:
+        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True,
+                              text=True, timeout=10).stdout.strip()
+    except Exception:
+        return ""
 
 
 if __name__ == "__main__":

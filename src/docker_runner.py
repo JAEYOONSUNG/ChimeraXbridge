@@ -26,7 +26,7 @@ def cleanup_orphan_containers(session=None):
         listing = subprocess.run(
             ["docker", "ps", "-a", "--filter", f"name={RAPIDOCK_CONTAINER_PREFIX}",
              "--filter", "status=exited", "-q"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True, text=True, timeout=15, encoding="utf-8", errors="replace"
         )
     except Exception:
         return
@@ -34,7 +34,7 @@ def cleanup_orphan_containers(session=None):
     if not ids:
         return
     try:
-        subprocess.run(["docker", "rm", *ids], capture_output=True, text=True, timeout=30)
+        subprocess.run(["docker", "rm", *ids], capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace")
     except Exception:
         return
     if session is not None:
@@ -48,7 +48,7 @@ def _container_is_running(name):
     try:
         result = subprocess.run(
             ["docker", "ps", "--filter", f"name=^{re.escape(name)}$", "-q"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace"
         )
     except Exception:
         return False
@@ -136,7 +136,7 @@ def _build_rapidock_docker_image(session, repo_root):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1,
+            bufsize=1, encoding="utf-8", errors="replace"
         )
     except Exception as err:
         return False, f"docker build failed to launch: {err}"
@@ -307,7 +307,7 @@ def _run_rapidock_in_docker(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1,
+            bufsize=1, encoding="utf-8", errors="replace"
         )
     except Exception as err:
         raise RuntimeError(f"docker run failed to launch: {err}") from err

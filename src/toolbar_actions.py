@@ -539,7 +539,7 @@ def _run_safari_prefill(url, js_code, delays=(3, 6, 10)):
     for line in lines:
         cmd.extend(["-e", line])
     try:
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=60)
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace")
     except subprocess.TimeoutExpired:
         return False, "Safari prefill timed out after 60s"
     combined = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
@@ -581,7 +581,7 @@ def _run_safari_tab_batch(tab_specs):
     for line in lines:
         cmd.extend(["-e", line])
     try:
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=120, encoding="utf-8", errors="replace")
     except subprocess.TimeoutExpired:
         return False, "Safari tab-batch prefill timed out after 120s"
     combined = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
@@ -1904,7 +1904,7 @@ def _run_local_foldmason(files, out_dir):
         "--report-mode",
         "1",
     ]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=900, check=False)
+    result = subprocess.run(command, capture_output=True, text=True, timeout=900, check=False, encoding="utf-8", errors="replace")
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
         return False, detail or f"foldmason exited with code {result.returncode}", command
@@ -2895,7 +2895,7 @@ def _detect_cuda_tag(session=None):
     try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace"
         )
         if result.returncode == 0 and result.stdout.strip():
             candidates.append(("nvidia-smi", result.stdout.strip()))
@@ -2904,7 +2904,7 @@ def _detect_cuda_tag(session=None):
 
     cuda_runtime = None
     try:
-        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=10)
+        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace")
         if result.returncode == 0:
             match = _re.search(r"CUDA Version[:\s]+(\d+)\.(\d+)", result.stdout)
             if match:
@@ -2915,7 +2915,7 @@ def _detect_cuda_tag(session=None):
 
     if cuda_runtime is None:
         try:
-            result = subprocess.run(["nvcc", "--version"], capture_output=True, text=True, timeout=10)
+            result = subprocess.run(["nvcc", "--version"], capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace")
             if result.returncode == 0:
                 match = _re.search(r"release\s+(\d+)\.(\d+)", result.stdout)
                 if match:
@@ -3037,7 +3037,7 @@ def _check_docker_memory(session, *, min_gib=12):
     try:
         result = subprocess.run(
             ["docker", "info", "--format", "{{.MemTotal}}"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True, text=True, timeout=15, encoding="utf-8", errors="replace"
         )
     except Exception:
         return None
@@ -3100,7 +3100,7 @@ def _find_system_python(session=None):
         try:
             res = subprocess.run(
                 [path, "-c", "import sys; print(sys.version_info[:3])"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace"
             )
         except Exception:
             continue
@@ -3160,7 +3160,7 @@ def _run_setup_step(session, label, command, cwd=None, timeout=1800):
             capture_output=True,
             text=True,
             timeout=timeout,
-            env=_clean_subprocess_env(),
+            env=_clean_subprocess_env(), encoding="utf-8", errors="replace"
         )
     except subprocess.TimeoutExpired:
         return False, f"{label} timed out after {timeout}s"
@@ -3229,7 +3229,7 @@ def setup_rapidock_repo(path=None, *, session=None, skip_models=False, gpu=None)
     try:
         if lock_path.exists():
             try:
-                pid_text = lock_path.read_text().strip().splitlines()[0]
+                pid_text = lock_path.read_text(encoding="utf-8").strip().splitlines()[0]
                 pid = int(pid_text)
             except Exception:
                 pid = None
@@ -3250,7 +3250,7 @@ def setup_rapidock_repo(path=None, *, session=None, skip_models=False, gpu=None)
             except Exception:
                 pass
         target.mkdir(parents=True, exist_ok=True)
-        lock_path.write_text(f"{os.getpid()}\n{time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        lock_path.write_text(f"{os.getpid()}\n{time.strftime('%Y-%m-%d %H:%M:%S')}\n", encoding="utf-8")
     except Exception:
         pass
 
@@ -5815,7 +5815,7 @@ def _run_local_usalign_pairs(files, out_dir):
     summaries = []
     for index, moving in enumerate(files[1:], start=2):
         command = [executable, str(moving), str(reference)]
-        result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False, encoding="utf-8", errors="replace")
         report = (result.stdout or "") + ("\nSTDERR:\n" + result.stderr if result.stderr else "")
         report_path = report_dir / f"usalign_{index:02d}.txt"
         report_path.write_text(report, encoding="utf-8")
@@ -8167,7 +8167,7 @@ def run_toolbar_action(session, name):
             if not result_file.exists():
                 return f"Energy: no result.json. stdout: {(proc.stdout or '')[-1500:]}"
             try:
-                results = json.loads(result_file.read_text())
+                results = json.loads(result_file.read_text(encoding="utf-8"))
             except Exception as exc:
                 return f"Energy: parse failed: {exc}"
             log.info("=" * 50)
@@ -8192,7 +8192,7 @@ def run_toolbar_action(session, name):
                     csv_text += f"interface_{k},{v}\n"
             out_csv = Path.home() / "Desktop" / f"chimerax_ref2015_{target_spec.lstrip('#').replace('/','_')}.csv"
             try:
-                out_csv.write_text(csv_text)
+                out_csv.write_text(csv_text, encoding="utf-8")
                 log.info(f"  CSV: {out_csv}")
             except Exception:
                 pass

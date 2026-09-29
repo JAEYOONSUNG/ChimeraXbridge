@@ -50,7 +50,37 @@ def structure(name):
     return model
 
 
+def ribbon_dimensions(model):
+    return {name: getattr(model.ribbon_xs_mgr, name) for name in (
+        "scale_helix", "scale_sheet", "scale_coil", "scale_nucleic",
+        "scale_helix_arrow", "scale_sheet_arrow", "tube_radius")}
+
+
+def set_ribbon_dimensions(model, factor=1):
+    manager = model.ribbon_xs_mgr
+    manager.set_helix_scale(1.0 * factor, 0.2 * factor)
+    manager.set_sheet_scale(1.2 * factor, 0.25 * factor)
+    manager.set_coil_scale(0.15 * factor, 0.16 * factor)
+    manager.set_nucleic_scale(0.3 * factor, 0.9 * factor)
+    manager.set_helix_arrow_scale(2.4 * factor, 0.2 * factor, 0.15 * factor, 0.16 * factor)
+    manager.set_sheet_arrow_scale(2.6 * factor, 0.25 * factor, 0.15 * factor, 0.16 * factor)
+    manager.set_tube_radius(None if factor == 1 else 1.4 * factor)
+
+
 model = structure("bookmark-test")
+# Reproduce the original width/thickness bug with the actual cartoon command.
+model.ss_assigned = True
+model.residues[0].is_helix = True
+run(session, "cartoon style #" + model.id_string + " width 2 thickness 0.4")
+save_bookmark(session, "ribbon-command")
+run(session, "cartoon style #" + model.id_string + " width 5 thickness 1.2")
+equal(model.ribbon_xs_mgr.scale_helix, (2.5, 0.6))
+restore_bookmark(session, "ribbon-command")
+equal(model.ribbon_xs_mgr.scale_helix, (1.0, 0.2))
+delete_bookmark(session, "ribbon-command")
+
+set_ribbon_dimensions(model)
+saved_dimensions = ribbon_dimensions(model)
 surface = Surface("bookmark-surface", session)
 surface.set_geometry(np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], np.float32),
                      None, np.array([[0, 1, 2]], np.int32))
@@ -85,7 +115,17 @@ session.main_view.background_color = (1, 1, 1, 1)
 session.main_view.lighting.ambient_light_intensity = 0.9
 session.main_view.silhouette.enabled = False
 session.main_view.silhouette.thickness = 5.0
+set_ribbon_dimensions(model, 2)
+manager = model.ribbon_xs_mgr
+cached_sections = {kind: getattr(manager, "xs_" + kind) for kind in (
+    "helix", "sheet", "coil", "nucleic", "helix_arrow", "sheet_arrow")}
+cached_tube = manager.xs_helix_tube(0.8)
 restore_bookmark(session, '조건 "A"; special')
+assert ribbon_dimensions(model) == saved_dimensions
+for kind, previous in cached_sections.items():
+    assert getattr(manager, "xs_" + kind) is not previous, "Stale ribbon geometry: " + kind
+assert manager.xs_helix_tube(0.8) is not cached_tube
+assert manager.xs_helix_tube(0.8).radius == 0.8, "Automatic tube radius was not restored"
 equal(model.atoms.colors, saved_colors)
 equal(model.atoms.displays, [True, False, True])
 equal(model.atoms.selected, [False, True, False])
@@ -137,24 +177,50 @@ restore_bookmark(session, "native")
 
 # Every condition independently restores only its corresponding state.
 for condition in DEFAULT_OPTIONS:
+    set_ribbon_dimensions(model)
     model.atoms.colors = (40, 50, 60, 120)
     model.atoms.displays = True
     model.atoms.selected = [False, True, False]
     session.main_view.camera.position = translation((1, 2, 3))
     session.main_view.lighting.ambient_light_intensity = 0.4
     save_bookmark(session, "one-condition", {condition: True})
+    set_ribbon_dimensions(model, 3)
+    changed_dimensions = ribbon_dimensions(model)
     model.atoms.colors = (70, 80, 90, 200)
     model.atoms.displays = False
     model.atoms.selected = [True, False, True]
     session.main_view.camera.position = translation((4, 5, 6))
     session.main_view.lighting.ambient_light_intensity = 0.8
     restore_bookmark(session, "one-condition")
+    assert ribbon_dimensions(model) == (
+        saved_dimensions if condition == "visibility" else changed_dimensions), condition
     equal(model.atoms.colors[0], [40, 50, 60, 120] if condition == "colors" else [70, 80, 90, 200])
     equal(model.atoms.displays, [condition == "visibility"] * 3)
     equal(model.atoms.selected, [False, True, False] if condition == "selection" else [True, False, True])
     equal(session.main_view.camera.position.matrix[:, 3], [1, 2, 3] if condition == "camera" else [4, 5, 6])
     assert session.main_view.lighting.ambient_light_intensity == (0.4 if condition == "lighting" else 0.8)
 delete_bookmark(session, "one-condition")
+
+# Both explicit and automatic tube radii survive restoration.
+model.ribbon_xs_mgr.set_tube_radius(1.7)
+save_bookmark(session, "explicit-tube", {"visibility": True})
+model.ribbon_xs_mgr.set_tube_radius(None)
+restore_bookmark(session, "explicit-tube")
+assert model.ribbon_xs_mgr.tube_radius == 1.7
+delete_bookmark(session, "explicit-tube")
+
+# Existing bookmark records have no dimension field. Keep one for the .cxs
+# round trip, and prove it still restores display while preserving dimensions.
+model.atoms.displays = True
+save_bookmark(session, "legacy-display", {"visibility": True})
+for model_state in _manager(session).bookmarks["legacy-display"]["models"]:
+    model_state.pop("ribbon_dimensions", None)
+set_ribbon_dimensions(model, 2)
+legacy_dimensions = ribbon_dimensions(model)
+model.atoms.displays = False
+restore_bookmark(session, "legacy-display")
+equal(model.atoms.displays, [True] * 3)
+assert ribbon_dimensions(model) == legacy_dimensions
 
 # A native overwrite drops old conditions without changing the original entry.
 save_bookmark(session, "native-overwrite", all_options)
@@ -169,15 +235,18 @@ equal(model.atoms.colors, saved_colors[1:])
 
 # Closed model IDs may be reused; object references keep replacement models safe.
 closed = structure("to-close")
-save_bookmark(session, "closed", {"colors": True})
+save_bookmark(session, "closed", {"colors": True, "visibility": True})
 closed_id = closed.id
 session.models.close([closed])
 replacement = AtomicStructure(session, name="replacement")
 session.models.add([replacement], minimum_id=closed_id[0])
 replacement.colors = [[222, 111, 44, 255]]
+set_ribbon_dimensions(replacement, 3)
+replacement_dimensions = ribbon_dimensions(replacement)
 restore_result = restore_bookmark(session, "closed")
 assert restore_result["skipped_models"] == 1
 equal(replacement.colors, [[222, 111, 44, 255]])
+assert ribbon_dimensions(replacement) == replacement_dimensions
 
 # Molecular surfaces keep atom patches and color caches through recomputation.
 surface_structure = structure("surface-test")
@@ -213,13 +282,21 @@ with tempfile.TemporaryDirectory(prefix="bookmark-state-") as folder:
     equal(molecular_surface._atom_patch_colors, saved_patch_colors)
     assert len(molecular_surface.show_atoms) == len(saved_shown_atoms)
     model = next(m for m in session.models.list(type=AtomicStructure) if m.name == "bookmark-test")
+    assert ribbon_dimensions(model) == legacy_dimensions
+    set_ribbon_dimensions(model, 3)
     model.atoms.colors = (1, 2, 3, 255)
     restore_bookmark(session, "renamed")
+    assert ribbon_dimensions(model) == saved_dimensions
     equal(model.atoms.colors, saved_colors[1:])
     equal(model.atoms.selected, [True, False])
     equal(session.main_view.camera.position.matrix, saved_camera)
     delete_bookmark(session, "renamed")
     assert "renamed" not in list_bookmarks(session)
     assert "renamed" not in _manager(session).bookmarks
+    set_ribbon_dimensions(model, 2)
+    model.atoms.displays = False
+    restore_bookmark(session, "legacy-display")
+    equal(model.atoms.displays, [True, True])
+    assert ribbon_dimensions(model) == legacy_dimensions
 
-print("CAMERA_BOOKMARK_STATE_OK: condition isolation, alpha colors, selection, deletion, rename, native views, .cxs round-trip")
+print("CAMERA_BOOKMARK_STATE_OK: ribbon dimensions and geometry caches, condition isolation, alpha colors, selection, deletion, rename, native views, old records, .cxs round-trip")

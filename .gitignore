@@ -36,3 +36,8 @@ scripts/apply_connected_stick_anchor.py
 scripts/sync_reload_verify_chimerax.sh
 scripts/verify_codex_runtime.py
 whole_clustering.csv
+
+# Reports written by scripts/windows_selfcheck.py (synced via Dropbox, not committed).
+windows_reports/
+# Local agent gate notes.
+GATES.md

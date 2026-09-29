@@ -954,7 +954,7 @@ def _run_signalp_cli(executable, fasta_path, output_dir, *, organism="other", mo
             capture_output=True,
             text=True,
             timeout=1800,
-            env=_clean_subprocess_env(),
+            env=_clean_subprocess_env(), encoding="utf-8", errors="replace"
         )
     except Exception as err:
         return False, str(err)

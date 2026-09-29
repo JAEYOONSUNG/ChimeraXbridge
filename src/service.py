@@ -1,10 +1,14 @@
+import contextlib
 import json
 import os
 import base64
+import random
 import re
 import subprocess
+import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -25,6 +29,7 @@ from .backends import (
     sanitize_model_override,
 )
 from .agent_tools import dispatch_openai_agent_tool, openai_agent_tool_definitions
+from .command_safety import UnsafeCommandError, validate_chimerax_command
 from .builtin_actions import (
     recommended_figure_mode,
     run_analysis_visual_companion,
@@ -61,6 +66,91 @@ from .semantic import (
 from .membrane import format_membrane_report
 from .metal_placement import format_metal_evidence_report
 from .pisa import format_pisa_report
+
+
+class RequestCancelled(RuntimeError):
+    """The user stopped the request; not a backend failure."""
+
+
+class CancelToken:
+    """Cooperative cancel flag shared by the UI thread and one request worker.
+
+    The worker binds the token for its thread (see :func:`bind_cancel_token`),
+    checks it between steps and commands, and registers the backend CLI
+    process so :meth:`cancel` can kill it from the UI thread immediately.
+    """
+
+    def __init__(self):
+        self._event = threading.Event()
+        self._lock = threading.Lock()
+        self._process = None
+
+    @property
+    def cancelled(self):
+        return self._event.is_set()
+
+    def cancel(self):
+        self._event.set()
+        with self._lock:
+            process = self._process
+        _kill_process(process)
+
+    def attach_process(self, process):
+        with self._lock:
+            self._process = process
+        if self.cancelled:
+            _kill_process(process)
+
+    def detach_process(self, process=None):
+        with self._lock:
+            if process is None or self._process is process:
+                self._process = None
+
+    def raise_if_cancelled(self):
+        if self.cancelled:
+            raise RequestCancelled("Request cancelled by user.")
+
+
+_request_state = threading.local()
+
+
+@contextlib.contextmanager
+def bind_cancel_token(token):
+    previous = getattr(_request_state, "token", None)
+    _request_state.token = token
+    try:
+        yield token
+    finally:
+        _request_state.token = previous
+
+
+def current_cancel_token():
+    return getattr(_request_state, "token", None)
+
+
+def check_cancelled():
+    token = current_cancel_token()
+    if token is not None:
+        token.raise_if_cancelled()
+
+
+def _kill_process(process):
+    if process is None:
+        return
+    try:
+        if process.poll() is None:
+            process.kill()
+    except Exception:
+        pass
+
+
+def backend_timeout_seconds():
+    """Backend request ceiling, overridable with CODEX_BRIDGE_BACKEND_TIMEOUT."""
+    try:
+        value = float(os.environ.get("CODEX_BRIDGE_BACKEND_TIMEOUT", "300"))
+    except ValueError:
+        value = 300.0
+    return max(1.0, value)
 
 
 class CodexBridgeError(RuntimeError):
@@ -552,6 +642,8 @@ def _execute_typed_action(session, action, *, executor, progress=None):
         executed_commands = []
         for command in action["commands"]:
             try:
+                check_cancelled()
+                command = validate_chimerax_command(command)
                 _emit_progress(progress, f"[run] {command}")
                 result = executor(command)
                 executed_commands.append(command)
@@ -560,6 +652,8 @@ def _execute_typed_action(session, action, *, executor, progress=None):
                     transcript_lines.append(f"- {command} -> {status}")
                 else:
                     transcript_lines.append(f"- {command}")
+            except RequestCancelled:
+                raise
             except Exception as err:
                 error = str(err) if str(err) else err.__class__.__name__
                 transcript_lines.append(f"- command failed: {command}")
@@ -886,6 +980,7 @@ def run_codex_agent(
     _emit_progress(progress, f"[phase] start {backend_label} agent run (max steps {max_steps})")
 
     for step_number in range(1, max_steps + 1):
+        check_cancelled()
         plan = plan_codex_agent_step(
             session,
             user_prompt,
@@ -973,8 +1068,34 @@ def run_mode_request(
     fast=True,
     executor=None,
     record_memory=True,
+    cancel_token=None,
+):
+    if cancel_token is None:
+        cancel_token = current_cancel_token()
+    with bind_cancel_token(cancel_token):
+        return _run_mode_request_bound(
+            session,
+            user_prompt,
+            mode=mode,
+            progress=progress,
+            fast=fast,
+            executor=executor,
+            record_memory=record_memory,
+        )
+
+
+def _run_mode_request_bound(
+    session,
+    user_prompt,
+    *,
+    mode,
+    progress=None,
+    fast=True,
+    executor=None,
+    record_memory=True,
 ):
     resolved_mode = mode
+    check_cancelled()
     register_feedback(session, user_prompt)
 
     if mode == "analyze":
@@ -999,6 +1120,8 @@ def run_mode_request(
             try:
                 _emit_progress(progress, "[route] backend scientific interpretation")
                 analysis_reply = ask_analysis(session, user_prompt, progress=progress, fast=fast)
+            except RequestCancelled:
+                raise
             except Exception as err:
                 error_text = str(err) if str(err) else err.__class__.__name__
                 auto_visual = None
@@ -1010,6 +1133,8 @@ def run_mode_request(
                             progress=progress,
                             executor=executor,
                         )
+                    except RequestCancelled:
+                        raise
                     except Exception as visual_err:
                         auto_visual = f"Analysis visual companion failed: {visual_err}"
                 blocks = []
@@ -1031,6 +1156,8 @@ def run_mode_request(
                             progress=progress,
                             executor=executor,
                         )
+                    except RequestCancelled:
+                        raise
                     except Exception as err:
                         auto_visual = f"Analysis visual companion failed: {err}"
                     if auto_visual is None:
@@ -1616,20 +1743,30 @@ def _run_session_command(session, command):
 
     event = threading.Event()
     result_box = {}
+    token = current_cancel_token()
+    abandoned = threading.Event()
 
     def runner():
         try:
+            # A command whose caller already timed out or cancelled must not
+            # run late on the UI thread after the worker has moved on.
+            if abandoned.is_set():
+                raise RequestCancelled("Command abandoned before it reached the UI thread.")
+            if token is not None:
+                token.raise_if_cancelled()
             result_box["result"] = run(session, command)
         except Exception as err:
             result_box["error"] = err
         finally:
             event.set()
 
+    check_cancelled()
     thread_safe(runner)
     # 120s upper bound so a dead Qt loop surfaces as a clear timeout rather
     # than hanging the worker thread forever. Most UI-bounced commands return
     # in milliseconds; long-running ones (foldseek, etc.) run async.
     if not event.wait(120):
+        abandoned.set()
         raise TimeoutError(
             f"_run_session_command: UI thread did not run command within 120s: {command!r}"
         )
@@ -1686,6 +1823,8 @@ def _run_backend_exec(
 
     cli_path = resolve_backend_cli(backend_id)
     env = _backend_subprocess_env(cli_path)
+    token = current_cancel_token()
+    check_cancelled()
 
     fd, output_path = tempfile.mkstemp(prefix="chimerax-codex-", suffix=".txt")
     os.close(fd)
@@ -1697,24 +1836,34 @@ def _run_backend_exec(
         Path(schema_tmp).write_text(json.dumps(output_schema), encoding="utf-8")
         schema_path = schema_tmp
 
+    # Prompts carry scene context, docs excerpts and history and can exceed the
+    # platform argv limit (about 32k characters on Windows). Codex and Claude
+    # read the prompt from stdin; Gemini only takes argv, so its size is checked.
+    stdin_text = None
     if backend_id == "codex":
         command = _build_codex_command(
             cli_path,
             output_path,
-            prompt,
+            "-",
             model,
             reasoning,
             schema_path,
             image_paths=image_paths,
         )
         expect_output_file = True
-        effective_prompt = prompt
+        stdin_text = prompt
     elif backend_id == "claude":
-        effective_prompt = prompt
-        command = _build_claude_command(cli_path, effective_prompt, model, reasoning, output_schema)
+        # Keep the verified argv form while it fits; fall back to stdin only
+        # for prompts that would exceed the platform command-line limit.
+        if _argv_prompt_fits(prompt):
+            command = _build_claude_command(cli_path, prompt, model, reasoning, output_schema)
+        else:
+            command = _build_claude_command(cli_path, None, model, reasoning, output_schema)
+            stdin_text = prompt
         expect_output_file = False
     elif backend_id == "gemini":
         effective_prompt = _with_json_schema_prompt(prompt, output_schema) if output_schema is not None else prompt
+        _ensure_argv_prompt_fits(spec["label"], effective_prompt)
         command = _build_gemini_command(cli_path, effective_prompt, model)
         expect_output_file = False
     else:
@@ -1730,36 +1879,40 @@ def _run_backend_exec(
 
     stdout_lines = []
     stderr_lines = []
+    process = None
+    reader_threads = []
+    timeout = backend_timeout_seconds()
     try:
         process = subprocess.Popen(
             command,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE if stdin_text is not None else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
             text=True,
-            bufsize=1,
+            bufsize=1, encoding="utf-8", errors="replace"
         )
-
-        stdout_thread = threading.Thread(
-            target=_read_process_stream,
-            args=(process.stdout, stdout_lines, progress, "backend_stdout"),
-            daemon=True,
-        )
-        stderr_thread = threading.Thread(
-            target=_read_process_stream,
-            args=(process.stderr, stderr_lines, progress, "backend_stderr"),
-            daemon=True,
-        )
-        stdout_thread.start()
-        stderr_thread.start()
+        if token is not None:
+            token.attach_process(process)
+        if stdin_text is not None:
+            feeder = threading.Thread(target=_feed_process_stdin, args=(process, stdin_text), daemon=True)
+            feeder.start()
+            reader_threads.append(feeder)
+        for stream, sink, kind in ((process.stdout, stdout_lines, "backend_stdout"),
+                                   (process.stderr, stderr_lines, "backend_stderr")):
+            reader = threading.Thread(target=_read_process_stream, args=(stream, sink, progress, kind), daemon=True)
+            reader.start()
+            reader_threads.append(reader)
         try:
-            return_code = process.wait(timeout=300)
+            return_code = process.wait(timeout=timeout)
         except subprocess.TimeoutExpired as err:
-            process.kill()
-            raise CodexBridgeError(f"{spec['label']} request timed out after 300 seconds.") from err
-        stdout_thread.join(timeout=2)
-        stderr_thread.join(timeout=2)
+            _kill_process(process)
+            process.wait(timeout=5)
+            raise CodexBridgeError(f"{spec['label']} request timed out after {int(timeout)} seconds.") from err
+        for thread in reader_threads:
+            thread.join(timeout=2)
+        if token is not None and token.cancelled:
+            raise RequestCancelled("Request cancelled by user.")
         if return_code != 0:
             detail = ("\n".join(stderr_lines) or "\n".join(stdout_lines)).strip()
             raise CodexBridgeError(detail or f"{spec['label']} exited with status {return_code}.")
@@ -1779,6 +1932,19 @@ def _run_backend_exec(
     except FileNotFoundError as err:
         raise CodexBridgeError(f"{spec['label']} CLI not found: {err}") from err
     finally:
+        # Never leave the CLI running: worker exceptions, cancellation and
+        # timeouts all end here, and a killed child is reaped, not left a zombie.
+        if process is not None:
+            if token is not None:
+                token.detach_process(process)
+            if process.poll() is None:
+                _kill_process(process)
+                try:
+                    process.wait(timeout=5)
+                except Exception:
+                    pass
+            for thread in reader_threads:
+                thread.join(timeout=1)
         try:
             os.remove(output_path)
         except OSError:
@@ -1793,6 +1959,31 @@ def _run_backend_exec(
                 os.remove(path)
             except OSError:
                 pass
+
+
+def _feed_process_stdin(process, text):
+    try:
+        process.stdin.write(text)
+        process.stdin.close()
+    except (BrokenPipeError, OSError, ValueError):
+        pass
+
+
+def _argv_prompt_limit():
+    return 30000 if sys.platform.startswith("win") else 120000
+
+
+def _argv_prompt_fits(text):
+    return len(text) <= _argv_prompt_limit()
+
+
+def _ensure_argv_prompt_fits(label, text):
+    limit = _argv_prompt_limit()
+    if len(text) > limit:
+        raise CodexBridgeError(
+            f"{label} prompt is {len(text)} characters, above the {limit}-character command-line limit "
+            "on this platform. Close unused models or switch to the Codex or Claude backend."
+        )
 
 
 def run_openai_tool_agent(
@@ -1842,6 +2033,7 @@ def run_openai_tool_agent(
     try:
         _emit_progress(progress, f"[route] OpenAI tool-calling agent ({model}, {reasoning or 'default'} reasoning)")
         for step_number in range(1, max_steps + 1):
+            check_cancelled()
             _emit_progress(progress, f"[phase] OpenAI tool round {step_number}/{max_steps}")
             response = _openai_create_response(
                 api_key=resolve_backend_api_key("openai"),
@@ -1851,6 +2043,7 @@ def run_openai_tool_agent(
                 instructions=_openai_agent_instructions(),
                 tools=openai_agent_tool_definitions(),
                 parallel_tool_calls=False,
+                progress=progress,
             )
             output_items = list(response.get("output") or [])
             text = _openai_response_text(response)
@@ -1867,6 +2060,7 @@ def run_openai_tool_agent(
                 name = call.get("name") or ""
                 call_id = call.get("call_id") or call.get("id")
                 arguments = call.get("arguments") or "{}"
+                check_cancelled()
                 _emit_progress(progress, f"[tool] {name}")
                 result = dispatch_openai_agent_tool(
                     session,
@@ -1959,6 +2153,7 @@ def _run_openai_response_exec(
             input_items=_openai_input_items(prompt, image_paths=image_paths),
             instructions="You are helping a user from inside UCSF ChimeraX. Keep replies concise and grounded in the provided session context.",
             text_schema=output_schema,
+            progress=progress,
         )
         reply = _openai_response_text(response).strip()
         if not reply:
@@ -1985,6 +2180,7 @@ def _openai_create_response(
     tools=None,
     text_schema=None,
     parallel_tool_calls=None,
+    progress=None,
 ):
     from .backends import validate_api_key
     api_key = validate_api_key(api_key)
@@ -2019,19 +2215,59 @@ def _openai_create_response(
         },
         method="POST",
     )
+
+    def redact(text):
+        return str(text).replace(api_key, "[redacted]").replace(json.dumps(api_key)[1:-1], "[redacted]")
+
+    attempts = _openai_retry_attempts()
+    for attempt in range(1, attempts + 1):
+        check_cancelled()
+        try:
+            with urlopen(request, timeout=backend_timeout_seconds()) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError as err:
+            detail = redact(err.read(16384).decode("utf-8", errors="replace"))
+            retry_after = err.headers.get("Retry-After") if err.headers else None
+            err.close()
+            if attempt < attempts and (err.code in (408, 409, 429) or err.code >= 500):
+                delay = _retry_delay(attempt, retry_after)
+                _emit_progress(progress, f"OpenAI API error {err.code}; retrying in {delay:.0f}s ({attempt}/{attempts - 1})")
+                _sleep_unless_cancelled(delay)
+                continue
+            raise CodexBridgeError(f"OpenAI API error {err.code}: {detail[:1200]}") from None
+        except URLError as err:
+            detail = redact(err)
+            if attempt < attempts:
+                delay = _retry_delay(attempt, None)
+                _emit_progress(progress, f"OpenAI API request failed ({detail}); retrying in {delay:.0f}s ({attempt}/{attempts - 1})")
+                _sleep_unless_cancelled(delay)
+                continue
+            raise CodexBridgeError(f"OpenAI API request failed: {detail}") from None
+    raise CodexBridgeError("OpenAI API request failed after retries.")
+
+
+def _openai_retry_attempts():
     try:
-        with urlopen(request, timeout=300) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except HTTPError as err:
-        detail = err.read(16384).decode("utf-8", errors="replace")
-        err.close()
-        detail = detail.replace(api_key, "[redacted]").replace(
-            json.dumps(api_key)[1:-1], "[redacted]")
-        raise CodexBridgeError(f"OpenAI API error {err.code}: {detail[:1200]}") from None
-    except URLError as err:
-        detail = str(err).replace(api_key, "[redacted]").replace(
-            json.dumps(api_key)[1:-1], "[redacted]")
-        raise CodexBridgeError(f"OpenAI API request failed: {detail}") from None
+        return max(1, int(os.environ.get("CODEX_BRIDGE_OPENAI_ATTEMPTS", "3")))
+    except ValueError:
+        return 3
+
+
+def _retry_delay(attempt, retry_after):
+    if retry_after:
+        try:
+            return min(30.0, max(0.5, float(retry_after)))
+        except ValueError:
+            pass
+    base = min(8.0, 1.0 * (2 ** (attempt - 1)))
+    return base + random.uniform(0.0, 0.5 * base)
+
+
+def _sleep_unless_cancelled(seconds):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        check_cancelled()
+        time.sleep(min(0.2, max(0.0, deadline - time.monotonic())))
 
 
 def _openai_input_items(prompt, *, image_paths=None):
@@ -2314,10 +2550,14 @@ def _apply_embedded_chimerax_commands(session, reply, *, executor, progress=None
     executed = []
     for command in commands:
         try:
+            check_cancelled()
+            command = validate_chimerax_command(command)
             _emit_progress(progress, f"[run] {command}")
             executor(command)
             executed.append(command)
             _emit_progress(progress, f"[done] {command}")
+        except RequestCancelled:
+            raise
         except Exception as err:
             error_text = str(err) if str(err) else err.__class__.__name__
             _emit_progress(progress, f"[error] extracted command failed -> {command}: {error_text}", kind="error")
@@ -2585,6 +2825,7 @@ def _build_codex_command(cli_path, output_path, prompt, model, reasoning, schema
         command.extend(["--image", image_path])
     # `--image <FILE>...` is variadic in Codex CLI and can greedily consume a
     # trailing prompt token unless we terminate option parsing explicitly.
+    # A prompt of "-" tells Codex to read the instructions from stdin.
     command.extend(["--", prompt])
     return command
 
@@ -2605,7 +2846,9 @@ def _build_claude_command(cli_path, prompt, model, reasoning, output_schema):
         command.extend(["--effort", reasoning])
     if output_schema is not None:
         command.extend(["--json-schema", json.dumps(output_schema, separators=(",", ":"))])
-    command.append(prompt)
+    # With no positional prompt, `claude -p` reads the prompt from stdin.
+    if prompt is not None:
+        command.append(prompt)
     return command
 
 
@@ -2635,16 +2878,30 @@ def _with_json_schema_prompt(prompt, schema):
 
 
 def _extract_json_text(reply):
+    """Pull the first complete JSON document out of a CLI reply.
+
+    Replies may wrap JSON in a code fence or surround it with prose; a naive
+    first-`{` to last-`}` slice breaks when the prose itself contains braces,
+    so decode incrementally and return the first document that parses.
+    """
     text = reply.strip()
     if text.startswith("```"):
         lines = text.splitlines()
         if len(lines) >= 3:
             text = "\n".join(lines[1:-1]).strip()
+    decoder = json.JSONDecoder()
     if text.startswith("{") or text.startswith("["):
-        return text
-    for opener, closer in (("{", "}"), ("[", "]")):
+        try:
+            _, end = decoder.raw_decode(text)
+            return text[:end]
+        except ValueError:
+            pass
+    for opener in ("{", "["):
         start = text.find(opener)
-        end = text.rfind(closer)
-        if start != -1 and end != -1 and end > start:
-            return text[start:end + 1]
+        while start != -1:
+            try:
+                _, end = decoder.raw_decode(text[start:])
+                return text[start:start + end]
+            except ValueError:
+                start = text.find(opener, start + 1)
     return text

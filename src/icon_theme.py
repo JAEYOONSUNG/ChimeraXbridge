@@ -96,9 +96,51 @@ ORIGINAL_VECTOR_REPLACEMENTS = {
 
 _RASTER_ICON_CACHE = {}
 
+# Device-pixel sizes pre-rendered for the detailed vectors. 28 px buttons map
+# to 28/35/42/56 device pixels at 100/125/150/200 % display scaling.
+_DETAILED_ICON_SIZES = (16, 20, 24, 28, 32, 35, 40, 42, 48, 56, 64, 84, 112)
+_DETAILED_SMALL_PX = 48
+
+
+def _detailed_svg_icon(path):
+    """Keep the redrawn 128 px artwork legible on 1x / 1.25x displays.
+
+    At 28 px the 2-4 unit strokes of the 128 px canvas shrink below one
+    device pixel and the fine detail washes out (Retina hides this because it
+    renders at 56 px). Small sizes therefore thicken strokes and trim the
+    empty canvas margin; large sizes render the artwork unchanged. Each size
+    is 4x supersampled so Qt never rescales a mismatched pixmap.
+    """
+    import re
+    from Qt.QtCore import QBuffer, QByteArray, QRect, QSize, Qt
+    from Qt.QtGui import QIcon, QImageReader, QPixmap
+    text = path.read_text(encoding="utf-8")
+    boosted = re.sub(r'stroke-width="([0-9.]+)"',
+                     lambda m: 'stroke-width="%.2f"' % (float(m.group(1)) * 1.35), text)
+    sources = {False: text.encode("utf-8"), True: boosted.encode("utf-8")}
+    icon = QIcon()
+    for px in _DETAILED_ICON_SIZES:
+        small = px < _DETAILED_SMALL_PX
+        # Trimming 5 % per side == rendering 1/0.9 larger and keeping the centre.
+        full = round(px * 4 / 0.9) if small else px * 4
+        reader_data = QByteArray(sources[small])
+        buffer = QBuffer(reader_data)
+        reader = QImageReader(buffer, b"svg")
+        reader.setScaledSize(QSize(full, full))
+        big = reader.read()
+        if big.isNull():
+            return QIcon(str(path))
+        if full != px * 4:
+            offset = (full - px * 4) // 2
+            big = big.copy(QRect(offset, offset, px * 4, px * 4))
+        image = big.scaled(px, px, Qt.AspectRatioMode.IgnoreAspectRatio,
+                           Qt.TransformationMode.SmoothTransformation)
+        icon.addPixmap(QPixmap.fromImage(image))
+    return icon
+
 
 def _toolbar_icon(path):
-    """Use native SVG scaling and optically center imported raster logos.
+    """Render detailed SVGs per size and optically center imported raster logos.
 
     PNG files retain their original pixels and resolution. Only transparent
     canvas padding is normalized at display time, so small molecular logos
@@ -106,7 +148,13 @@ def _toolbar_icon(path):
     """
     from Qt.QtGui import QIcon, QImage, QPainter, QPixmap
     if path.suffix.lower() != ".png":
-        return QIcon(str(path))
+        if path.parent.name != "redrawn":
+            return QIcon(str(path))
+        stamp = path.stat()
+        key = (str(path), stamp.st_mtime_ns, stamp.st_size)
+        if key not in _RASTER_ICON_CACHE:
+            _RASTER_ICON_CACHE[key] = _detailed_svg_icon(path)
+        return _RASTER_ICON_CACHE[key]
     stamp = path.stat()
     key = (str(path), stamp.st_mtime_ns, stamp.st_size)
     if key in _RASTER_ICON_CACHE:

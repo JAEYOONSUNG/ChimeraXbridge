@@ -303,7 +303,7 @@ def _run_mafft_alignment(entries, mafft_path):
             capture_output=True,
             text=True,
             timeout=180,
-            check=False,
+            check=False, encoding="utf-8", errors="replace"
         )
         if completed.returncode != 0:
             return None

@@ -278,7 +278,7 @@ for key in ("protein", "helix", "strand"):
 assert widget.color_hex_edit.text() == ""
 assert widget.color_hex_edit.placeholderText() == "Open model"
 assert not widget.apply_color_button.isEnabled()
-assert not widget.pick_color_button.isEnabled()
+assert widget.pick_color_button.isEnabled(), "The palette must allow browsing/copying without a model"
 assert not widget.rainbow_ramp.isEnabled()
 assert not widget.color_transparency_slider.isEnabled()
 assert not widget.saturation_slider.isEnabled()

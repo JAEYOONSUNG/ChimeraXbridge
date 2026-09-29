@@ -1,4 +1,4 @@
-# Install and reproduce ChimeraXbridge 0.2.1
+# Install and reproduce ChimeraXbridge 0.2.2
 
 Install the wheel and restart ChimeraX to get the shared workspace defaults on a
 new computer. Existing saved preferences are retained when upgrading.
@@ -18,14 +18,14 @@ every ChimeraX version. ChimeraX dependency ranges are declared in
 
 ## Recommended: install the release wheel
 
-1. Open [the latest release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest),
-   or pin [v0.2.1](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.1).
-2. Download **[ChimeraX_CodexBridge-0.2.1-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.1/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl)** from **Assets**.
+1. For this source version, use the wheel in the checkout’s `dist` folder.
+   Published versions are also available from [the latest release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest).
+2. Download **[ChimeraX_CodexBridge-0.2.2-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.2/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl)**.
    You do not need Git or the **Source code** archives for a wheel installation.
 3. In the ChimeraX command line, run:
 
    ```chimerax
-   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl"
+   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl"
    ```
 
 4. Restart ChimeraX. If installation was deferred because the old plugin was in
@@ -40,7 +40,7 @@ home folder in the ChimeraX installer. Use a quoted absolute path if your
 download folder is elsewhere, for example:
 
 ```chimerax
-toolshed install "C:/Downloads/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl"
+toolshed install "C:/Downloads/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl"
 ```
 
 Use the filename exactly as downloaded; if a browser adds `(1)`, choose the
@@ -50,7 +50,7 @@ system Python with `pip`.
 
 ## Defaults and first-run check
 
-A fresh 0.2.1 installation uses these defaults automatically:
+A fresh 0.2.2 installation uses these defaults automatically:
 
 | Setting | Value |
 | --- | --- |
@@ -75,6 +75,10 @@ Expected local UI behavior:
 - With a structure open, **AI → Quick → Analyze / View / Pocket / Cavity / Figure / Zoom**
   opens a report or performs the corresponding local action.
 - **Molecule Display → Bookmarks** exposes PNG/JPEG/TIFF export with size and DPI.
+- **Molecule Display → Display Ctrl → Color → Palette…** opens swatches and
+  RGB/HEX controls. **Pick screen color** samples a screen pixel; **Copy HEX**
+  copies the color code. Only **Apply color** changes the displayed target.
+  Browsing/copying also work with no model open.
 
 For installation and backend diagnostics:
 
@@ -157,8 +161,9 @@ Substitute `claude` or `gemini` for the other CLI backends.
 
 ### OpenAI API backend
 
-1. Select **OpenAI API** in the Assistant and choose **Setup** to open
-   **Connect OpenAI API**.
+1. In the Assistant, choose **Setup → Setup OpenAI API** to open
+   **Connect OpenAI API**. This entry works regardless of the current backend;
+   OpenAI may be disabled in the backend selector until a key is available.
 2. Enter your API key in the masked input. The dialog uses it only for this
    ChimeraX app session; it is not written to a settings file or shell environment,
    added to logs, or copied to the clipboard by the plugin.
@@ -253,7 +258,7 @@ sequence/display/export workflows. See [RAPiDock setup](RAPIDOCK_SETUP.md).
 In a shell:
 
 ```bash
-git clone --branch v0.2.1 https://github.com/JAEYOONSUNG/ChimeraXbridge.git
+git clone https://github.com/JAEYOONSUNG/ChimeraXbridge.git
 cd ChimeraXbridge
 git rev-parse HEAD
 ```
@@ -265,8 +270,8 @@ devel install "/absolute/path/to/ChimeraXbridge"
 ```
 
 Restart ChimeraX. The main command line is not a shell: use the actual clone path
-instead of `$HOME` or shell command substitution. To work on the latest source
-instead of a release, omit `--branch v0.2.1` when cloning.
+instead of `$HOME` or shell command substitution. Keep the commit from
+`git rev-parse HEAD` with your analysis notes to reproduce the same source build.
 
 ## Updating and reinstalling
 
@@ -276,12 +281,12 @@ analysis notes when reproducibility matters.
 
 For a source checkout on a branch, run `git pull --ff-only` in that checkout,
 repeat `devel install` with its absolute path, and restart. A checkout pinned to
-`v0.2.1` stays at that version until you deliberately switch tags/branches.
+a release tag stays at that version until you deliberately switch tags/branches.
 
 If reinstalling the **same version**, ChimeraX accepts:
 
 ```chimerax
-toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.1-py3-none-any.whl" reinstall true
+toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl" reinstall true
 ```
 
 For a stubborn same-version repair, close ChimeraX, start it in safe mode
@@ -328,6 +333,7 @@ widgets and exported pixels without opening or activating a desktop window.
 They do not replace a separate native OpenGL rendering check. Older visible GUI
 runners are disabled unless desktop interaction is explicitly authorized and
 `CODEX_ALLOW_VISIBLE_GUI_TESTS=1` is set.
+Palette checks run offscreen; actual screen-pixel sampling is outside those checks.
 
 Release source, package data, icons, documentation and the wheel must match the
 published version. `scripts/check_release_ready.py` checks repository/package

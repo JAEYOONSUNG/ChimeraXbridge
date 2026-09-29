@@ -1244,7 +1244,7 @@ def _auto_detect_caver_jar():
                 capture_output=True,
                 text=True,
                 timeout=5,
-                check=False,
+                check=False, encoding="utf-8", errors="replace"
             )
             for line in (result.stdout or "").splitlines():
                 text = line.strip()

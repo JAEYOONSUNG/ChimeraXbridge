@@ -95,9 +95,10 @@ display = display_controls.DisplayControlsWidget(session)
 display.resize(360, 600)
 display.show()
 settle()
-color_buttons = (display.pick_color_button, display.apply_color_button,
+color_buttons = (display.apply_color_button,
                  display.by_chain_button, display.by_element_button, display.by_model_button)
 assert all(not b.isEnabled() for b in color_buttons)
+assert display.pick_color_button.isEnabled(), "Palette and Copy HEX are available without a target"
 assert "Select" in display.color_hex_edit.placeholderText()
 assert "All models" in display.color_hex_edit.toolTip()
 state = snapshot()
@@ -161,7 +162,7 @@ cavity.reload_from_session()
 assert cavity._selected_ranks() == [1]
 cavity_browser.set_cavity_candidates(session, [], selected_ranks=[])
 cavity.reload_from_session()
-assert "Run the Cavity action" in cavity.summary_label.text()
+assert "AI → Quick → Cavity" in cavity.summary_label.text()
 assert not cavity.show_all_button.isEnabled()
 assert not cavity.hide_all_button.isEnabled()
 assert not cavity.select_lining_button.isEnabled()

@@ -44,7 +44,7 @@ from .display_color import (
     show_sticks_with_cartoon_anchor,
 )
 from .integration import command_batch
-from .service import format_memory_compare, run_mode_request
+from .service import CancelToken, RequestCancelled, format_memory_compare, run_mode_request
 from .ui_theme import panel_stylesheet
 from .panel_scroll import PanelScrollArea
 
@@ -185,7 +185,7 @@ class CodexAssistant(ToolInstance):
     SESSION_ENDURING = False
     SESSION_SAVE = False
     help = "help:user/tools/codex_assistant.html"
-    UI_LAYOUT_VERSION = 62
+    UI_LAYOUT_VERSION = 64
 
     @classmethod
     def get_singleton(cls, session, create=True, display=True):
@@ -201,6 +201,10 @@ class CodexAssistant(ToolInstance):
     def __init__(self, session, tool_name):
         super().__init__(session, tool_name)
         self._ui_layout_version = self.UI_LAYOUT_VERSION
+        self._disposed = False
+        self._active_request = None
+        self._request_worker = None
+        self._request_cancel = None
         ensure_session_preferences(session)
         self._mode_order = ["agent", "analyze", "visualize", "chat"]
         self._mode = "agent"
@@ -332,9 +336,9 @@ class CodexAssistant(ToolInstance):
         top_control_row.setHorizontalSpacing(4)
         top_control_row.setVerticalSpacing(4)
         self.top_control_row = top_control_row
-        self.engine_label = QLabel("Engine", parent)
-        self.model_label = QLabel("Model", parent)
-        self.effort_label = QLabel("Reason", parent)
+        self.engine_label = QLabel("AI service", parent)
+        self.model_label = QLabel("AI model", parent)
+        self.effort_label = QLabel("Reasoning", parent)
         self.mode_label = QLabel("Mode", parent)
         self.speed_label = QLabel("Speed", parent)
         self.backend_combo = QComboBox(parent)
@@ -859,7 +863,7 @@ class CodexAssistant(ToolInstance):
         self.prompt_edit = _PromptEdit(parent)
         self.prompt_edit._init_prompt(self._submit_prompt, self._cycle_mode)
         self.prompt_edit.setPlaceholderText(
-            "Ask for a ChimeraX action..."
+            "Describe what to do, e.g. color the selected chain blue."
         )
         self.prompt_edit.setFont(fixed_font)
         self.prompt_edit.setTabChangesFocus(True)
@@ -870,7 +874,8 @@ class CodexAssistant(ToolInstance):
         )
         self.prompt_edit.textChanged.connect(self._resize_prompt)
         prompt_row.addWidget(self.prompt_edit, 1)
-        self.prompt_run_button = QPushButton("Run", parent)
+        self.prompt_run_button = QPushButton("Ask AI", parent)
+        self.prompt_run_button.setToolTip("Carry out your request using the selected mode. Agent mode can change the scene.")
         self.prompt_run_button.clicked.connect(self._submit_and_run)
         self.prompt_run_button.setMinimumHeight(24)
         self.prompt_run_button.setMinimumWidth(52)
@@ -878,6 +883,13 @@ class CodexAssistant(ToolInstance):
             "QPushButton { font-weight: 600; }"
         )
         prompt_row.addWidget(self.prompt_run_button, 0, Qt.AlignmentFlag.AlignBottom)
+        self.prompt_stop_button = QPushButton("Stop", parent)
+        self.prompt_stop_button.setToolTip("Stop the running AI request and kill its backend process.")
+        self.prompt_stop_button.clicked.connect(self.cancel_request)
+        self.prompt_stop_button.setMinimumHeight(24)
+        self.prompt_stop_button.setMinimumWidth(52)
+        self.prompt_stop_button.setVisible(False)
+        prompt_row.addWidget(self.prompt_stop_button, 0, Qt.AlignmentFlag.AlignBottom)
         prompt_layout.addLayout(prompt_row)
         self._resize_prompt()
 
@@ -922,7 +934,7 @@ class CodexAssistant(ToolInstance):
         self.command_terminal_input.returnPressed.connect(self._run_terminal_command)
         terminal_row.addWidget(self.command_terminal_input, 1)
 
-        self.command_terminal_run_button = QPushButton("Run", parent)
+        self.command_terminal_run_button = QPushButton("Run command", parent)
         self.command_terminal_run_button.clicked.connect(self._run_terminal_command)
         terminal_row.addWidget(self.command_terminal_run_button)
 
@@ -976,7 +988,7 @@ class CodexAssistant(ToolInstance):
         self._append_system("Enter runs · Shift+Enter newline · /help lists commands · /figure clean makes a clean protein view")
 
     def _submit_prompt(self):
-        if self.prompt_edit.isReadOnly():
+        if self._disposed or self._active_request is not None or self.prompt_edit.isReadOnly():
             return
         prompt = self.prompt_edit.toPlainText().strip()
         if not prompt:
@@ -1006,7 +1018,9 @@ class CodexAssistant(ToolInstance):
         self._submit_prompt()
 
     def _start_request(self, mode, prompt):
-        if self.prompt_edit.isReadOnly():
+        if self._disposed:
+            return
+        if self._active_request is not None or self.prompt_edit.isReadOnly():
             self._append_error("an AI request is already running")
             return
 
@@ -1016,7 +1030,12 @@ class CodexAssistant(ToolInstance):
         fast_mode = self._effective_fast_mode(request_mode)
         speed_text = self._speed_text(request_mode)
 
+        request_id = object()
+        cancel_token = CancelToken()
+        self._active_request = request_id
+        self._request_cancel = cancel_token
         self.prompt_edit.setReadOnly(True)
+        self._set_stop_button_state(visible=True, enabled=True)
         self.status_label.setText("Checking local route...")
         self.stage_label.setText(f"Routing · {request_mode} · {speed_text}")
         self._set_result_status(f"routing {request_mode} request", tone="running")
@@ -1040,41 +1059,121 @@ class CodexAssistant(ToolInstance):
             self._last_request_signature = signature
         self.prompt_edit.clear()
 
-        worker = threading.Thread(
-            target=self._run_codex_request,
-            args=(mode, prompt, include_models, include_selection, fast_mode),
-            daemon=True,
-        )
-        worker.start()
+        try:
+            self._request_worker = threading.Thread(
+                target=self._run_codex_request,
+                args=(mode, prompt, include_models, include_selection, fast_mode,
+                      request_id, request_mode, cancel_token),
+                daemon=True,
+            )
+            self._request_worker.start()
+        except Exception as err:
+            self._finish_request(request_id, str(err) or err.__class__.__name__, error=True)
 
-    def _run_codex_request(self, mode, prompt, include_models, include_selection, fast_mode):
+    def _request_is_active(self, request_id):
+        return (request_id is not None and not self._disposed
+                and self._active_request is request_id)
+
+    def _finish_request(self, request_id, response, *, mode="ask", error=False, cancelled=False):
+        # Only the owning request may unlock the prompt. Delayed callbacks from
+        # an earlier request or a deleted panel must not affect a later request.
+        if not self._request_is_active(request_id):
+            return
+        self._active_request = None
+        self._request_worker = None
+        self._request_cancel = None
+        self._set_stop_button_state(visible=False, enabled=True)
+        self.prompt_edit.setReadOnly(False)
+        if cancelled:
+            self._show_cancelled(response)
+        elif error:
+            self._show_error(response)
+        else:
+            self._show_response(response, mode=mode)
+
+    def cancel_request(self):
+        """Stop the active AI request: set its cancel flag and kill the backend CLI.
+
+        The worker thread notices at its next checkpoint (between agent steps,
+        commands and backend calls) and finishes through _finish_request, so the
+        prompt is unlocked by the owning request rather than here.
+        """
+        if self._disposed or self._active_request is None:
+            return False
+        token = self._request_cancel
+        if token is None or token.cancelled:
+            return False
+        token.cancel()
+        self.status_label.setText("Stopping...")
+        self.stage_label.setText("Stopping")
+        self._set_result_status("stopping request", tone="running")
+        self._append_system("stage: stop requested")
+        self._set_stop_button_state(visible=True, enabled=False)
+        return True
+
+    def _set_stop_button_state(self, *, visible, enabled):
+        button = getattr(self, "prompt_stop_button", None)
+        if button is None:
+            return
+        try:
+            button.setVisible(visible)
+            button.setEnabled(enabled)
+        except RuntimeError:
+            pass
+
+    def _show_cancelled(self, message):
+        if self._disposed:
+            return
+        self.prompt_edit.setFocus()
+        self.status_label.setText("Stopped.")
+        self.stage_label.setText("Stopped")
+        self._append_system(message or "request stopped")
+        self._set_result_status("request stopped", tone="neutral")
+        self._set_result_detail(message or "The AI request was stopped before it finished.")
+        self._queue_workspace_refresh()
+
+    def _run_codex_request(self, mode, prompt, include_models, include_selection, fast_mode,
+                          request_id, request_mode, cancel_token=None):
+        if not self._request_is_active(request_id):
+            return
         try:
             if mode == "run":
-                with command_batch(self.session, f"AI:{self._mode}:{prompt[:80]}"):
+                with command_batch(self.session, f"AI:{request_mode}:{prompt[:80]}"):
                     summary = run_mode_request(
                         self.session,
                         prompt,
-                        mode=self._mode,
-                        progress=self._progress_callback(),
+                        mode=request_mode,
+                        progress=self._progress_callback(request_id),
                         fast=fast_mode,
-                        executor=self._run_command_thread_safe,
+                        executor=lambda command: self._run_command_thread_safe(
+                            command, request_id=request_id),
+                        cancel_token=cancel_token,
                     )
-                self.session.ui.thread_safe(lambda s=summary: self._show_response(s, mode="run"))
+                self.session.ui.thread_safe(
+                    lambda s=summary: self._finish_request(request_id, s, mode="run"))
                 return
 
             response = run_mode_request(
                 self.session,
                 prompt,
                 mode="chat",
-                progress=self._progress_callback(),
+                progress=self._progress_callback(request_id),
                 fast=fast_mode,
+                cancel_token=cancel_token,
             )
+        except RequestCancelled as err:
+            message = str(err) or "Request cancelled by user."
+            self.session.ui.thread_safe(
+                lambda m=message: self._finish_request(request_id, m, cancelled=True))
+            return
         except Exception as err:
             message = str(err) if str(err) else err.__class__.__name__
-            self.session.ui.thread_safe(lambda m=message: self._show_error(m))
+            self.session.ui.thread_safe(
+                lambda m=message: self._finish_request(request_id, m, error=True))
             return
 
-        self.session.ui.thread_safe(lambda r=response: self._show_response(r, mode="ask"))
+        self.session.ui.thread_safe(
+            lambda r=response: self._finish_request(request_id, r, mode="ask"))
 
     def _show_response(self, response, mode="ask"):
         self.prompt_edit.setReadOnly(False)
@@ -1103,6 +1202,14 @@ class CodexAssistant(ToolInstance):
         self._queue_workspace_refresh()
 
     def _show_error(self, message):
+        if self._disposed:
+            return
+        if self._active_request is not None:
+            # Quick actions and settings also report errors here. Keep the AI
+            # request's prompt lock and progress until that request finishes.
+            self._append_error(message)
+            self.session.logger.error(message)
+            return
         self.prompt_edit.setReadOnly(False)
         self.prompt_edit.setFocus()
         self.status_label.setText("Error.")
@@ -1114,6 +1221,17 @@ class CodexAssistant(ToolInstance):
         self._queue_workspace_refresh()
 
     def delete(self):
+        self._disposed = True
+        token = self._request_cancel
+        self._active_request = None
+        self._request_worker = None
+        self._request_cancel = None
+        if token is not None:
+            # Kill the backend CLI so closing the panel never leaks a process.
+            try:
+                token.cancel()
+            except Exception:
+                pass
         try:
             if self.action_pad_widget is not None:
                 self.action_pad_widget.cleanup()
@@ -1150,7 +1268,7 @@ class CodexAssistant(ToolInstance):
         self._queue_workspace_refresh(delay_ms=300)
 
     def _queue_workspace_refresh(self, *_args, delay_ms=150, **_kwargs):
-        if self._workspace_refresh_pending:
+        if self._disposed or self._workspace_refresh_pending:
             return
         self._workspace_refresh_pending = True
 
@@ -1166,6 +1284,8 @@ class CodexAssistant(ToolInstance):
 
     def _refresh_workspace(self):
         self._workspace_refresh_pending = False
+        if self._disposed:
+            return
         self._sync_control_widgets()
         self._refresh_selection_controls()
         self.workspace_edit.setPlainText(self._workspace_text())
@@ -1249,7 +1369,7 @@ class CodexAssistant(ToolInstance):
         combos = (self.backend_combo, self.model_combo, self.effort_combo, self.mode_combo, self.speed_combo)
         menus = (self.backend_setup_button, self.quick_menu_button, self.analysis_menu_button)
         self._top_control_widgets = labels + combos + menus + (self.quick_rapidock_button,)
-        self.effort_label.setText("Reason")
+        self.effort_label.setText("Reasoning")
         for label in labels:
             label.setFixedWidth(label.fontMetrics().horizontalAdvance(label.text()) + 2)
             label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -3550,9 +3670,18 @@ class CodexAssistant(ToolInstance):
         self.session._codex_bridge_quick_figure_index = index
         return modes[index]
 
-    def _run_command_thread_safe(self, command):
+    def _run_command_thread_safe(self, command, *, request_id=None):
         from chimerax.core.commands import run
 
+        def check_active():
+            if (self._disposed
+                    or (request_id is not None and not self._request_is_active(request_id))):
+                raise RuntimeError("AI request is no longer active.")
+            token = self._request_cancel
+            if request_id is not None and token is not None and token.cancelled:
+                raise RequestCancelled("Request cancelled by user.")
+
+        check_active()
         if _is_qt_main_thread():
             result = run(self.session, command)
             maybe_apply_stick_context_colors_for_command(self.session, command)
@@ -3563,6 +3692,7 @@ class CodexAssistant(ToolInstance):
 
         def runner():
             try:
+                check_active()
                 result_box["result"] = run(self.session, command)
                 maybe_apply_stick_context_colors_for_command(self.session, command)
             except Exception as err:
@@ -3579,11 +3709,13 @@ class CodexAssistant(ToolInstance):
             raise result_box["error"]
         return result_box.get("result")
 
-    def _progress_callback(self):
+    def _progress_callback(self, request_id):
         def progress(message, kind="info"):
-            self.session.ui.thread_safe(
-                lambda m=message, k=kind: self._handle_progress(m, k)
-            )
+            def deliver():
+                if self._request_is_active(request_id):
+                    self._handle_progress(message, kind)
+
+            self.session.ui.thread_safe(deliver)
 
         return progress
 
@@ -3688,7 +3820,7 @@ class CodexAssistant(ToolInstance):
                 ["/bin/zsh", "-lc", command],
                 capture_output=True,
                 text=True,
-                timeout=60,
+                timeout=60, encoding="utf-8", errors="replace"
             )
             stdout = (completed.stdout or "").strip()
             stderr = (completed.stderr or "").strip()

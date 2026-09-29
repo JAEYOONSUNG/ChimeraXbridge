@@ -337,7 +337,7 @@ def run_md(session, options: MDOptions, executor=None):
     final_state = simulation.context.getState(
         getPositions=True, enforcePeriodicBox=True
     )
-    with open(topology_pdb, "w") as fh:
+    with open(topology_pdb, "w", encoding="utf-8") as fh:
         app.PDBFile.writeFile(
             simulation.topology, final_state.getPositions(), fh, keepIds=True
         )

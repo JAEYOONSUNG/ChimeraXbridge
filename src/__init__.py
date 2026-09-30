@@ -906,6 +906,12 @@ class _MyAPI(BundleAPI):
                 lambda *_args, ses=session: _auto_open_workspace(ses),
             )
         _install_sequence_bar_startup(session)
+        if session.ui.is_gui and not hasattr(session, "_codex_bridge_ui_zoom_handler"):
+            def install_zoom(*_args, ses=session):
+                from .ui_zoom import install_ui_zoom
+                install_ui_zoom(ses)
+                return "delete handler"
+            session._codex_bridge_ui_zoom_handler = session.ui.triggers.add_handler("ready", install_zoom)
 
     @staticmethod
     def run_provider(session, name, mgr, **kw):
@@ -937,6 +943,9 @@ class _MyAPI(BundleAPI):
         elif ci.name == "codex effort":
             desc = cmd.codex_effort_desc
             func = cmd.codex_effort
+        elif ci.name == "codex zoom":
+            desc = cmd.codex_zoom_desc
+            func = cmd.codex_zoom
         elif ci.name == "codex auto":
             desc = cmd.codex_auto_desc
             func = cmd.codex_auto

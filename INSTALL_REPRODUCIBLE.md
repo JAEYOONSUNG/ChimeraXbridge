@@ -1,4 +1,4 @@
-# Install and reproduce ChimeraXbridge 0.2.2
+# Install and reproduce ChimeraXbridge 0.2.3
 
 Install the wheel and restart ChimeraX to get the shared workspace defaults on a
 new computer. Existing saved preferences are retained when upgrading.
@@ -20,12 +20,12 @@ every ChimeraX version. ChimeraX dependency ranges are declared in
 
 1. For this source version, use the wheel in the checkout’s `dist` folder.
    Published versions are also available from [the latest release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest).
-2. Download **[ChimeraX_CodexBridge-0.2.2-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.2/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl)**.
+2. Download **[ChimeraX_CodexBridge-0.2.3-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.3/ChimeraX_CodexBridge-0.2.3-py3-none-any.whl)**.
    You do not need Git or the **Source code** archives for a wheel installation.
 3. In the ChimeraX command line, run:
 
    ```chimerax
-   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl"
+   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.3-py3-none-any.whl"
    ```
 
 4. Restart ChimeraX. If installation was deferred because the old plugin was in
@@ -40,7 +40,7 @@ home folder in the ChimeraX installer. Use a quoted absolute path if your
 download folder is elsewhere, for example:
 
 ```chimerax
-toolshed install "C:/Downloads/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl"
+toolshed install "C:/Downloads/ChimeraX_CodexBridge-0.2.3-py3-none-any.whl"
 ```
 
 Use the filename exactly as downloaded; if a browser adds `(1)`, choose the
@@ -50,7 +50,7 @@ system Python with `pip`.
 
 ## Defaults and first-run check
 
-A fresh 0.2.2 installation uses these defaults automatically:
+A fresh 0.2.3 installation uses these defaults automatically:
 
 | Setting | Value |
 | --- | --- |
@@ -286,7 +286,7 @@ a release tag stays at that version until you deliberately switch tags/branches.
 If reinstalling the **same version**, ChimeraX accepts:
 
 ```chimerax
-toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl" reinstall true
+toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.3-py3-none-any.whl" reinstall true
 ```
 
 For a stubborn same-version repair, close ChimeraX, start it in safe mode

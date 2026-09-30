@@ -20,6 +20,7 @@ ai &lt;text&gt;
 codex ask &lt;text&gt;
 codex context [includeModels true|false] [includeSelection true|false]
 codex tool
+codex zoom [in|out|reset|percent]
 /scene save [name] [note...]
 /scene load [name] [frames]
 /scene info [name]
@@ -43,6 +44,7 @@ codex context
 codex ask Align #2 to #1 using only the catalytic core.
 codex context includeSelection false
 codex tool
+codex zoom 125
 </pre>
 
 <h2>Notes</h2>
@@ -53,6 +55,7 @@ codex tool
   <li><code>codex backend</code> changes the active AI CLI backend.</li>
   <li><code>codex model</code> overrides the model for the active backend.</li>
   <li><code>codex routing</code> controls whether natural-language requests prefer local rules or real AI backends.</li>
+  <li><code>codex zoom</code> scales the whole interface (toolbar, panels, Log) from 50% to 250%, like browser zoom; the 3D view itself is unchanged. The same steps are bound to <b>Cmd/Ctrl&nbsp;+</b>, <b>Cmd/Ctrl&nbsp;&minus;</b> and <b>Cmd/Ctrl&nbsp;0</b> (reset) in every ChimeraX window (the Help viewer keeps these keys for its own page zoom), and the level is remembered for the next launch.</li>
   <li><code>codex selftest</code> runs an in-app diagnostic for backend availability and natural-language parsing hints.</li>
   <li><code>/scene ...</code> provides lightweight figure-bookmark save/load/info commands built on ChimeraX named views plus extra metadata such as caption, legend, and notes.</li>
   <li>The bridge expects a working local AI CLI such as <code>codex</code>, <code>claude</code>, or <code>gemini</code>.</li>

@@ -435,6 +435,38 @@ codex_effort_desc = CmdDesc(
 )
 
 
+def codex_zoom(session, level=None):
+    """UI zoom: in, out, reset, or a percentage such as 125 (same as Cmd/Ctrl + / - / 0)."""
+    if not getattr(session.ui, "is_gui", False):
+        raise UserError("UI zoom needs the ChimeraX graphical interface.")
+    from .ui_zoom import get_ui_zoom
+    zoom = get_ui_zoom(session)
+    text = (level or "").strip().lower().rstrip("%")
+    if not text:
+        pass
+    elif text in ("in", "+"):
+        zoom.zoom_in()
+    elif text in ("out", "-"):
+        zoom.zoom_out()
+    elif text in ("reset", "default", "100"):
+        zoom.reset()
+    else:
+        try:
+            percent = float(text)
+        except ValueError:
+            raise UserError("Use: codex zoom [in|out|reset|<percent, 50-250>]")
+        zoom.set_factor(percent / 100)
+    message = f"UI zoom: {round(zoom.factor * 100)}%"
+    session.logger.info(message)
+    return message
+
+
+codex_zoom_desc = CmdDesc(
+    optional=[("level", StringArg)],
+    synopsis="Zoom the ChimeraX interface (Cmd/Ctrl + / - / 0)",
+)
+
+
 def _session_progress(session):
     ensure_session_preferences(session)
     backend_label = get_backend_label(get_current_backend_id(session))

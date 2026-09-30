@@ -30,6 +30,7 @@ SUITES = {
     "compound_selection": [("check_compound_selection.py", "COMPOUND_SELECTION_OK", False)],
     "ai_request_lifecycle": [("check_ai_request_lifecycle.py", "AI_REQUEST_LIFECYCLE_OK", False),
                              ("check_command_safety.py", "COMMAND_SAFETY_OK", True)],
+    "ui_zoom": [("check_ui_zoom.py", "UI_ZOOM_OK", False)],
     "color_palette": [("check_color_palette.py", "COLOR_PALETTE_OK", False)],
     "display_palette": [("check_display_palette.py", "DISPLAY_PALETTE_OK", False)],
     "install_defaults": [("check_install_defaults.py", "INSTALL_DEFAULTS_OK", False)],

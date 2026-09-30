@@ -1,6 +1,6 @@
 # ChimeraXbridge
 
-**Version 0.2.2 · UCSF ChimeraX 1.10.x · tested on macOS with ChimeraX 1.10.1**
+**Version 0.2.3 · UCSF ChimeraX 1.10.x · tested on macOS with ChimeraX 1.10.1**
 
 ChimeraXbridge adds a searchable sequence panel, compact molecular controls,
 camera bookmarks, publication image export, six local Quick actions, and an
@@ -13,13 +13,13 @@ credentials are not included in the plugin.
 
 ## Installation: use the same plugin on another computer
 
-1. Download **[ChimeraX_CodexBridge-0.2.2-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.2/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl)**
+1. Download **[ChimeraX_CodexBridge-0.2.3-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.3/ChimeraX_CodexBridge-0.2.3-py3-none-any.whl)**
    from the [latest release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest).
    Download the `.whl` file instead of GitHub's **Source code** archive to skip the build step.
 2. Install it from the ChimeraX command line using the path to the downloaded file.
 
    ```chimerax
-   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.2-py3-none-any.whl"
+   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.3-py3-none-any.whl"
    ```
 
    Adjust the path if you downloaded the file to a different folder. Put paths containing spaces in quotes.
@@ -30,7 +30,7 @@ credentials are not included in the plugin.
 **Just install → restart.** No extra setup commands or Codex account are required.
 Updates preserve your saved display settings.
 
-[v0.2.2 release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.2) ·
+[v0.2.3 release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.3) ·
 [Detailed installation, update and AI connection guide](INSTALL_REPRODUCIBLE.md)
 
 The wheel contains the plugin code, toolbar icons, built-in help and workspace
@@ -39,7 +39,16 @@ Local sequence, display, bookmark, export and Quick workflows need no AI login.
 Geometric cavity analysis requires optional `pyKVFinder`; without it, the result
 explains the fallback used and does not invent cavity measurements.
 
-## What is new in 0.2.2
+## What is new in 0.2.3
+
+- **Cmd +** / **Cmd −** (**Ctrl** on Windows/Linux) zoom the whole ChimeraX
+  interface from 50% to 250%, like browser zoom; **Cmd/Ctrl 0** resets and the
+  level is remembered. `codex zoom 125` sets a level directly.
+- Windows: AI command documentation is found from the running installation,
+  text files and tool output are read as UTF-8 on non-UTF-8 locales, and
+  detailed toolbar icons stay legible at 100–150% display scaling.
+
+### Also in 0.2.2
 
 - Display controls show the exact color target and label **Width**, **Thickness**,
   and the transparency scale. Slider and preset changes are identified as immediate.
@@ -88,7 +97,7 @@ made elsewhere in ChimeraX. The original model/surface tree remains under
 ![AI toolbar with Analyze, View, Pocket, Cavity, Figure and Zoom](docs/images/release-0.2.0-toolbar.png)
 
 The sequence/report/export examples below were rendered offscreen for 0.2.0
-using synthetic data. These controls also apply to 0.2.2; the displayed candidates
+using synthetic data. These controls also apply to 0.2.3; the displayed candidates
 are not scientific results.
 
 | Sequence search and palette controls | Filtered candidate and preview status | Image size, DPI and bookmarks |
@@ -194,6 +203,12 @@ when reopening the panel within the same ChimeraX session. With the action butto
 focused, **Space** toggles selection. See the
 [ten-round improvement report](docs/compound-selection-improvements.md) for validation details.
 
+To make the whole interface larger or smaller, press **Cmd +** / **Cmd −** on macOS
+or **Ctrl +** / **Ctrl −** on Windows and Linux; **Cmd/Ctrl 0** returns to 100%.
+Every ChimeraX window — toolbar, Log, Models, command line, menus, docked and
+floating tools — scales from 50% to 250% like browser zoom. The 3D view is
+unchanged, Help keeps its own page zoom, and the level is remembered. `codex zoom 125` sets a level directly.
+
 **AI Assistant**, **Display Controls**, **Action Pad**, **Camera Bookmarks**,
 **Quick Results**, **Models**, **CAVER**, and **Cavity Browser** all have full-panel
 scrolling. Lists and evidence text retain their own scrolling, and you can reach
@@ -237,7 +252,7 @@ The updated 0.2.2 controls below were rendered offscreen with synthetic models.
 
 ## Default workspace settings
 
-These are the defaults for a fresh 0.2.2 installation. No profile command is
+These are the defaults for a fresh 0.2.3 installation. No profile command is
 needed. Upgrades preserve saved choices, including older color/export defaults.
 
 | Preference | Initial value |

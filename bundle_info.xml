@@ -3,7 +3,7 @@ ChimeraX bundle names must start with "ChimeraX-".
 -->
 
 <BundleInfo name="ChimeraX-CodexBridge"
-    version="0.2.2" package="chimerax.codex_bridge"
+    version="0.2.3" package="chimerax.codex_bridge"
     minSessionVersion="1" maxSessionVersion="1"
     customInit="true">
 
@@ -59,6 +59,8 @@ ChimeraX bundle names must start with "ChimeraX-".
       Show or override the current AI model</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Command :: codex effort :: General ::
       Show or override the current AI reasoning effort</ChimeraXClassifier>
+    <ChimeraXClassifier>ChimeraX :: Command :: codex zoom :: General ::
+      Zoom the ChimeraX interface in or out (Cmd/Ctrl + / - / 0)</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Command :: codex auto :: General ::
       Enable or disable natural-language fallback in the ChimeraX command line</ChimeraXClassifier>
     <ChimeraXClassifier>ChimeraX :: Command :: codex context :: General ::

@@ -1,6 +1,6 @@
 # ChimeraXbridge
 
-**Version 0.2.3 · UCSF ChimeraX 1.10.x · tested on macOS with ChimeraX 1.10.1**
+**Version 0.2.4 · UCSF ChimeraX 1.10.x · tested on macOS with ChimeraX 1.10.1 and 1.12**
 
 ChimeraXbridge adds a searchable sequence panel, compact molecular controls,
 camera bookmarks, publication image export, six local Quick actions, and an
@@ -15,13 +15,13 @@ credentials are not included in the plugin.
 
 ## Installation: use the same plugin on another computer
 
-1. Download **[ChimeraX_CodexBridge-0.2.3-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.3/ChimeraX_CodexBridge-0.2.3-py3-none-any.whl)**
+1. Download **[ChimeraX_CodexBridge-0.2.4-py3-none-any.whl](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/download/v0.2.4/ChimeraX_CodexBridge-0.2.4-py3-none-any.whl)**
    from the [latest release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/latest).
    Download the `.whl` file instead of GitHub's **Source code** archive to skip the build step.
 2. Install it from the ChimeraX command line using the path to the downloaded file.
 
    ```chimerax
-   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.3-py3-none-any.whl"
+   toolshed install "~/Downloads/ChimeraX_CodexBridge-0.2.4-py3-none-any.whl"
    ```
 
    Adjust the path if you downloaded the file to a different folder. Put paths containing spaces in quotes.
@@ -32,7 +32,7 @@ credentials are not included in the plugin.
 **Just install → restart.** No extra setup commands or Codex account are required.
 Updates preserve your saved display settings.
 
-[v0.2.3 release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.3) ·
+[v0.2.4 release](https://github.com/JAEYOONSUNG/ChimeraXbridge/releases/tag/v0.2.4) ·
 [Detailed installation, update and AI connection guide](INSTALL_REPRODUCIBLE.md)
 
 The wheel contains the plugin code, toolbar icons, built-in help and workspace
@@ -41,7 +41,15 @@ Local sequence, display, bookmark, export and Quick workflows need no AI login.
 Geometric cavity analysis requires optional `pyKVFinder`; without it, the result
 explains the fallback used and does not invent cavity measurements.
 
-## What is new in 0.2.3
+## What is new in 0.2.4
+
+- AI Assistant labels (**AI service**, **AI model**, **Reasoning**, **Mode**,
+  **Speed**) size to the current font, so they no longer lose their first
+  letters after UI zoom or style changes.
+- README and documentation screenshots are real ChimeraX 1.12 captures with an
+  AlphaFold 3 model of Fervitase, replacing the offscreen test renderings.
+
+### Also in 0.2.3
 
 - **Cmd +** / **Cmd −** (**Ctrl** on Windows/Linux) zoom the whole ChimeraX
   interface from 50% to 250%, like browser zoom; **Cmd/Ctrl 0** resets and the
@@ -253,7 +261,7 @@ before you apply.
 
 ## Default workspace settings
 
-These are the defaults for a fresh 0.2.3 installation. No profile command is
+These are the defaults for a fresh 0.2.4 installation. No profile command is
 needed. Upgrades preserve saved choices, including older color/export defaults.
 
 | Preference | Initial value |

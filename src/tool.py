@@ -1371,7 +1371,10 @@ class CodexAssistant(ToolInstance):
         self._top_control_widgets = labels + combos + menus + (self.quick_rapidock_button,)
         self.effort_label.setText("Reasoning")
         for label in labels:
-            label.setFixedWidth(label.fontMetrics().horizontalAdvance(label.text()) + 2)
+            # Size from the live font so UI zoom and style changes never clip the text.
+            label.setMinimumWidth(0)
+            label.setMaximumWidth(16777215)
+            label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
             label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         for combo in combos:
             combo.setMinimumWidth(58)

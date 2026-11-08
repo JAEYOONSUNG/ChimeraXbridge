@@ -309,10 +309,11 @@ available models depend on the selected service and account. `codex model defaul
 clears a model override. [Detailed connection steps](INSTALL_REPRODUCIBLE.md#optional-ai-connection)
 explain key lifetime, checking, clearing and CLI setup.
 
-![OpenAI connection dialog with an empty masked key field and separate check, use and clear controls](docs/images/release-0.2.1-ai-setup.png)
+| AI Assistant with Fervitase loaded | OpenAI API key setup |
+| --- | --- |
+| <img src="docs/images/fervitase-ai-assistant.png" width="320" alt="AI Assistant panel showing service, model, reasoning, mode and speed controls with the Fervitase sequence motifs"> | <img src="docs/images/ai-setup.png" width="430" alt="OpenAI connection dialog with an empty masked key field and separate check, use and clear controls"> |
 
-Offscreen example with a simulated configured state; no real account or API key
-is shown.
+The key field is empty; no real API key is shown.
 
 After configuring an available backend, these are example **ChimeraX commands**:
 

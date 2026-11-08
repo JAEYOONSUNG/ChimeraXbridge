@@ -6,6 +6,8 @@ ChimeraXbridge adds a searchable sequence panel, compact molecular controls,
 camera bookmarks, publication image export, six local Quick actions, and an
 optional AI assistant inside ChimeraX.
 
+<img src="docs/images/fervitase-main.png" width="100%" alt="ChimeraX with the ChimeraXbridge AI toolbar, sequence panel and chain controls, showing the Fervitase model with its Ca2+ and Na+ sites">
+
 **The sequence panel, display controls, bookmarks, image export and Quick buttons work without an AI account.**
 To give the AI assistant tasks in natural language, sign in to your chosen service
 or configure your own API key separately. External analysis programs and personal
@@ -94,15 +96,16 @@ made elsewhere in ChimeraX. The original model/surface tree remains under
 
 ### Interface examples
 
-![AI toolbar with Analyze, View, Pocket, Cavity, Figure and Zoom](docs/images/release-0.2.0-toolbar.png)
+<img src="docs/images/fervitase-toolbar.png" width="100%" alt="AI toolbar with Quick, Sequence, Modeling, Sites and Channels sections">
 
-The sequence/report/export examples below were rendered offscreen for 0.2.0
-using synthetic data. These controls also apply to 0.2.3; the displayed candidates
-are not scientific results.
+Screenshots are from ChimeraX 1.12 with an AlphaFold 3 model of Fervitase
+(3 Ca²⁺, 1 Na⁺); residues with pLDDT below 50 are hidden.
 
-| Sequence search and palette controls | Filtered candidate and preview status | Image size, DPI and bookmarks |
+<img src="docs/images/fervitase-sequence.png" width="100%" alt="Sequence panel finding the GTS motif at A375-377 with a persistent 1/1 match count">
+
+| Chains and molecules | Action Pad targets | Image size, DPI and bookmarks |
 | --- | --- | --- |
-| ![Sequence demo with persistent 1/5 match count](docs/images/release-0.2.0-sequence.png) | ![Quick Results demo identifying a preview hidden by the filter](docs/images/release-0.2.0-results.png) | ![Export demo set to PNG, 1600 by 900 pixels, 600 DPI and transparent background](docs/images/release-0.2.0-export.png) |
+| <img src="docs/images/fervitase-models.png" width="280" alt="Models window listing Fervitase chain A and its Ca2+ and Na+ ions with Show and Select checkboxes"> | <img src="docs/images/fervitase-action-pad.png" width="280" alt="Action Pad with the metal-coordinating residues as the current selection"> | <img src="docs/images/fervitase-bookmarks.png" width="280" alt="Camera Bookmarks with PNG export at 300 DPI and transparent background"> |
 
 ## Examples you can follow
 
@@ -244,11 +247,9 @@ across all open models. The palette's target caption makes that choice visible
 before you apply.
 
 
-The updated 0.2.2 controls below were rendered offscreen with synthetic models.
-
-| Display targets and dimensions | Choose, copy or apply color | Save bookmarks and images |
-| --- | --- | --- |
-| ![Display controls with explicit target and width/thickness labels](docs/images/release-0.2.2-display-controls.png) | ![Color palette with screen sampling, Copy HEX and Apply color](docs/images/release-0.2.2-color-palette.png) | ![Bookmark contents, save action and image export settings](docs/images/release-0.2.2-bookmarks.png) |
+| Display targets and dimensions |
+| --- |
+| <img src="docs/images/fervitase-display-controls.png" width="360" alt="Display Controls applying color and transparency to the selected metal-site residues"> |
 
 ## Default workspace settings
 

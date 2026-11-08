@@ -4,7 +4,7 @@ Open the **Models** window and choose **Chains & molecules**. This is the
 default view in current source builds. The original model/surface list and its
 native actions remain available under **Advanced models**.
 
-![Models window with nonprotein molecule selection and live per-chain Show and Select checkboxes](images/model-chain-controls.png)
+<img src="images/fervitase-models.png" width="280" alt="Models window with nonprotein molecule selection and live per-chain Show and Select checkboxes">
 
 Offscreen example with synthetic structures; the labels are not analysis results.
 
